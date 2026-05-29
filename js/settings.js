@@ -1,6 +1,7 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
 import { catColor } from './helpers.js';
 import { persistUserSettings } from './db.js';
+import { initBudgetTemplates } from './budget-templates.js';
 
 export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
@@ -24,8 +25,9 @@ const subPage = document.getElementById('settings-sub-page');
 document.getElementById('settings-sub-back').addEventListener('click', () => {
   subPage.classList.remove('active');
 });
-document.getElementById('btn-budget-templates').addEventListener('click', () => {
+document.getElementById('btn-budget-templates').addEventListener('click', async () => {
   subPage.classList.add('active');
+  await initBudgetTemplates();
 });
 
 // ── Salary day bottom sheet ───────────────────────────────────────────────────
@@ -58,7 +60,10 @@ function closeSalarySheet() {
   sheetBackdrop.classList.remove('active');
 }
 
-sheetBackdrop.addEventListener('click', closeSalarySheet);
+sheetBackdrop.addEventListener('click', () => {
+  document.querySelectorAll('.bottom-sheet.active').forEach(s => s.classList.remove('active'));
+  sheetBackdrop.classList.remove('active');
+});
 document.getElementById('btn-salary-day').addEventListener('click', openSalarySheet);
 
 // ── Categories ───────────────────────────────────────────────────────────────

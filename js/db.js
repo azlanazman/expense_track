@@ -42,3 +42,12 @@ export async function fetchUserSettings(uid) {
 export function persistUserSettings(uid, settings) {
   return setDoc(doc(db, 'userSettings', uid), settings);
 }
+
+export async function fetchBudgetTemplate(uid) {
+  const snap = await getDoc(doc(db, 'budgetTemplates', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+export function persistBudgetTemplate(uid, template) {
+  return setDoc(doc(db, 'budgetTemplates', uid), template);
+}
