@@ -33,12 +33,12 @@
       --accent-shadow: oklch(0.84 0.18 86 / 0.55);
       --on-accent: oklch(0.28 0.05 86);
 
-      --comp: oklch(0.50 0.22 265);
-      --comp-soft: oklch(0.95 0.05 265);
-      --comp-line: oklch(0.87 0.08 265);
-      --comp-ink: oklch(0.42 0.16 265);
-      --comp-shadow: oklch(0.50 0.22 265 / 0.5);
-      --on-comp: oklch(0.99 0.006 265);
+      --comp:        oklch(0.22 0.01 265);
+      --comp-soft:   oklch(0.94 0.01 265);
+      --comp-line:   oklch(0.82 0.02 265);
+      --comp-ink:    oklch(0.30 0.01 265);
+      --comp-shadow: oklch(0.22 0.01 265 / 0.5);
+      --on-comp:     oklch(0.99 0 0);
 
       --radius: 12px;
       --radius-sm: 7px;
@@ -952,6 +952,11 @@
       opacity: 1;
     }
 
+    /* ── Period picker ── */
+    .period-row { display: flex; flex-wrap: wrap; gap: 9px; padding: 0 24px 12px; }
+    .custom-dates { display: flex; gap: 12px; padding: 0 24px 12px; }
+    .custom-dates .field { flex: 1; }
+
     /* ── Mobile ── */
     @media (max-width: 460px) {
       body {
@@ -1093,26 +1098,21 @@
       <div class="screen-body list" id="log-list"></div>
     </div>
 
-    <!-- Screen 3: Monthly Report -->
+    <!-- Screen 3: Report -->
     <div id="screen-report" class="screen" style="display:none">
       <div class="hdr">
-        <div class="hdr-eyebrow">Monthly report</div>
-        <div class="report-hdr">
-          <button class="month-nav" id="rpt-prev-month" type="button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div class="month-title">
-            <h1 id="rpt-month-title"></h1>
-          </div>
-          <button class="month-nav" id="rpt-next-month" type="button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+        <div class="hdr-eyebrow">Report</div>
+        <h1 id="rpt-range-title"></h1>
+      </div>
+      <div class="period-row" id="rpt-period-row"></div>
+      <div class="custom-dates" id="rpt-custom-dates" style="display:none">
+        <div class="field">
+          <label class="field-label">From</label>
+          <input type="date" class="input-row note" id="rpt-from-date" />
+        </div>
+        <div class="field">
+          <label class="field-label">To</label>
+          <input type="date" class="input-row note" id="rpt-to-date" />
         </div>
       </div>
       <div class="filter-row" id="rpt-filter-row"></div>
@@ -1145,10 +1145,6 @@
         <section>
           <span class="block-label">Payment methods</span>
           <div class="chip-wrap" id="pay-chips"></div>
-        </section>
-        <section>
-          <span class="block-label">Colour theme</span>
-          <div class="chip-wrap" id="theme-swatches"></div>
         </section>
         <section>
           <span class="block-label">Account</span>
@@ -1306,65 +1302,8 @@
 
     // ── App state ───────────────────────────────────────────────────────────────
 
-    const THEMES = {
-      black: {
-        label: 'Jet Black',
-        swatch: 'oklch(0.22 0.01 265)',
-        vars: {
-          '--comp':        'oklch(0.22 0.01 265)',
-          '--comp-soft':   'oklch(0.94 0.01 265)',
-          '--comp-line':   'oklch(0.82 0.02 265)',
-          '--comp-ink':    'oklch(0.30 0.01 265)',
-          '--comp-shadow': 'oklch(0.22 0.01 265 / 0.5)',
-          '--on-comp':     'oklch(0.99 0 0)',
-        },
-      },
-      green: {
-        label: 'Forest Green',
-        swatch: 'oklch(0.48 0.18 145)',
-        vars: {
-          '--comp':        'oklch(0.48 0.18 145)',
-          '--comp-soft':   'oklch(0.95 0.05 145)',
-          '--comp-line':   'oklch(0.87 0.08 145)',
-          '--comp-ink':    'oklch(0.40 0.14 145)',
-          '--comp-shadow': 'oklch(0.48 0.18 145 / 0.5)',
-          '--on-comp':     'oklch(0.99 0.006 145)',
-        },
-      },
-      blue: {
-        label: 'Electric Blue',
-        swatch: 'oklch(0.52 0.22 230)',
-        vars: {
-          '--comp':        'oklch(0.52 0.22 230)',
-          '--comp-soft':   'oklch(0.95 0.05 230)',
-          '--comp-line':   'oklch(0.87 0.08 230)',
-          '--comp-ink':    'oklch(0.42 0.16 230)',
-          '--comp-shadow': 'oklch(0.52 0.22 230 / 0.5)',
-          '--on-comp':     'oklch(0.99 0.006 230)',
-        },
-      },
-      teal: {
-        label: 'Deep Teal',
-        swatch: 'oklch(0.45 0.18 190)',
-        vars: {
-          '--comp':        'oklch(0.45 0.18 190)',
-          '--comp-soft':   'oklch(0.95 0.05 190)',
-          '--comp-line':   'oklch(0.87 0.08 190)',
-          '--comp-ink':    'oklch(0.38 0.14 190)',
-          '--comp-shadow': 'oklch(0.45 0.18 190 / 0.5)',
-          '--on-comp':     'oklch(0.99 0.006 190)',
-        },
-      },
-    };
-
-    function applyTheme(key) {
-      const theme = THEMES[key] || THEMES.blue;
-      const root = document.documentElement;
-      Object.entries(theme.vars).forEach(([prop, val]) => root.style.setProperty(prop, val));
-    }
-
     let currentUser = null;
-    let userSettings = { categories: [], paymentMethods: [], theme: 'blue' };
+    let userSettings = { categories: [], paymentMethods: [] };
     let activeScreen = 'add';
 
     const DEFAULT_CATEGORIES = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car', 'Subs', 'Medical', 'Misc'];
@@ -1404,7 +1343,6 @@
         document.getElementById('screen-login').style.display = 'none';
         document.getElementById('app').style.display = '';
         await loadUserSettings();
-        applyTheme(userSettings.theme || 'blue');
         initAddScreen();
         showScreen('add');
       } else {
@@ -1422,7 +1360,7 @@
       if (snap.exists()) {
         userSettings = snap.data();
       } else {
-        userSettings = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS, theme: 'blue' };
+        userSettings = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS };
         await setDoc(ref, userSettings);
       }
     }
@@ -1813,69 +1751,187 @@
 
     // ── Screen 3: Monthly Report ────────────────────────────────────────────────
 
-    let rptState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1, selected: [], entries: [] };
+    // ── Report helpers ──────────────────────────────────────────────────────────
+
+    function getPeriodDates(period) {
+      const t = new Date();
+      const y = t.getFullYear(), m = t.getMonth(); // m = 0-indexed
+      switch (period) {
+        case 'month':
+          return {
+            start: `${y}-${String(m + 1).padStart(2, '0')}-01`,
+            end: todayString()
+          };
+        case 'salary': {
+          const pm = m === 0 ? 12 : m;
+          const py = m === 0 ? y - 1 : y;
+          return {
+            start: `${py}-${String(pm).padStart(2, '0')}-28`,
+            end: `${y}-${String(m + 1).padStart(2, '0')}-27`
+          };
+        }
+        case '3m': {
+          const d = new Date(y, m - 2, 1);
+          return { start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: todayString() };
+        }
+        case '6m': {
+          const d = new Date(y, m - 5, 1);
+          return { start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: todayString() };
+        }
+        default:
+          return { start: todayString(), end: todayString() };
+      }
+    }
+
+    function daysBetween(startStr, endStr) {
+      return Math.round((parseLocalDate(endStr) - parseLocalDate(startStr)) / 86400000) + 1;
+    }
+
+    function shortDate(s) {
+      return parseLocalDate(s).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: '2-digit' });
+    }
+
+    async function fetchDateRange(startDate, endDate) {
+      const q = query(
+        collection(db, 'expenses'),
+        where('uid', '==', currentUser.uid),
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date', 'desc')
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // ── Report state ────────────────────────────────────────────────────────────
+
+    let rptState = {
+      period: 'month',
+      startDate: '',
+      endDate: '',
+      selected: [],
+      entries: [],
+    };
 
     async function initReport() {
-      rptState.year = new Date().getFullYear();
-      rptState.month = new Date().getMonth() + 1;
-      rptState.selected = userSettings.paymentMethods.slice(0, 3);
+      rptState.period   = 'month';
+      rptState.selected = [];
+      const { start, end } = getPeriodDates('month');
+      rptState.startDate = start;
+      rptState.endDate   = end;
       await loadReport();
     }
 
     async function loadReport() {
-      rptState.entries = await fetchMonth(rptState.year, rptState.month);
+      rptState.entries = await fetchDateRange(rptState.startDate, rptState.endDate);
       renderReport();
     }
 
     function renderReport() {
-      const { entries, selected, year, month } = rptState;
-      document.getElementById('rpt-month-title').textContent = monthLabel(year, month);
+      const { entries, selected, startDate, endDate, period } = rptState;
+
+      // Header title
+      const titleEl = document.getElementById('rpt-range-title');
+      if (period === 'month') {
+        titleEl.textContent = monthLabel(new Date(startDate + 'T00:00:00').getFullYear(), new Date(startDate + 'T00:00:00').getMonth() + 1);
+      } else if (period === 'salary') {
+        titleEl.textContent = `Salary period`;
+      } else {
+        titleEl.textContent = `${shortDate(startDate)} – ${shortDate(endDate)}`;
+      }
+
+      // Period chips
+      const periodRow = document.getElementById('rpt-period-row');
+      const periods = [
+        { key: 'month',  label: 'This Month' },
+        { key: 'salary', label: 'Salary' },
+        { key: '3m',     label: '3 Months' },
+        { key: '6m',     label: '6 Months' },
+        { key: 'custom', label: 'Custom' },
+      ];
+      periodRow.innerHTML = periods.map(p =>
+        `<button class="chip${p.key === period ? ' on' : ''}" data-period="${p.key}" type="button">${p.label}</button>`
+      ).join('');
+      periodRow.querySelectorAll('.chip').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const p = btn.dataset.period;
+          rptState.period = p;
+          if (p === 'custom') {
+            document.getElementById('rpt-custom-dates').style.display = '';
+            document.getElementById('rpt-from-date').value = rptState.startDate;
+            document.getElementById('rpt-to-date').value   = rptState.endDate;
+            renderReport();
+          } else {
+            document.getElementById('rpt-custom-dates').style.display = 'none';
+            const { start, end } = getPeriodDates(p);
+            rptState.startDate = start;
+            rptState.endDate   = end;
+            rptState.selected  = [];
+            await loadReport();
+          }
+        });
+      });
+
+      // Custom date inputs
+      const customWrap = document.getElementById('rpt-custom-dates');
+      if (period === 'custom') {
+        customWrap.style.display = '';
+        const fromInp = document.getElementById('rpt-from-date');
+        const toInp   = document.getElementById('rpt-to-date');
+        fromInp.onchange = toInp.onchange = async () => {
+          if (fromInp.value && toInp.value && fromInp.value <= toInp.value) {
+            rptState.startDate = fromInp.value;
+            rptState.endDate   = toInp.value;
+            rptState.selected  = [];
+            await loadReport();
+          }
+        };
+      } else {
+        customWrap.style.display = 'none';
+      }
 
       const allMethods = [...new Set(entries.map(e => e.paymentMethod))];
       const isAll = selected.length === 0;
       const activeMethods = isAll ? allMethods : selected.filter(s => allMethods.includes(s));
       const filteredEntries = isAll ? entries : entries.filter(e => activeMethods.includes(e.paymentMethod));
 
-      // Filter chips
+      // Payment filter chips
       const filterRow = document.getElementById('rpt-filter-row');
-      const allChip = `<button class="chip${isAll ? ' on' : ''}" data-method="__all__" type="button">All</button>`;
-      const methodChips = allMethods.map(m =>
-        `<button class="chip${selected.includes(m) ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`).join('');
-      filterRow.innerHTML = allChip + methodChips;
+      filterRow.innerHTML = `<button class="chip${isAll ? ' on' : ''}" data-method="__all__" type="button">All</button>` +
+        allMethods.map(m => `<button class="chip${selected.includes(m) ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`).join('');
       filterRow.querySelectorAll('.chip').forEach(btn => {
         btn.addEventListener('click', () => {
           if (btn.dataset.method === '__all__') {
             rptState.selected = [];
           } else {
             const m = btn.dataset.method;
-            if (rptState.selected.includes(m)) {
-              rptState.selected = rptState.selected.filter(x => x !== m);
-            } else {
-              rptState.selected = [...rptState.selected, m];
-            }
+            rptState.selected = selected.includes(m)
+              ? selected.filter(x => x !== m)
+              : [...selected, m];
           }
           renderReport();
         });
       });
 
-      // Stat cards
-      const total = filteredEntries.reduce((s, e) => s + e.amount, 0);
-      const count = filteredEntries.length;
+      // Stat cards — total + daily average
+      const total    = filteredEntries.reduce((s, e) => s + e.amount, 0);
+      const days     = daysBetween(startDate, endDate);
+      const dailyAvg = days > 0 ? total / days : 0;
       document.getElementById('rpt-stats').innerHTML = `
         <div class="stat-card accent">
           <div class="stat-label">Total spent</div>
           <div class="stat-val">RM ${fmt(total)}</div>
         </div>
         <div class="stat-card comp">
-          <div class="stat-label">Entries</div>
-          <div class="stat-val">${count}</div>
+          <div class="stat-label">Daily average</div>
+          <div class="stat-val" style="font-size:22px">RM ${fmt(dailyAvg)}</div>
         </div>`;
 
-      // Top categories (all methods)
+      // Top categories
       const catTotals = {};
-      entries.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount; });
+      filteredEntries.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount; });
       const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
-      const maxCat = topCats[0]?.[1] || 1;
+      const maxCat  = topCats[0]?.[1] || 1;
       document.getElementById('rpt-breakdown').innerHTML = topCats.map(([cat, amt]) => `
         <div class="bd-row">
           <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}</div>
@@ -1883,55 +1939,65 @@
           <div class="bd-amt">RM ${fmt(amt)}</div>
         </div>`).join('');
 
-      // Table
-      const allCats = [...new Set(entries.map(e => e.category))].sort();
-      const colMethods = isAll ? allMethods : activeMethods;
-      const table = document.getElementById('rpt-table');
-      const headCols = colMethods.map(m => `<th>${m}</th>`).join('');
-      const footTotals = colMethods.map(m => {
-        const s = entries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-        return `<td>${s > 0 ? 'RM ' + fmt(s) : '—'}</td>`;
-      }).join('');
-      const grandTotal = entries.reduce((s, e) => s + e.amount, 0);
-      const rows = allCats.map(cat => {
-        const cells = colMethods.map(m => {
-          const s = entries.filter(e => e.category === cat && e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-          return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
-        }).join('');
-        const rowTotal = entries.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
-        return `<tr>
-          <td class="sticky-col"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}</td>
-          ${cells}
-          <td class="tot-col">RM ${fmt(rowTotal)}</td>
-        </tr>`;
-      }).join('');
-      table.innerHTML = `
-        <thead><tr>
-          <th class="sticky-col">Category</th>
-          ${headCols}
-          <th class="tot-col">Total</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-        <tfoot><tr>
-          <td class="sticky-col">Total</td>
-          ${footTotals}
-          <td class="tot-col">RM ${fmt(grandTotal)}</td>
-        </tr></tfoot>`;
-    }
+      // Table — columns = months if range > 35 days, else payment methods
+      const allCats  = [...new Set(entries.map(e => e.category))].sort();
+      const table    = document.getElementById('rpt-table');
+      const multiMonth = days > 35;
 
-    // Month nav for report
-    document.getElementById('rpt-prev-month').addEventListener('click', async () => {
-      rptState.month--;
-      if (rptState.month < 1) { rptState.month = 12; rptState.year--; }
-      rptState.selected = userSettings.paymentMethods.slice(0, 3);
-      await loadReport();
-    });
-    document.getElementById('rpt-next-month').addEventListener('click', async () => {
-      rptState.month++;
-      if (rptState.month > 12) { rptState.month = 1; rptState.year++; }
-      rptState.selected = userSettings.paymentMethods.slice(0, 3);
-      await loadReport();
-    });
+      if (multiMonth) {
+        const months = [...new Set(entries.map(e => e.date.slice(0, 7)))].sort();
+        const colLabel = ym => {
+          const [y, m] = ym.split('-');
+          return new Date(+y, +m - 1, 1).toLocaleDateString('en-MY', { month: 'short', year: '2-digit' });
+        };
+        const headCols   = months.map(ym => `<th>${colLabel(ym)}</th>`).join('');
+        const footTotals = months.map(ym => {
+          const s = filteredEntries.filter(e => e.date.startsWith(ym)).reduce((sum, e) => sum + e.amount, 0);
+          return `<td>${s > 0 ? 'RM ' + fmt(s) : '—'}</td>`;
+        }).join('');
+        const grandTotal = filteredEntries.reduce((s, e) => s + e.amount, 0);
+        const rows = allCats.map(cat => {
+          const cells = months.map(ym => {
+            const s = filteredEntries.filter(e => e.category === cat && e.date.startsWith(ym)).reduce((sum, e) => sum + e.amount, 0);
+            return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+          }).join('');
+          const rowTotal = filteredEntries.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+          return `<tr>
+            <td class="sticky-col"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}</td>
+            ${cells}
+            <td class="tot-col">RM ${fmt(rowTotal)}</td>
+          </tr>`;
+        }).join('');
+        table.innerHTML = `
+          <thead><tr><th class="sticky-col">Category</th>${headCols}<th class="tot-col">Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">RM ${fmt(grandTotal)}</td></tr></tfoot>`;
+      } else {
+        const colMethods = isAll ? allMethods : activeMethods;
+        const headCols   = colMethods.map(m => `<th>${m}</th>`).join('');
+        const footTotals = colMethods.map(m => {
+          const s = filteredEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
+          return `<td>${s > 0 ? 'RM ' + fmt(s) : '—'}</td>`;
+        }).join('');
+        const grandTotal = filteredEntries.reduce((s, e) => s + e.amount, 0);
+        const rows = allCats.map(cat => {
+          const cells = colMethods.map(m => {
+            const s = filteredEntries.filter(e => e.category === cat && e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
+            return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+          }).join('');
+          const rowTotal = filteredEntries.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+          return `<tr>
+            <td class="sticky-col"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}</td>
+            ${cells}
+            <td class="tot-col">RM ${fmt(rowTotal)}</td>
+          </tr>`;
+        }).join('');
+        table.innerHTML = `
+          <thead><tr><th class="sticky-col">Category</th>${headCols}<th class="tot-col">Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">RM ${fmt(grandTotal)}</td></tr></tfoot>`;
+      }
+    }
 
     // ── Screen 4: Settings ──────────────────────────────────────────────────────
 
@@ -1940,38 +2006,6 @@
       document.getElementById('account-email').textContent = currentUser?.email || '';
       renderCatChips();
       renderPayChips();
-      renderThemeSwatches();
-    }
-
-    function renderThemeSwatches() {
-      const wrap = document.getElementById('theme-swatches');
-      wrap.innerHTML = '';
-      const current = userSettings.theme || 'blue';
-      Object.entries(THEMES).forEach(([key, theme]) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.style.cssText = `
-          display:inline-flex; align-items:center; gap:10px;
-          font:inherit; font-size:14px; font-weight:600;
-          padding:9px 16px; border-radius:999px; cursor:pointer; transition:0.14s;
-          border: 2px solid ${key === current ? theme.swatch : 'var(--line)'};
-          background: ${key === current ? theme.swatch : 'var(--surface)'};
-          color: ${key === current ? 'oklch(0.99 0 0)' : 'var(--ink-2)'};
-          box-shadow: ${key === current ? `0 4px 12px -4px ${theme.swatch}` : 'none'};
-        `;
-        btn.innerHTML = `
-          <span style="width:14px;height:14px;border-radius:999px;background:${theme.swatch};flex-shrink:0;border:2px solid oklch(1 0 0 / 0.3)"></span>
-          ${theme.label}
-          ${key === current ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-        `;
-        btn.addEventListener('click', async () => {
-          userSettings.theme = key;
-          applyTheme(key);
-          await saveUserSettings();
-          renderThemeSwatches();
-        });
-        wrap.appendChild(btn);
-      });
     }
 
     function renderCatChips() {
