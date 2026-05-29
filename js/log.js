@@ -30,7 +30,8 @@ function renderLog() {
   document.getElementById('log-eyebrow').textContent    = monthLabel(year, month);
   document.getElementById('log-month-title').textContent = monthLabel(year, month);
 
-  const filtered = filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter);
+  const filtered = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
+    .sort((a, b) => b.date.localeCompare(a.date));
   const total    = filtered.reduce((s, e) => s + e.amount, 0);
   document.getElementById('log-total').innerHTML =
     `RM ${fmt(total)} <span>· ${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}</span>`;

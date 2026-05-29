@@ -309,21 +309,28 @@ function buildVarRow(cat, catEntries, colMethods) {
 }
 
 function buildVarSubRows(catEntries, colMethods) {
-  return [...catEntries].sort((a, b) => b.date.localeCompare(a.date)).map(entry => {
-    const methodCells = colMethods.map(m =>
-      entry.paymentMethod === m
-        ? `<td style="color:var(--ink-2)">RM ${fmt(entry.amount)}</td>`
-        : `<td class="zero">—</td>`
-    ).join('');
-    const label = entry.notes ? `${shortDate(entry.date)} · ${entry.notes}` : shortDate(entry.date);
-    const tr = document.createElement('tr');
-    tr.className = 'rpt-sub-row';
-    tr.innerHTML = `
-      <td class="sticky-col" style="padding-left:30px;font-size:12.5px;font-weight:500;color:var(--ink-2)">${label}</td>
-      ${methodCells}
-      <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(entry.amount)}</td>`;
-    return tr;
+  const byDate = {};
+  catEntries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = {};
+    byDate[e.date][e.paymentMethod] = (byDate[e.date][e.paymentMethod] || 0) + e.amount;
   });
+  return Object.entries(byDate)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, methods]) => {
+      const dayTotal    = Object.values(methods).reduce((s, v) => s + v, 0);
+      const methodCells = colMethods.map(m =>
+        methods[m]
+          ? `<td style="color:var(--ink-2)">RM ${fmt(methods[m])}</td>`
+          : `<td class="zero">—</td>`
+      ).join('');
+      const tr = document.createElement('tr');
+      tr.className = 'rpt-sub-row';
+      tr.innerHTML = `
+        <td class="sticky-col" style="padding-left:30px;font-size:12.5px;font-weight:500;color:var(--ink-2)">${shortDate(date)}</td>
+        ${methodCells}
+        <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(dayTotal)}</td>`;
+      return tr;
+    });
 }
 
 // ── Fixed tab ─────────────────────────────────────────────────────────────────
@@ -362,7 +369,8 @@ function renderFixedTable(tableEl, fixedEntries, colMethods, template, varEntrie
 
   const blankCols  = colMethods.map(() => `<td class="zero">—</td>`).join('');
 
-  if (template.ccBudget > 0 || ccCharge > 0 || rhbSpend > 0) {
+  const hasCCBalance  = template.groups?.some(g => g.items?.some(i => i.id === 'cc-balance'));
+  if (hasCCBalance && (template.ccBudget > 0 || ccCharge > 0 || rhbSpend > 0)) {
     const neg = ccBalance < 0;
     const tr  = document.createElement('tr');
     tr.className = 'rpt-amber-row';
@@ -377,7 +385,8 @@ function renderFixedTable(tableEl, fixedEntries, colMethods, template, varEntrie
     footnoteEl.appendChild(note);
   }
 
-  if (template.carMaintenanceBudget > 0 || carSpend > 0) {
+  const hasCarBalance = template.groups?.some(g => g.items?.some(i => i.id === 'carmaint-balance'));
+  if (hasCarBalance && (template.carMaintenanceBudget > 0 || carSpend > 0)) {
     const neg = carBalance < 0;
     const tr  = document.createElement('tr');
     tr.className = 'rpt-amber-row';

@@ -299,7 +299,7 @@ function openEditSheet(groupId, itemId) {
   varChk.onchange = e => { amtInp.disabled = e.target.checked; if (e.target.checked) amtInp.value = ''; };
 
   document.getElementById('ies-calc-note').style.display = isCalc ? '' : 'none';
-  document.getElementById('ies-delete').style.display    = !isNew && !isCalc ? '' : 'none';
+  document.getElementById('ies-delete').style.display    = !isNew ? '' : 'none';
 
   const sheet   = document.getElementById('item-edit-sheet');
   const backdrop = document.getElementById('sheet-backdrop');
