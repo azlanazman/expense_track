@@ -763,6 +763,111 @@
       background: oklch(0.985 0.012 25);
     }
 
+    /* ── Row card right-side value badge ── */
+    .rc-val {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-line);
+      flex-shrink: 0;
+    }
+
+    /* ── Sub-page (slide in from right) ── */
+    .sub-page {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--screen-bg);
+      transform: translateX(100%);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 50;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .sub-page.active { transform: translateX(0); }
+    .sub-page-hdr {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: calc(var(--sp) * 14px) 24px calc(var(--sp) * 18px);
+      position: sticky;
+      top: 0;
+      background: var(--screen-bg);
+      z-index: 1;
+    }
+    .back-btn {
+      width: 40px; height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      display: grid; place-items: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: 0.15s;
+    }
+    .back-btn:hover { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+    .sub-page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+
+    /* ── Sheet backdrop ── */
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: oklch(0.1 0 0 / 0.40);
+      z-index: 59;
+      opacity: 0;
+      transition: opacity 0.22s;
+      pointer-events: none;
+    }
+    .sheet-backdrop.active { opacity: 1; pointer-events: auto; }
+
+    /* ── Bottom sheet ── */
+    .bottom-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 24px 24px calc(32px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -8px 40px -8px oklch(0.3 0.02 265 / 0.22);
+      transform: translateY(100%);
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 60;
+    }
+    .bottom-sheet.active { transform: translateY(0); }
+    .sheet-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+    .sheet-sub   { font-size: 12.5px; color: var(--ink-3); margin-bottom: 20px; font-weight: 500; }
+
+    /* ── Day picker grid ── */
+    .day-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+    .day-btn {
+      aspect-ratio: 1;
+      border-radius: 999px;
+      border: 1.5px solid var(--line);
+      background: none;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      transition: 0.14s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+    }
+    .day-btn:hover { background: var(--accent-soft); border-color: var(--accent-line); }
+    .day-btn.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--on-accent);
+      box-shadow: 0 4px 12px -4px var(--accent-shadow);
+    }
+
     /* ── Bottom nav ── */
     .bottom-nav {
       display: flex;
@@ -1182,6 +1287,47 @@
           <div class="chip-wrap" id="pay-chips"></div>
         </section>
         <section>
+          <span class="block-label">Budget</span>
+          <button class="row-card" id="btn-budget-templates" type="button">
+            <div class="rc-ic">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" />
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                <line x1="12" y1="12" x2="12" y2="16" />
+                <line x1="10" y1="14" x2="14" y2="14" />
+              </svg>
+            </div>
+            <div class="rc-main">
+              <div class="rc-title">Budget templates</div>
+              <div class="rc-sub">Manage fixed expense groups &amp; items</div>
+            </div>
+            <svg class="muted-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </section>
+        <section>
+          <span class="block-label">Salary</span>
+          <button class="row-card" id="btn-salary-day" type="button">
+            <div class="rc-ic">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+            <div class="rc-main">
+              <div class="rc-title">Salary day</div>
+              <div class="rc-sub">Arrives on this day each month</div>
+            </div>
+            <span class="rc-val" id="salary-day-val">25th</span>
+          </button>
+        </section>
+        <section>
           <span class="block-label">Account</span>
           <button class="row-card" id="btn-account" type="button">
             <div class="rc-ic">
@@ -1216,6 +1362,32 @@
         </section>
       </div>
     </div>
+
+    <!-- Budget templates sub-page (slides in from right, Task 9 will fill content) -->
+    <div class="sub-page" id="settings-sub-page">
+      <div class="sub-page-hdr">
+        <button class="back-btn" id="settings-sub-back" type="button" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <span class="sub-page-title">Budget templates</span>
+      </div>
+      <div class="screen-body settings" id="budget-templates-body" style="padding-top:8px">
+        <p style="color:var(--ink-3);font-size:14px;text-align:center;padding:48px 0;font-weight:500">
+          Budget templates coming soon…
+        </p>
+      </div>
+    </div>
+
+    <!-- Salary day bottom sheet -->
+    <div class="bottom-sheet" id="salary-sheet">
+      <div class="sheet-title">Salary day</div>
+      <div class="sheet-sub">Choose the day your salary arrives each month</div>
+      <div class="day-grid" id="day-picker-grid"></div>
+    </div>
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <!-- Bottom navigation -->
     <nav class="bottom-nav" id="bottom-nav">

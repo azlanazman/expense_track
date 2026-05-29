@@ -5,9 +5,61 @@ import { persistUserSettings } from './db.js';
 export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
   document.getElementById('account-email').textContent    = currentUser?.email || '';
+  document.getElementById('salary-day-val').textContent   = ordinal(userSettings.salaryDay ?? 25);
   renderCatChips();
   renderPayChips();
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// ── Sub-page navigation (Budget templates) ───────────────────────────────────
+
+const subPage = document.getElementById('settings-sub-page');
+document.getElementById('settings-sub-back').addEventListener('click', () => {
+  subPage.classList.remove('active');
+});
+document.getElementById('btn-budget-templates').addEventListener('click', () => {
+  subPage.classList.add('active');
+});
+
+// ── Salary day bottom sheet ───────────────────────────────────────────────────
+
+const salarySheet   = document.getElementById('salary-sheet');
+const sheetBackdrop = document.getElementById('sheet-backdrop');
+
+function openSalarySheet() {
+  const current = userSettings.salaryDay ?? 25;
+  const grid = document.getElementById('day-picker-grid');
+  grid.innerHTML = Array.from({ length: 31 }, (_, i) => i + 1).map(d =>
+    `<button class="day-btn${d === current ? ' on' : ''}" data-day="${d}" type="button">${d}</button>`
+  ).join('');
+  grid.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const day = parseInt(btn.dataset.day);
+      const updated = { ...userSettings, salaryDay: day };
+      setUserSettings(updated);
+      await persistUserSettings(currentUser.uid, updated);
+      closeSalarySheet();
+      document.getElementById('salary-day-val').textContent = ordinal(day);
+    });
+  });
+  salarySheet.classList.add('active');
+  sheetBackdrop.classList.add('active');
+}
+
+function closeSalarySheet() {
+  salarySheet.classList.remove('active');
+  sheetBackdrop.classList.remove('active');
+}
+
+sheetBackdrop.addEventListener('click', closeSalarySheet);
+document.getElementById('btn-salary-day').addEventListener('click', openSalarySheet);
 
 // ── Categories ───────────────────────────────────────────────────────────────
 

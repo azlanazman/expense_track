@@ -51,11 +51,15 @@ onAuthStateChanged(auth, async (user) => {
 // ── User settings ───────────────────────────────────────────────────────────
 
 async function loadUserSettings() {
-  const settings = await fetchUserSettings(currentUser.uid);
+  let settings = await fetchUserSettings(currentUser.uid);
   if (settings) {
+    if (settings.salaryDay === undefined) {
+      settings = { ...settings, salaryDay: 25 };
+      await persistUserSettings(currentUser.uid, settings);
+    }
     setUserSettings(settings);
   } else {
-    const defaults = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS };
+    const defaults = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS, salaryDay: 25 };
     setUserSettings(defaults);
     await persistUserSettings(currentUser.uid, defaults);
   }
