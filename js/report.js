@@ -1,6 +1,6 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, parseLocalDate, todayString, monthLabel, catColor } from './helpers.js';
-import { fetchExpenses, fetchBudgetTemplate } from './db.js';
+import { fmt, parseLocalDate, monthLabel, catColor } from './helpers.js';
+import { fetchExpenses } from './db.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ let rptState = {
   selected:  [],
   tab:       'variable',
   entries:   [],
-  template:  null,
   expanded:  new Set()
 };
 
@@ -83,13 +82,7 @@ function salaryEnd(sd) {
 // ── Data load ─────────────────────────────────────────────────────────────────
 
 async function loadReport() {
-  const uid = currentUser.uid;
-  const [entries, template] = await Promise.all([
-    fetchExpenses(uid, rptState.startDate, rptState.endDate),
-    fetchBudgetTemplate(uid)
-  ]);
-  rptState.entries  = entries;
-  rptState.template = template;
+  rptState.entries  = await fetchExpenses(currentUser.uid, rptState.startDate, rptState.endDate);
   rptState.expanded = new Set();
   renderReport();
 }
@@ -97,7 +90,7 @@ async function loadReport() {
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderReport() {
-  const { period, year, month, startDate, endDate, selected, tab, entries, template } = rptState;
+  const { period, year, month, startDate, endDate, selected, tab, entries } = rptState;
 
   // Header title + month nav arrows
   const titleEl  = document.getElementById('rpt-range-title');
@@ -241,12 +234,10 @@ function renderReport() {
     : `<div class="list-hint">No data for this period</div>`;
 
   // Table
-  const tableEl    = document.getElementById('rpt-table');
-  const footnoteEl = document.getElementById('rpt-footnote');
-  footnoteEl.innerHTML = '';
+  const tableEl = document.getElementById('rpt-table');
 
   if (tab === 'variable')       renderVarTable(tableEl, filteredVar, colMethods);
-  else if (tab === 'fixed')     renderFixedTable(tableEl, filteredFixed, colMethods, template, filteredVar, footnoteEl);
+  else if (tab === 'fixed')     renderFixedTable(tableEl, filteredFixed, colMethods);
   else                          renderCombinedTable(tableEl, filteredVar, filteredFixed, colMethods);
 }
 
@@ -335,7 +326,7 @@ function buildVarSubRows(catEntries, colMethods) {
 
 // ── Fixed tab ─────────────────────────────────────────────────────────────────
 
-function renderFixedTable(tableEl, fixedEntries, colMethods, template, varEntries, footnoteEl) {
+function renderFixedTable(tableEl, fixedEntries, colMethods) {
   const groups = [...new Set(fixedEntries.map(e => e.category))].sort();
 
   const headCols   = colMethods.map(m => `<th>${m}</th>`).join('');
@@ -357,49 +348,6 @@ function renderFixedTable(tableEl, fixedEntries, colMethods, template, varEntrie
     tbody.innerHTML = emptyRow(colMethods.length, 'No fixed payments');
   }
 
-  // Calculated rows
-  if (!template) return;
-
-  const ccCharge   = fixedEntries.filter(e => e.category === 'CC' && e.subCategory === 'Charge').reduce((s, e) => s + e.amount, 0);
-  const rhbSpend   = varEntries.filter(e => e.paymentMethod === 'RHB').reduce((s, e) => s + e.amount, 0);
-  const ccBalance  = (template.ccBudget || 0) - ccCharge - rhbSpend;
-
-  const carSpend   = varEntries.filter(e => e.category === 'Car Maintenance').reduce((s, e) => s + e.amount, 0);
-  const carBalance = (template.carMaintenanceBudget || 0) - carSpend;
-
-  const blankCols  = colMethods.map(() => `<td class="zero">—</td>`).join('');
-
-  const hasCCBalance  = template.groups?.some(g => g.items?.some(i => i.id === 'cc-balance'));
-  if (hasCCBalance && (template.ccBudget > 0 || ccCharge > 0 || rhbSpend > 0)) {
-    const neg = ccBalance < 0;
-    const tr  = document.createElement('tr');
-    tr.className = 'rpt-amber-row';
-    tr.innerHTML = `
-      <td class="sticky-col">CC Balance <em style="font-size:11px;font-weight:500;font-style:italic">(auto)</em></td>
-      ${blankCols}
-      <td class="tot-col rpt-amber-amt">${neg ? '−' : ''}RM ${fmt(Math.abs(ccBalance))}</td>`;
-    tbody.appendChild(tr);
-    const note = document.createElement('p');
-    note.className = 'rpt-footnote-line';
-    note.textContent = `CC Balance: Budget RM ${fmt(template.ccBudget||0)} − Charge RM ${fmt(ccCharge)} − RHB spend RM ${fmt(rhbSpend)}`;
-    footnoteEl.appendChild(note);
-  }
-
-  const hasCarBalance = template.groups?.some(g => g.items?.some(i => i.id === 'carmaint-balance'));
-  if (hasCarBalance && (template.carMaintenanceBudget > 0 || carSpend > 0)) {
-    const neg = carBalance < 0;
-    const tr  = document.createElement('tr');
-    tr.className = 'rpt-amber-row';
-    tr.innerHTML = `
-      <td class="sticky-col">Car Maint Balance <em style="font-size:11px;font-weight:500;font-style:italic">(auto)</em></td>
-      ${blankCols}
-      <td class="tot-col rpt-amber-amt">${neg ? '−' : ''}RM ${fmt(Math.abs(carBalance))}</td>`;
-    tbody.appendChild(tr);
-    const note = document.createElement('p');
-    note.className = 'rpt-footnote-line';
-    note.textContent = `Car Maintenance Balance: Budget RM ${fmt(template.carMaintenanceBudget||0)} − Car Maintenance spend RM ${fmt(carSpend)}`;
-    footnoteEl.appendChild(note);
-  }
 }
 
 function buildFixedRow(groupName, groupEntries, colMethods) {

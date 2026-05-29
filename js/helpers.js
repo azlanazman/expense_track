@@ -17,16 +17,17 @@ export function monthLabel(year, month) {
 }
 
 export const CATEGORY_COLOURS = {
-  family:   'oklch(0.62 0.20 150)',
-  food:     'oklch(0.62 0.20 25)',
-  toll:     'oklch(0.62 0.20 60)',
-  parking:  'oklch(0.62 0.20 330)',
-  fuel:     'oklch(0.62 0.20 250)',
-  car:      'oklch(0.62 0.20 285)',
-  subs:     'oklch(0.62 0.20 200)',
-  medical:  'oklch(0.62 0.20 5)',
-  misc:     'oklch(0.62 0.20 100)',
-  _default: 'oklch(0.62 0.20 265)',
+  family:           'oklch(0.62 0.20 150)',
+  food:             'oklch(0.62 0.20 25)',
+  toll:             'oklch(0.62 0.20 60)',
+  parking:          'oklch(0.62 0.20 330)',
+  fuel:             'oklch(0.62 0.20 250)',
+  car:              'oklch(0.62 0.20 285)',
+  'car maintenance':'oklch(0.62 0.20 285)',
+  subs:             'oklch(0.62 0.20 200)',
+  medical:          'oklch(0.62 0.20 5)',
+  misc:             'oklch(0.62 0.20 100)',
+  _default:         'oklch(0.62 0.20 265)',
 };
 export const FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230];
 
@@ -37,7 +38,7 @@ export function catColor(name, allCats) {
   return `oklch(0.62 0.20 ${FALLBACK_HUES[(idx < 0 ? 0 : idx) % 8]})`;
 }
 
-export const DEFAULT_CATEGORIES = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car', 'Subs', 'Medical', 'Misc'];
+export const DEFAULT_CATEGORIES = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car Maintenance', 'Subs', 'Medical', 'Misc'];
 export const DEFAULT_PAYMENTS   = ['TNG', 'CIMB', 'RHB', 'MLMT', 'SETEL', 'AEON', 'SPAY'];
 
 let toastTimer;

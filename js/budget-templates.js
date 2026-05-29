@@ -1,56 +1,23 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt } from './helpers.js';
+import { fmt, showToast } from './helpers.js';
 import { fetchBudgetTemplate, persistBudgetTemplate } from './db.js';
 
 const DEFAULT_BUDGET_TEMPLATE = {
   ccBudget: 0,
   carMaintenanceBudget: 0,
   groups: [
-    { id:'loan', name:'Loan', items:[
-      { id:'loan-ptptn', name:'PTPTN', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'loan-car', name:'Car', paymentMethod:'MLMT', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'bills', name:'Bills', items:[
-      { id:'bills-unifi', name:'Unifi', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'bills-umobile-personal', name:'Umobile (personal)', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'bills-umobile-parents', name:'Umobile (parents)', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'bills-tnb', name:'TNB', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'bills-airsel', name:'Air Selangor', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'takaful', name:'Takaful', items:[
-      { id:'takaful-main', name:'Takaful', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'family', name:'Family', items:[
-      { id:'family-parents', name:'Parents', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'family-parents-motor', name:'Parents (motor)', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'family-wife', name:'Wife', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'family-aidan', name:'Aidan', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'family-groceries', name:'Groceries', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'subs', name:'Subs', items:[
-      { id:'subs-netflix', name:'Netflix', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'subs-sooka', name:'Sooka', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'subs-googleone', name:'Google One', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'subs-quronly', name:'Quronly', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'subs-linkedin', name:'LinkedIn', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'subs-claude', name:'Claude', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'spay', name:'Spay', items:[
-      { id:'spay-main', name:'SPaylater', paymentMethod:'SPAY', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
-    { id:'community', name:'Community', items:[
-      { id:'community-zakat', name:'Zakat', paymentMethod:'TNG', defaultAmount:0, isVariable:false, isCalculated:false },
-      { id:'community-sedekah', name:'Sedekah', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false }
-    ]},
+    { id:'loan',      name:'Loan',      items:[] },
+    { id:'bills',     name:'Bills',     items:[] },
+    { id:'insurance', name:'Insurance', items:[] },
+    { id:'family',    name:'Family',    items:[] },
+    { id:'subs',      name:'Subs',      items:[] },
+    { id:'saving',    name:'Saving',    items:[] },
     { id:'cc', name:'CC', items:[
-      { id:'cc-charge', name:'Charge', paymentMethod:'RHB', defaultAmount:0, isVariable:true, isCalculated:false },
-      { id:'cc-balance', name:'Balance', paymentMethod:'RHB', defaultAmount:0, isVariable:false, isCalculated:true }
+      { id:'cc-charge',  name:'Charge',  paymentMethod:'', defaultAmount:0, isVariable:true,  isCalculated:false },
+      { id:'cc-balance', name:'Balance', paymentMethod:'', defaultAmount:0, isVariable:false, isCalculated:true  }
     ]},
     { id:'carmaint', name:'Car Maintenance', items:[
-      { id:'carmaint-balance', name:'Balance', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:true }
-    ]},
-    { id:'saving', name:'Saving', items:[
-      { id:'saving-emergency', name:'Emergency', paymentMethod:'CIMB', defaultAmount:0, isVariable:false, isCalculated:false }
+      { id:'carmaint-balance', name:'Balance', paymentMethod:'', defaultAmount:0, isVariable:false, isCalculated:true }
     ]}
   ]
 };
@@ -76,13 +43,22 @@ async function loadTemplate() {
   let t = await fetchBudgetTemplate(currentUser.uid);
   if (!t) {
     t = JSON.parse(JSON.stringify(DEFAULT_BUDGET_TEMPLATE));
-    await persistBudgetTemplate(currentUser.uid, t);
+    try {
+      await persistBudgetTemplate(currentUser.uid, t);
+    } catch (e) {
+      console.error(e);
+    }
   }
   btState.template = t;
 }
 
 async function saveTemplate() {
-  await persistBudgetTemplate(currentUser.uid, btState.template);
+  try {
+    await persistBudgetTemplate(currentUser.uid, btState.template);
+  } catch (e) {
+    console.error(e);
+    showToast('Error — please try again');
+  }
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -218,9 +194,7 @@ function buildItem(group, item) {
   row.className = 'tmpl-item-row';
 
   let rightEl;
-  if (item.isCalculated) {
-    rightEl = `<span class="tmpl-calc-badge">auto</span>`;
-  } else if (item.isVariable) {
+  if (item.isVariable) {
     rightEl = `<span class="tmpl-var-badge">variable</span>`;
   } else if (item.defaultAmount > 0) {
     rightEl = `<span class="tmpl-item-amt">RM ${fmt(item.defaultAmount)}</span>`;
@@ -273,14 +247,13 @@ function openEditSheet(groupId, itemId) {
 
   const group  = btState.template.groups.find(g => g.id === groupId);
   const item   = itemId ? group.items.find(it => it.id === itemId) : null;
-  const isNew  = !item;
-  const isCalc = item?.isCalculated || false;
+  const isNew = !item;
 
   document.getElementById('ies-title').textContent = isNew ? 'Add item' : 'Edit item';
 
   const nameInp = document.getElementById('ies-name');
   nameInp.value    = item?.name || '';
-  nameInp.disabled = isCalc;
+  nameInp.disabled = false;
 
   // Payment method <select>
   const paySelect = document.getElementById('ies-pay-select');
@@ -291,14 +264,14 @@ function openEditSheet(groupId, itemId) {
 
   const amtInp = document.getElementById('ies-amount');
   amtInp.value    = item?.defaultAmount > 0 && !item?.isVariable ? String(item.defaultAmount) : '';
-  amtInp.disabled = isCalc || (item?.isVariable || false);
+  amtInp.disabled = item?.isVariable || false;
 
   const varChk = document.getElementById('ies-variable');
   varChk.checked  = item?.isVariable || false;
-  varChk.disabled = isCalc;
+  varChk.disabled = false;
   varChk.onchange = e => { amtInp.disabled = e.target.checked; if (e.target.checked) amtInp.value = ''; };
 
-  document.getElementById('ies-calc-note').style.display = isCalc ? '' : 'none';
+  document.getElementById('ies-calc-note').style.display = 'none';
   document.getElementById('ies-delete').style.display    = !isNew ? '' : 'none';
 
   const sheet   = document.getElementById('item-edit-sheet');
