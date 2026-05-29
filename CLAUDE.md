@@ -40,7 +40,8 @@ complement = jet black (`oklch(0.22 0.01 265)`). Source of truth: `design_handof
 │   ├── log.js                          # Screen 2 — Expense Log
 │   ├── report.js                       # Screen 3 — Monthly Report
 │   ├── settings.js                     # Screen 4 — Settings
-│   └── budget.js                       # Screen 5 — Budget (Phase 2)
+│   ├── budget.js                       # Screen 5 — Budget overview + checklist
+│   └── budget-templates.js             # Budget templates sub-page (Settings)
 ├── firestore.rules                     # Firestore security rules
 ├── README.md                           # Setup and deploy guide
 ├── CLAUDE.md                           # This file
@@ -1058,9 +1059,32 @@ Tab order and icons unchanged from Phase 1 design. Budget tab uses `ti-wallet` i
 
 ---
 
-### Build tasks for Phase 2
+### Phase 2 — COMPLETE ✓
 
-Run after Phase 1 Tasks 1–7 are complete and working.
+All Phase 2 tasks are built and live on `main`.
+
+| # | What | File | Status |
+|---|------|------|--------|
+| 8  | Salary day setting + Budget templates row in Settings | `js/settings.js` | ✓ done |
+| 9  | Budget templates sub-page | `js/budget-templates.js`, `js/db.js` | ✓ done |
+| 10 | Budget overview screen (5a) | `js/budget.js`, `js/db.js` | ✓ done |
+| 11 | Budget checklist screen (5b) | `js/budget.js`, `js/db.js` | ✓ done |
+| 12 | Report revamp (period chips, 3 tabs, expandable rows) | `js/report.js` | ✓ done |
+
+---
+
+### Post-Phase 2 behaviour notes (live on `main`)
+
+These decisions were made after Phase 2 shipped and are now the source of truth:
+
+- **Log sort order** — entries always sorted by date descending on the client side (`js/log.js`), regardless of Firestore return order.
+- **Report Variable tab expand** — tapping ▾ on a category row shows one sub-row per day (daily total), not one row per transaction. Multiple transactions on the same day are summed by payment method.
+- **Calculated items deletable** — `isCalculated: true` items (CC Balance, Car Maintenance Balance) can be deleted from Budget Templates. The delete button is no longer hidden for them.
+- **Report amber rows are conditional** — CC Balance and Car Maintenance Balance amber rows in Report → Fixed tab only render if those items still exist in the user's `budgetTemplates` document. Deleting them from Budget Templates removes them from the report too.
+
+---
+
+### Build tasks for Phase 2
 
 #### Task 8 — userSettings salary day + Settings UI update
 Files: `js/settings.js`, `index.html` (Settings screen HTML)
