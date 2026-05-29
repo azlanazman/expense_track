@@ -51,3 +51,14 @@ export async function fetchBudgetTemplate(uid) {
 export function persistBudgetTemplate(uid, template) {
   return setDoc(doc(db, 'budgetTemplates', uid), template);
 }
+
+export async function fetchBudgetMonth(uid, year, month) {
+  const id = `${uid}_${year}-${String(month).padStart(2, '0')}`;
+  const snap = await getDoc(doc(db, 'budgetMonths', id));
+  return snap.exists() ? snap.data() : null;
+}
+
+export function persistBudgetMonth(uid, year, month, data) {
+  const id = `${uid}_${year}-${String(month).padStart(2, '0')}`;
+  return setDoc(doc(db, 'budgetMonths', id), data);
+}

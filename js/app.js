@@ -9,11 +9,12 @@ import { initAdd } from './add.js';
 import { initLog } from './log.js';
 import { initReport } from './report.js';
 import { renderSettings } from './settings.js';
+import { initBudget } from './budget.js';
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
 export function showScreen(name) {
-  ['add', 'log', 'report', 'settings'].forEach(s => {
+  ['add', 'log', 'report', 'budget', 'settings'].forEach(s => {
     document.getElementById(`screen-${s}`).style.display = s === name ? '' : 'none';
     document.getElementById(`nav-${s}`).classList.toggle('on', s === name);
   });
@@ -22,6 +23,7 @@ export function showScreen(name) {
 document.getElementById('nav-add').addEventListener('click', () => showScreen('add'));
 document.getElementById('nav-log').addEventListener('click', () => { initLog(); showScreen('log'); });
 document.getElementById('nav-report').addEventListener('click', () => { initReport(); showScreen('report'); });
+document.getElementById('nav-budget').addEventListener('click', () => { initBudget(); showScreen('budget'); });
 document.getElementById('nav-settings').addEventListener('click', () => { renderSettings(); showScreen('settings'); });
 
 // ── Auth ────────────────────────────────────────────────────────────────────

@@ -983,6 +983,71 @@
     .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
     .toggle-switch input:disabled + .toggle-track { opacity: 0.40; cursor: not-allowed; }
 
+    /* ── Budget hero card ── */
+    .budget-hero {
+      background: var(--comp);
+      color: var(--on-comp);
+      border-radius: var(--radius-lg);
+      padding: calc(var(--sp) * 22px) 24px;
+      box-shadow: 0 12px 28px -12px var(--comp-shadow);
+    }
+    .budget-hero-label { font-size: 13px; font-weight: 600; opacity: 0.65; }
+    .budget-hero-val {
+      font-size: 38px; font-weight: 800; letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      margin: 6px 0 4px;
+    }
+    .budget-hero-eq { font-size: 12px; font-weight: 500; opacity: 0.50; margin-bottom: 16px; }
+    .budget-hero-bar { height: 6px; background: oklch(1 0 0 / 0.18); border-radius: 999px; overflow: hidden; }
+    .budget-hero-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.5s ease; }
+    .budget-hero-bar-label { font-size: 11px; font-weight: 600; opacity: 0.60; margin-top: 7px; }
+
+    /* ── Income section ── */
+    .income-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0 16px;
+    }
+    .income-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line-2);
+    }
+    .income-row:last-child { border-bottom: none; }
+    .income-dot { width: 11px; height: 11px; border-radius: 999px; flex-shrink: 0; }
+    .income-name { flex: 1; font-size: 15px; font-weight: 600; color: var(--ink); }
+    .income-val {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+      color: var(--ink); cursor: pointer; flex-shrink: 0;
+    }
+    .income-val:hover { color: var(--accent-ink); }
+
+    /* ── Fixed summary ── */
+    .fixed-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .fixed-link {
+      font-size: 12.5px; font-weight: 700;
+      color: var(--accent-ink); background: var(--accent-soft);
+      border: 1px solid var(--accent-line);
+      padding: 5px 12px; border-radius: 999px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      transition: 0.14s;
+    }
+    .fixed-link:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+    .fixed-group-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line-2);
+    }
+    .fixed-group-row:last-child { border-bottom: none; }
+    .fixed-group-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--ink); }
+    .fixed-group-meta { font-size: 12px; color: var(--ink-3); font-weight: 500; flex-shrink: 0; }
+    .fixed-group-amt { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); flex-shrink: 0; min-width: 48px; text-align: right; }
+
     /* ── Bottom nav ── */
     .bottom-nav {
       display: flex;
@@ -1478,6 +1543,47 @@
       </div>
     </div>
 
+    <!-- Screen 5: Budget overview -->
+    <div id="screen-budget" class="screen" style="display:none">
+      <div class="hdr report-hdr">
+        <button class="month-nav" id="budget-prev-month" type="button" aria-label="Previous month">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div class="month-title">
+          <div class="hdr-eyebrow">Budget</div>
+          <div id="budget-month-title" style="font-size:22px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums"></div>
+        </div>
+        <button class="month-nav" id="budget-next-month" type="button" aria-label="Next month">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+      <div class="screen-body" id="budget-body"></div>
+    </div>
+
+    <!-- Budget checklist sub-page (Task 11 fills content) -->
+    <div class="sub-page" id="budget-checklist-page">
+      <div class="sub-page-hdr">
+        <button class="back-btn" id="budget-checklist-back" type="button" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <span class="sub-page-title" id="budget-checklist-title">Checklist</span>
+      </div>
+      <div id="budget-checklist-body" style="padding:0 24px 40px">
+        <p style="color:var(--ink-3);text-align:center;padding:48px 0;font-size:14px;font-weight:500">
+          Checklist coming in Task 11…
+        </p>
+      </div>
+    </div>
+
     <!-- Budget templates sub-page (slides in from right, Task 9 will fill content) -->
     <div class="sub-page" id="settings-sub-page">
       <div class="sub-page-hdr">
@@ -1579,6 +1685,14 @@
           <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
         Report
+      </button>
+      <button class="nav-item" id="nav-budget" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+        Budget
       </button>
       <button class="nav-item" id="nav-settings" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
