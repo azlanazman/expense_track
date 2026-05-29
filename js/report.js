@@ -219,7 +219,7 @@ function renderReport() {
   document.getElementById('rpt-stats').innerHTML = `
     <div class="stat-card accent">
       <div class="stat-label">Total spent</div>
-      <div class="stat-val">RM ${fmt(total)}</div>
+      <div class="stat-val" style="font-size:22px">RM ${fmt(total)}</div>
     </div>
     <div class="stat-card comp">
       <div class="stat-label">Daily average</div>

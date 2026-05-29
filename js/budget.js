@@ -133,7 +133,7 @@ function buildStatGrid(income, fixed, variable, remaining) {
   div.innerHTML = `
     <div class="stat-card accent">
       <div class="stat-label">Income</div>
-      <div class="stat-val">RM ${fmt(income)}</div>
+      <div class="stat-val" style="font-size:22px">RM ${fmt(income)}</div>
     </div>
     <div class="stat-card comp">
       <div class="stat-label">Fixed paid</div>
