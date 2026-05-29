@@ -1147,6 +1147,10 @@
           <div class="chip-wrap" id="pay-chips"></div>
         </section>
         <section>
+          <span class="block-label">Colour theme</span>
+          <div class="chip-wrap" id="theme-swatches"></div>
+        </section>
+        <section>
           <span class="block-label">Account</span>
           <button class="row-card" id="btn-account" type="button">
             <div class="rc-ic">
@@ -1302,8 +1306,65 @@
 
     // ── App state ───────────────────────────────────────────────────────────────
 
+    const THEMES = {
+      black: {
+        label: 'Jet Black',
+        swatch: 'oklch(0.22 0.01 265)',
+        vars: {
+          '--comp':        'oklch(0.22 0.01 265)',
+          '--comp-soft':   'oklch(0.94 0.01 265)',
+          '--comp-line':   'oklch(0.82 0.02 265)',
+          '--comp-ink':    'oklch(0.30 0.01 265)',
+          '--comp-shadow': 'oklch(0.22 0.01 265 / 0.5)',
+          '--on-comp':     'oklch(0.99 0 0)',
+        },
+      },
+      green: {
+        label: 'Forest Green',
+        swatch: 'oklch(0.48 0.18 145)',
+        vars: {
+          '--comp':        'oklch(0.48 0.18 145)',
+          '--comp-soft':   'oklch(0.95 0.05 145)',
+          '--comp-line':   'oklch(0.87 0.08 145)',
+          '--comp-ink':    'oklch(0.40 0.14 145)',
+          '--comp-shadow': 'oklch(0.48 0.18 145 / 0.5)',
+          '--on-comp':     'oklch(0.99 0.006 145)',
+        },
+      },
+      blue: {
+        label: 'Electric Blue',
+        swatch: 'oklch(0.52 0.22 230)',
+        vars: {
+          '--comp':        'oklch(0.52 0.22 230)',
+          '--comp-soft':   'oklch(0.95 0.05 230)',
+          '--comp-line':   'oklch(0.87 0.08 230)',
+          '--comp-ink':    'oklch(0.42 0.16 230)',
+          '--comp-shadow': 'oklch(0.52 0.22 230 / 0.5)',
+          '--on-comp':     'oklch(0.99 0.006 230)',
+        },
+      },
+      teal: {
+        label: 'Deep Teal',
+        swatch: 'oklch(0.45 0.18 190)',
+        vars: {
+          '--comp':        'oklch(0.45 0.18 190)',
+          '--comp-soft':   'oklch(0.95 0.05 190)',
+          '--comp-line':   'oklch(0.87 0.08 190)',
+          '--comp-ink':    'oklch(0.38 0.14 190)',
+          '--comp-shadow': 'oklch(0.45 0.18 190 / 0.5)',
+          '--on-comp':     'oklch(0.99 0.006 190)',
+        },
+      },
+    };
+
+    function applyTheme(key) {
+      const theme = THEMES[key] || THEMES.blue;
+      const root = document.documentElement;
+      Object.entries(theme.vars).forEach(([prop, val]) => root.style.setProperty(prop, val));
+    }
+
     let currentUser = null;
-    let userSettings = { categories: [], paymentMethods: [] };
+    let userSettings = { categories: [], paymentMethods: [], theme: 'blue' };
     let activeScreen = 'add';
 
     const DEFAULT_CATEGORIES = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car', 'Subs', 'Medical', 'Misc'];
@@ -1343,6 +1404,7 @@
         document.getElementById('screen-login').style.display = 'none';
         document.getElementById('app').style.display = '';
         await loadUserSettings();
+        applyTheme(userSettings.theme || 'blue');
         initAddScreen();
         showScreen('add');
       } else {
@@ -1360,7 +1422,7 @@
       if (snap.exists()) {
         userSettings = snap.data();
       } else {
-        userSettings = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS };
+        userSettings = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS, theme: 'blue' };
         await setDoc(ref, userSettings);
       }
     }
@@ -1878,6 +1940,38 @@
       document.getElementById('account-email').textContent = currentUser?.email || '';
       renderCatChips();
       renderPayChips();
+      renderThemeSwatches();
+    }
+
+    function renderThemeSwatches() {
+      const wrap = document.getElementById('theme-swatches');
+      wrap.innerHTML = '';
+      const current = userSettings.theme || 'blue';
+      Object.entries(THEMES).forEach(([key, theme]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = `
+          display:inline-flex; align-items:center; gap:10px;
+          font:inherit; font-size:14px; font-weight:600;
+          padding:9px 16px; border-radius:999px; cursor:pointer; transition:0.14s;
+          border: 2px solid ${key === current ? theme.swatch : 'var(--line)'};
+          background: ${key === current ? theme.swatch : 'var(--surface)'};
+          color: ${key === current ? 'oklch(0.99 0 0)' : 'var(--ink-2)'};
+          box-shadow: ${key === current ? `0 4px 12px -4px ${theme.swatch}` : 'none'};
+        `;
+        btn.innerHTML = `
+          <span style="width:14px;height:14px;border-radius:999px;background:${theme.swatch};flex-shrink:0;border:2px solid oklch(1 0 0 / 0.3)"></span>
+          ${theme.label}
+          ${key === current ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+        `;
+        btn.addEventListener('click', async () => {
+          userSettings.theme = key;
+          applyTheme(key);
+          await saveUserSettings();
+          renderThemeSwatches();
+        });
+        wrap.appendChild(btn);
+      });
     }
 
     function renderCatChips() {
