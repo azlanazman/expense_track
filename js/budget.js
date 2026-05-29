@@ -1,6 +1,6 @@
 import { currentUser } from './state.js';
 import { fmt, monthLabel } from './helpers.js';
-import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth } from './db.js';
+import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, deleteExpense } from './db.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -20,11 +20,12 @@ const PENCIL_IC = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" s
 const ARROW_IC  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
 let bdgState = {
-  year:             new Date().getFullYear(),
-  month:            new Date().getMonth() + 1,
-  monthData:        null,
-  template:         null,
-  variableExpenses: []
+  year:               new Date().getFullYear(),
+  month:              new Date().getMonth() + 1,
+  monthData:          null,
+  template:           null,
+  variableExpenses:   [],
+  chkCollapsed:       new Set()
 };
 
 // ── Public entry point ────────────────────────────────────────────────────────
@@ -265,15 +266,296 @@ function appendGroupRows(groups, payments, container) {
   });
 }
 
-// ── Checklist navigation (placeholder — Task 11 fills content) ────────────────
+// ── Checklist navigation ──────────────────────────────────────────────────────
 
 export function showChecklist() {
+  renderChecklist();
   document.getElementById('budget-checklist-page').classList.add('active');
 }
 
 document.getElementById('budget-checklist-back').addEventListener('click', () => {
   document.getElementById('budget-checklist-page').classList.remove('active');
 });
+
+document.getElementById('chk-prev-month').addEventListener('click', async () => {
+  bdgState.month--;
+  if (bdgState.month < 1) { bdgState.month = 12; bdgState.year--; }
+  await loadData();
+  renderChecklist();
+  renderBudget();
+});
+
+document.getElementById('chk-next-month').addEventListener('click', async () => {
+  bdgState.month++;
+  if (bdgState.month > 12) { bdgState.month = 1; bdgState.year++; }
+  await loadData();
+  renderChecklist();
+  renderBudget();
+});
+
+// ── Checklist render ──────────────────────────────────────────────────────────
+
+function renderChecklist() {
+  const { year, month, monthData, template, variableExpenses } = bdgState;
+
+  document.getElementById('budget-checklist-title').textContent = monthLabel(year, month);
+
+  const body = document.getElementById('budget-checklist-body');
+  body.innerHTML = '';
+
+  if (!template) {
+    body.innerHTML = `<p style="text-align:center;color:var(--ink-3);padding:48px 0;font-size:14px;font-weight:500">No budget template. Go to Settings → Budget templates.</p>`;
+    return;
+  }
+
+  const nonCalcTotal = template.groups.reduce((s, g) => s + g.items.filter(i => !i.isCalculated).length, 0);
+  const paidCount    = monthData.payments.filter(p => p.paid).length;
+
+  body.appendChild(buildChkProgress(paidCount, nonCalcTotal));
+
+  template.groups.forEach(group => {
+    body.appendChild(buildChkGroup(group, monthData.payments, template, variableExpenses));
+  });
+
+  const hint = document.createElement('div');
+  hint.className = 'list-hint';
+  hint.style.paddingBottom = '24px';
+  hint.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Tap checkbox to pay · tap ✓ again to undo`;
+  body.appendChild(hint);
+}
+
+function buildChkProgress(paidCount, total) {
+  const pct = total > 0 ? (paidCount / total * 100) : 0;
+  const div = document.createElement('div');
+  div.className = 'chk-progress';
+  div.innerHTML = `
+    <span class="chk-progress-label">${paidCount} / ${total} paid</span>
+    <div class="chk-progress-bar-wrap">
+      <div class="chk-progress-fill" style="width:${pct.toFixed(1)}%"></div>
+    </div>`;
+  return div;
+}
+
+function buildChkGroup(group, payments, template, variableExpenses) {
+  const isCollapsed = bdgState.chkCollapsed.has(group.id);
+  const nonCalcItems = group.items.filter(i => !i.isCalculated);
+  const paidN    = payments.filter(p => nonCalcItems.some(i => i.id === p.itemId) && p.paid).length;
+  const allPaid  = nonCalcItems.length > 0 && paidN === nonCalcItems.length;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chk-group';
+
+  const hdr = document.createElement('div');
+  hdr.className = `chk-group-hdr${isCollapsed ? '' : ' open'}`;
+  hdr.innerHTML = `
+    <span class="chk-group-name">${group.name}</span>
+    <span class="chk-group-badge${allPaid ? '' : ' partial'}">${paidN}/${nonCalcItems.length}</span>
+    <span class="chk-group-chev${isCollapsed ? '' : ' open'}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>`;
+  hdr.addEventListener('click', () => {
+    if (bdgState.chkCollapsed.has(group.id)) bdgState.chkCollapsed.delete(group.id);
+    else bdgState.chkCollapsed.add(group.id);
+    renderChecklist();
+  });
+  wrapper.appendChild(hdr);
+
+  if (!isCollapsed) {
+    const gbody = document.createElement('div');
+    gbody.className = 'chk-group-body';
+    group.items.forEach(item => {
+      if (item.isCalculated) {
+        const calcEl = buildCalcRow(item, template, variableExpenses, payments);
+        gbody.appendChild(calcEl);
+      } else {
+        const payment = payments.find(p => p.itemId === item.id);
+        gbody.appendChild(buildChkItem(item, payment));
+      }
+    });
+    wrapper.appendChild(gbody);
+  }
+
+  return wrapper;
+}
+
+function buildChkItem(item, payment) {
+  const isPaid     = payment?.paid || false;
+  const isVariable = item.isVariable;
+
+  const row = document.createElement('div');
+  row.className = `chk-item${isPaid ? ' paid-row' : ''}`;
+
+  const cbClass   = isPaid ? 'paid' : (isVariable ? 'needs' : '');
+  const checkIcon = isPaid
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+    : '';
+
+  const displayAmt = isPaid && payment?.amount
+    ? `RM ${fmt(payment.amount)}`
+    : (item.defaultAmount > 0 ? `RM ${fmt(item.defaultAmount)}` : '—');
+
+  row.innerHTML = `
+    <button class="chk-cb${cbClass ? ' ' + cbClass : ''}" type="button" aria-label="${isPaid ? 'Unmark paid' : 'Mark paid'}">
+      ${checkIcon}
+    </button>
+    <div class="chk-item-main">
+      <div class="chk-item-name">${item.name}</div>
+      <div class="chk-item-pay">${item.paymentMethod}</div>
+    </div>
+    <div class="chk-item-right">
+      <span class="chk-item-amt">${displayAmt}</span>
+    </div>`;
+
+  row.querySelector('.chk-cb').addEventListener('click', async e => {
+    e.stopPropagation();
+    if (isPaid) {
+      await markUnpaid(item.id);
+    } else {
+      openEntry(row, item.id, item.defaultAmount || 0);
+    }
+  });
+
+  return row;
+}
+
+function buildCalcRow(item, template, variableExpenses, payments) {
+  let value, footnote;
+
+  if (item.id === 'cc-balance') {
+    const ccChargePay = payments.find(p => p.itemId === 'cc-charge');
+    const ccCharge    = ccChargePay?.paid ? (ccChargePay.amount || 0) : 0;
+    const rhbSpend    = variableExpenses.filter(e => e.paymentMethod === 'RHB').reduce((s, e) => s + e.amount, 0);
+    value    = (template.ccBudget || 0) - ccCharge - rhbSpend;
+    footnote = `Budget RM ${fmt(template.ccBudget || 0)} − Charge RM ${fmt(ccCharge)} − RHB spend RM ${fmt(rhbSpend)}`;
+  } else if (item.id === 'carmaint-balance') {
+    const carSpend = variableExpenses.filter(e => e.category === 'Car Maintenance').reduce((s, e) => s + e.amount, 0);
+    value    = (template.carMaintenanceBudget || 0) - carSpend;
+    footnote = `Budget RM ${fmt(template.carMaintenanceBudget || 0)} − Car Maintenance spend RM ${fmt(carSpend)}`;
+  } else {
+    return document.createElement('div');
+  }
+
+  const isNeg    = value < 0;
+  const wrapper  = document.createElement('div');
+
+  const row = document.createElement('div');
+  row.className = 'chk-item calc-row';
+  row.innerHTML = `
+    <button class="chk-cb calc-cb" type="button" disabled aria-label="Auto-calculated">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--amber-ink)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <div class="chk-item-main">
+      <div class="chk-item-name" style="color:var(--amber-ink)">${item.name}</div>
+      <div class="chk-item-pay">${item.paymentMethod}</div>
+    </div>
+    <div class="chk-item-right">
+      <span class="chk-calc-badge">auto</span>
+      <span class="chk-item-amt" style="${isNeg ? 'color:var(--danger)' : ''}">${isNeg ? '−' : ''}RM ${fmt(Math.abs(value))}</span>
+    </div>`;
+  wrapper.appendChild(row);
+
+  const note = document.createElement('div');
+  note.className = 'chk-calc-footnote';
+  note.textContent = footnote;
+  wrapper.appendChild(note);
+
+  return wrapper;
+}
+
+// ── Inline entry ──────────────────────────────────────────────────────────────
+
+function openEntry(itemRow, itemId, defaultAmt) {
+  document.querySelectorAll('.chk-entry').forEach(el => el.remove());
+
+  const entry = document.createElement('div');
+  entry.className = 'chk-entry';
+  entry.innerHTML = `
+    <span class="chk-entry-rm">RM</span>
+    <input type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" value="${defaultAmt > 0 ? defaultAmt : ''}" />
+    <button class="chk-entry-ok" type="button">Pay</button>
+    <button class="chk-entry-cancel" type="button">✕</button>`;
+
+  itemRow.after(entry);
+  const inp = entry.querySelector('input');
+  inp.focus();
+  if (inp.value) inp.select();
+
+  inp.addEventListener('input', e => {
+    const raw   = e.target.value.replace(/[^0-9.]/g, '');
+    const parts = raw.split('.');
+    e.target.value = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+  });
+
+  async function confirm() {
+    const val = parseFloat(inp.value) || 0;
+    entry.remove();
+    await markPaid(itemId, val);
+  }
+
+  entry.querySelector('.chk-entry-ok').addEventListener('click', confirm);
+  entry.querySelector('.chk-entry-cancel').addEventListener('click', () => entry.remove());
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  confirm();
+    if (e.key === 'Escape') entry.remove();
+  });
+}
+
+// ── Mark paid / unpaid ────────────────────────────────────────────────────────
+
+async function markPaid(itemId, amount) {
+  const { year, month, monthData, template } = bdgState;
+  const uid = currentUser.uid;
+
+  let group, item;
+  for (const g of template.groups) {
+    const found = g.items.find(i => i.id === itemId);
+    if (found) { group = g; item = found; break; }
+  }
+  if (!item) return;
+
+  const now     = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const expRef = await addExpense({
+    uid,
+    date:          dateStr,
+    amount,
+    category:      group.name,
+    subCategory:   item.name,
+    paymentMethod: item.paymentMethod,
+    notes:         '',
+    type:          'fixed',
+    budgetItemId:  item.id
+  });
+
+  const rec   = { itemId, paid: true, amount, paidDate: dateStr, expenseId: expRef.id };
+  const pidx  = monthData.payments.findIndex(p => p.itemId === itemId);
+  if (pidx >= 0) monthData.payments[pidx] = rec;
+  else monthData.payments.push(rec);
+
+  await persistBudgetMonth(uid, year, month, monthData);
+  renderChecklist();
+  renderBudget();
+}
+
+async function markUnpaid(itemId) {
+  const { year, month, monthData } = bdgState;
+  const uid = currentUser.uid;
+
+  const pidx = monthData.payments.findIndex(p => p.itemId === itemId);
+  if (pidx < 0) return;
+
+  const payment = monthData.payments[pidx];
+  if (payment.expenseId) {
+    await deleteExpense(payment.expenseId);
+  }
+
+  monthData.payments[pidx] = { itemId, paid: false, amount: 0, paidDate: null, expenseId: null };
+
+  await persistBudgetMonth(uid, year, month, monthData);
+  renderChecklist();
+  renderBudget();
+}
 
 // ── Month navigation ──────────────────────────────────────────────────────────
 

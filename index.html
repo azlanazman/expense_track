@@ -1277,6 +1277,101 @@
     .custom-dates { display: flex; gap: 12px; padding: 0 24px 12px; }
     .custom-dates .field { flex: 1; }
 
+    /* ── Budget checklist ── */
+    .chk-progress {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 0 6px;
+    }
+    .chk-progress-label { font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+    .chk-progress-bar-wrap { flex: 1; height: 7px; background: var(--line-2); border-radius: 999px; overflow: hidden; }
+    .chk-progress-fill { height: 100%; border-radius: 999px; background: var(--positive); transition: width 0.4s ease; }
+    .chk-group { margin-bottom: 12px; }
+    .chk-group-hdr {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius);
+      cursor: pointer; user-select: none; transition: 0.14s;
+    }
+    .chk-group-hdr.open { border-radius: var(--radius) var(--radius) 0 0; }
+    .chk-group-name { flex: 1; font-size: 15px; font-weight: 700; color: var(--ink); }
+    .chk-group-badge {
+      font-size: 11.5px; font-weight: 700; color: var(--positive);
+      background: var(--positive-soft); padding: 2px 9px; border-radius: 999px;
+    }
+    .chk-group-badge.partial { color: var(--ink-3); background: var(--line-2); }
+    .chk-group-chev { color: var(--ink-3); transition: transform 0.2s; flex-shrink: 0; }
+    .chk-group-chev.open { transform: rotate(180deg); color: var(--accent); }
+    .chk-group-body {
+      background: var(--surface);
+      border: 1px solid var(--line); border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      overflow: hidden;
+    }
+    .chk-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line-2);
+    }
+    .chk-item:last-child { border-bottom: none; }
+    .chk-item.calc-row { background: var(--amber-soft); }
+    .chk-cb {
+      width: 26px; height: 26px; min-width: 26px; border-radius: 8px;
+      border: 2px solid var(--line); background: var(--surface);
+      display: grid; place-items: center;
+      cursor: pointer; flex-shrink: 0; transition: 0.15s;
+    }
+    .chk-cb:not(:disabled):hover { border-color: var(--accent-line); }
+    .chk-cb.paid { background: var(--comp); border-color: var(--comp); }
+    .chk-cb.needs { border: 2px dashed var(--amber); background: var(--amber-soft); }
+    .chk-cb.calc-cb { background: var(--amber-soft); border-color: var(--amber-line); cursor: default; }
+    .chk-item-main { flex: 1; min-width: 0; }
+    .chk-item-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .chk-item.paid-row .chk-item-name { text-decoration: line-through; color: var(--ink-3); }
+    .chk-item-pay { font-size: 11.5px; font-weight: 700; color: var(--ink-3); margin-top: 2px; }
+    .chk-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .chk-item-amt { font-size: 14px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .chk-item.paid-row .chk-item-amt { color: var(--ink-3); text-decoration: line-through; }
+    .chk-item.calc-row .chk-item-amt { color: var(--amber-ink); font-weight: 800; }
+    .chk-calc-badge {
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+      color: var(--on-amber); background: var(--amber);
+      padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    }
+    .chk-calc-footnote {
+      font-size: 11.5px; color: var(--amber-ink); font-style: italic;
+      padding: 0 16px 10px 54px;
+    }
+    .chk-entry {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 16px 12px 54px;
+      background: var(--accent-soft);
+      border-bottom: 1px solid var(--line-2);
+    }
+    .chk-entry-rm { font-size: 14px; font-weight: 600; color: var(--accent-ink); flex-shrink: 0; }
+    .chk-entry input {
+      flex: 1; min-width: 0; border: 1px solid var(--accent-line);
+      border-radius: var(--radius-sm); padding: 8px 10px;
+      font: inherit; font-size: 15px; font-weight: 700;
+      color: var(--ink); outline: none; background: var(--surface);
+      font-variant-numeric: tabular-nums;
+    }
+    .chk-entry input:focus { border-color: var(--accent); }
+    .chk-entry-ok {
+      background: var(--comp); color: var(--on-comp);
+      border: none; border-radius: var(--radius-sm);
+      padding: 9px 16px; font: inherit; font-size: 13.5px; font-weight: 700;
+      cursor: pointer; flex-shrink: 0; transition: 0.14s;
+    }
+    .chk-entry-ok:hover { background: oklch(0.30 0.02 265); }
+    .chk-entry-cancel {
+      background: none; border: 1px solid var(--line);
+      border-radius: var(--radius-sm); padding: 9px 12px;
+      font: inherit; font-size: 13px; font-weight: 600;
+      color: var(--ink-3); cursor: pointer; flex-shrink: 0; transition: 0.14s;
+    }
+    .chk-entry-cancel:hover { background: var(--surface); border-color: var(--line); }
+
     /* ── Mobile ── */
     @media (max-width: 460px) {
       body {
@@ -1566,22 +1661,33 @@
       <div class="screen-body" id="budget-body"></div>
     </div>
 
-    <!-- Budget checklist sub-page (Task 11 fills content) -->
+    <!-- Budget checklist sub-page -->
     <div class="sub-page" id="budget-checklist-page">
-      <div class="sub-page-hdr">
+      <div class="sub-page-hdr" style="justify-content:space-between">
         <button class="back-btn" id="budget-checklist-back" type="button" aria-label="Back">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span class="sub-page-title" id="budget-checklist-title">Checklist</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="month-nav" id="chk-prev-month" type="button" aria-label="Previous month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <span class="sub-page-title" id="budget-checklist-title" style="white-space:nowrap;font-size:18px">Checklist</span>
+          <button class="month-nav" id="chk-next-month" type="button" aria-label="Next month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+        <div style="width:40px;flex-shrink:0"></div>
       </div>
-      <div id="budget-checklist-body" style="padding:0 24px 40px">
-        <p style="color:var(--ink-3);text-align:center;padding:48px 0;font-size:14px;font-weight:500">
-          Checklist coming in Task 11…
-        </p>
-      </div>
+      <div id="budget-checklist-body" style="padding:0 24px 40px"></div>
     </div>
 
     <!-- Budget templates sub-page (slides in from right, Task 9 will fill content) -->
