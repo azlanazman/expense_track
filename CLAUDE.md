@@ -7,9 +7,9 @@ Firebase Auth, data stored in Firestore. Deployed as a static site on GitHub Pag
 No build step — plain HTML, CSS, and vanilla JavaScript. `index.html` contains the
 HTML skeleton and all CSS; app logic is split into ES modules under `js/`.
 
-Design direction: **modern, fresh, airy** — generous whitespace, large geometric
-titles, subtle rounded corners, complementary colour blocks (teal accent + coral
-complement). Source of truth: `design_handoff_expense_tracker/` folder.
+Design direction: **colour blocking, bold, pop-up feel** — large solid colour blocks,
+strong coloured shadows, elevated cards. Accent = bright yellow (`oklch(0.84 0.18 86)`),
+complement = jet black (`oklch(0.22 0.01 265)`). Source of truth: `design_handoff_expense_tracker/` folder.
 
 ---
 
@@ -714,6 +714,67 @@ in the same task that builds the screen logic.
 
 This section supersedes any earlier budget/report notes. Build after the original
 7 tasks are complete.
+
+---
+
+### Phase 2 locked decisions (pre-build, do not revisit)
+
+**Design direction:** Colour blocking + pop-up feel throughout. All primary stat cards
+and hero cards use solid colour fills (no tint-only cards for primary surfaces).
+Strong coloured box-shadows on every card. Cards should feel elevated and bold.
+
+**New CSS tokens** — paste into `:root` in `index.html` alongside existing variables:
+
+```css
+/* amber — needs-entry checkbox, CC Balance & Car Maintenance rows */
+--amber:        oklch(0.72 0.14 55);
+--amber-strong: oklch(0.66 0.14 55);
+--amber-soft:   oklch(0.96 0.045 55);
+--amber-line:   oklch(0.88 0.08 55);
+--amber-ink:    oklch(0.38 0.10 55);
+--amber-shadow: oklch(0.72 0.14 55 / 0.50);
+--on-amber:     oklch(0.14 0.04 55);
+
+/* positive — Remaining stat card when net balance ≥ 0 */
+--positive:        oklch(0.58 0.13 145);
+--positive-strong: oklch(0.53 0.13 145);
+--positive-soft:   oklch(0.96 0.04 145);
+--positive-shadow: oklch(0.58 0.13 145 / 0.50);
+--on-positive:     oklch(0.99 0.006 145);
+```
+
+**Budget stat card colour mapping:**
+
+| Card | CSS | Note |
+|---|---|---|
+| Income | `.stat-card.accent` | solid yellow — existing class |
+| Fixed paid | `.stat-card.comp` | solid black — existing class |
+| Variable so far | `.stat-card` (white surface, strong shadow) | neutral rest in colour-blocking grid |
+| Remaining (≥0) | `.stat-card.positive` | solid green |
+| Remaining (<0) | `.stat-card.negative` (uses `--danger`) | solid red |
+
+**Budget hero card** — jet black bg, yellow number:
+```css
+.budget-hero {
+  background: var(--comp);
+  color: var(--on-comp);
+  /* number value uses color: var(--accent) */
+}
+```
+
+**Sub-page navigation (Budget Templates in Settings):**
+Use CSS `transform: translateX` slide transition, not instant show/hide.
+Pattern: a JS mini-stack (`subPageStack`) — push adds a screen div class `sub-page-enter`,
+pop reverses. Keep the slide duration ≤ 220ms.
+
+**Behaviour rules locked:**
+1. **Uncheck paid item** → delete orphaned expense doc from Firestore, set `paid: false` in budgetMonths.
+2. **New month auto-seed** → on first open of a budget month with no doc, silently create
+   `budgetMonths/{uid}_{YYYY-MM}` with payments seeded from `budgetTemplates/{uid}`, all `paid: false`.
+3. **CC Balance formula** → scope RHB spend to `type === "variable"` expenses only.
+4. **Month navigation** → Budget, Log, and Report each maintain independent month state.
+5. **Report period chips** → only `Monthly` + `Salary Period`. 3M/6M removed; custom range
+   is accessible via a `Custom` chip (manual from/to dates).
 
 ---
 

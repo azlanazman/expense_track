@@ -40,6 +40,22 @@
       --comp-shadow: oklch(0.22 0.01 265 / 0.5);
       --on-comp:     oklch(0.99 0 0);
 
+      /* amber — needs-entry state, CC Balance / Car Maintenance rows */
+      --amber:        oklch(0.72 0.14 55);
+      --amber-strong: oklch(0.66 0.14 55);
+      --amber-soft:   oklch(0.96 0.045 55);
+      --amber-line:   oklch(0.88 0.08 55);
+      --amber-ink:    oklch(0.38 0.10 55);
+      --amber-shadow: oklch(0.72 0.14 55 / 0.50);
+      --on-amber:     oklch(0.14 0.04 55);
+
+      /* positive — Remaining stat card (net balance ≥ 0) */
+      --positive:        oklch(0.58 0.13 145);
+      --positive-strong: oklch(0.53 0.13 145);
+      --positive-soft:   oklch(0.96 0.04 145);
+      --positive-shadow: oklch(0.58 0.13 145 / 0.50);
+      --on-positive:     oklch(0.99 0.006 145);
+
       --radius: 12px;
       --radius-sm: 7px;
       --radius-lg: 19px;
@@ -488,6 +504,25 @@
       background: var(--comp);
       color: var(--on-comp);
       box-shadow: 0 12px 24px -14px var(--comp-shadow);
+    }
+
+    .stat-card.positive {
+      background: var(--positive);
+      color: var(--on-positive);
+      box-shadow: 0 12px 24px -14px var(--positive-shadow);
+    }
+
+    .stat-card.negative {
+      background: var(--danger);
+      color: oklch(0.99 0.006 25);
+      box-shadow: 0 12px 24px -14px oklch(0.55 0.16 25 / 0.50);
+    }
+
+    .stat-card.surface {
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: 0 12px 24px -14px oklch(0.3 0.02 265 / 0.18);
+      border: 1px solid var(--line);
     }
 
     .stat-label {
