@@ -25,13 +25,13 @@
       --page-bg: oklch(0.965 0.004 95);
       --danger: oklch(0.55 0.16 25);
 
-      --accent: oklch(0.62 0.115 185);
-      --accent-strong: oklch(0.57 0.115 185);
-      --accent-soft: oklch(0.962 0.05 185);
-      --accent-line: oklch(0.9 0.07 185);
-      --accent-ink: oklch(0.46 0.109 185);
-      --accent-shadow: oklch(0.62 0.115 185 / 0.55);
-      --on-accent: oklch(0.99 0.006 185);
+      --accent: oklch(0.84 0.18 86);
+      --accent-strong: oklch(0.78 0.18 86);
+      --accent-soft: oklch(0.97 0.06 86);
+      --accent-line: oklch(0.91 0.10 86);
+      --accent-ink: oklch(0.46 0.12 86);
+      --accent-shadow: oklch(0.84 0.18 86 / 0.55);
+      --on-accent: oklch(0.28 0.05 86);
 
       --comp: oklch(0.64 0.115 5);
       --comp-soft: oklch(0.962 0.05 5);
@@ -1271,16 +1271,16 @@
     }
 
     const CATEGORY_COLOURS = {
-      family: 'oklch(0.64 0.085 150)',
-      food: 'oklch(0.64 0.085 25)',
-      toll: 'oklch(0.64 0.085 60)',
-      parking: 'oklch(0.64 0.085 330)',
-      fuel: 'oklch(0.64 0.085 250)',
-      car: 'oklch(0.64 0.085 285)',
-      subs: 'oklch(0.64 0.085 200)',
-      medical: 'oklch(0.64 0.085 5)',
-      misc: 'oklch(0.64 0.085 100)',
-      _default: 'oklch(0.64 0.085 265)',
+      family: 'oklch(0.62 0.20 150)',
+      food: 'oklch(0.62 0.20 25)',
+      toll: 'oklch(0.62 0.20 60)',
+      parking: 'oklch(0.62 0.20 330)',
+      fuel: 'oklch(0.62 0.20 250)',
+      car: 'oklch(0.62 0.20 285)',
+      subs: 'oklch(0.62 0.20 200)',
+      medical: 'oklch(0.62 0.20 5)',
+      misc: 'oklch(0.62 0.20 100)',
+      _default: 'oklch(0.62 0.20 265)',
     };
     const FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230];
 
@@ -1288,7 +1288,7 @@
       const key = name.toLowerCase();
       if (CATEGORY_COLOURS[key]) return CATEGORY_COLOURS[key];
       const idx = allCats.findIndex(c => c.toLowerCase() === key);
-      return `oklch(0.64 0.085 ${FALLBACK_HUES[(idx < 0 ? 0 : idx) % 8]})`;
+      return `oklch(0.62 0.20 ${FALLBACK_HUES[(idx < 0 ? 0 : idx) % 8]})`;
     }
 
     let toastTimer;
