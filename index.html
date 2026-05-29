@@ -1277,6 +1277,38 @@
     .custom-dates { display: flex; gap: 12px; padding: 0 24px 12px; }
     .custom-dates .field { flex: 1; }
 
+    /* ── Report tabs ── */
+    .rpt-tab-bar {
+      display: flex; padding: 0 24px 0;
+      border-bottom: 1px solid var(--line-2); margin-bottom: 4px;
+    }
+    .rpt-tab {
+      flex: 1; padding: 9px 0;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-3);
+      cursor: pointer; transition: 0.14s;
+    }
+    .rpt-tab.on { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+    .rpt-expand-btn {
+      background: none; border: none; font: inherit; font-size: 11px;
+      color: var(--ink-3); cursor: pointer; padding: 0 5px 0 0;
+      line-height: 1; display: inline-flex; align-items: center;
+    }
+    .rpt-sub-row td, .rpt-sub-row .sticky-col { background: var(--page-bg) !important; }
+    .rpt-amber-row td { background: var(--amber-soft) !important; }
+    .rpt-amber-row .sticky-col { background: var(--amber-soft) !important; color: var(--amber-ink); }
+    .rpt-amber-amt { color: var(--amber-ink) !important; font-weight: 800; }
+    .rpt-pill {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 2px 5px; border-radius: 999px; display: inline-block; margin-left: 5px;
+      vertical-align: middle;
+    }
+    .rpt-pill.var   { background: var(--accent-soft); color: var(--accent-ink); }
+    .rpt-pill.fixed { background: var(--comp-soft);   color: var(--comp-ink); }
+    .rpt-footnote-line {
+      font-size: 11.5px; color: var(--amber-ink); font-style: italic; margin-top: 5px;
+    }
+
     /* ── Budget checklist ── */
     .chk-progress {
       display: flex; align-items: center; gap: 12px;
@@ -1517,7 +1549,21 @@
     <div id="screen-report" class="screen" style="display:none">
       <div class="hdr">
         <div class="hdr-eyebrow">Report</div>
-        <h1 id="rpt-range-title"></h1>
+        <div id="rpt-month-nav" class="report-hdr">
+          <button class="month-nav" id="rpt-prev-month" type="button" aria-label="Previous month">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div class="month-title"><h1 id="rpt-range-title"></h1></div>
+          <button class="month-nav" id="rpt-next-month" type="button" aria-label="Next month">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="period-row" id="rpt-period-row"></div>
       <div class="custom-dates" id="rpt-custom-dates" style="display:none">
@@ -1530,6 +1576,7 @@
           <input type="date" class="input-row note" id="rpt-to-date" />
         </div>
       </div>
+      <div class="rpt-tab-bar" id="rpt-tab-bar"></div>
       <div class="filter-row" id="rpt-filter-row"></div>
       <div class="screen-body" id="rpt-body">
         <div class="stat-grid" id="rpt-stats"></div>
@@ -1537,11 +1584,12 @@
           <span class="block-label">Top categories</span>
           <div class="breakdown" id="rpt-breakdown"></div>
         </div>
-        <div class="grid-block">
+        <div>
           <span class="block-label">Breakdown</span>
           <div class="grid-scroll">
             <table class="report-table" id="rpt-table"></table>
           </div>
+          <div id="rpt-footnote" style="padding-top:8px"></div>
         </div>
       </div>
     </div>
