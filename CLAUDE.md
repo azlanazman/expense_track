@@ -1243,3 +1243,148 @@ fixed-only rows in the Combined tab with a `fixed` pill label.
 
 All other variable categories (Food, Toll, Parking, Fuel, Medical, Misc) appear as
 variable-only rows with a `var` pill label.
+
+---
+
+## PHASE 3 — Bug fixes + multi-user readiness
+
+Identified after Phase 2 shipped. Fix in priority order before sharing with other users.
+
+---
+
+### Known bugs (fix before sharing)
+
+#### Bug 1 — `DEFAULT_CATEGORIES` has `'Car'` not `'Car Maintenance'`
+File: `js/helpers.js` line 40
+
+**Problem:** `DEFAULT_CATEGORIES` still contains `'Car'`. The budget checklist and report both
+filter variable expenses with `e.category === 'Car Maintenance'` for the Car Maintenance
+Balance formula. New users seeded with `'Car'` will have their car expenses silently excluded
+from the formula — it appears to work but always shows zero car spend.
+
+**Fix:** Change the default:
+```js
+// js/helpers.js
+export const DEFAULT_CATEGORIES = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car Maintenance', 'Subs', 'Medical', 'Misc'];
+```
+
+Also add a `'car maintenance'` key to `CATEGORY_COLOURS` so it gets a fixed dot colour
+instead of falling back to the index-based hue:
+```js
+// js/helpers.js — inside CATEGORY_COLOURS
+'car maintenance': 'oklch(0.62 0.20 285)',
+```
+
+Note: existing users who already have `'Car'` in their `userSettings.categories` are
+unaffected — their data is stored. Only new sign-ups are impacted.
+
+---
+
+#### Bug 2 — No error handling in `budget.js` and `budget-templates.js`
+Files: `js/budget.js`, `js/budget-templates.js`
+
+**Problem:** 27 `await` calls in `budget.js` and 7 in `budget-templates.js` have zero
+`try/catch` blocks. Firestore errors fail silently — the user taps Pay or Save and nothing
+happens, with no toast or rollback. This is particularly dangerous on the mark-paid path,
+which writes an `expenses` doc AND updates `budgetMonths` — a partial failure leaves
+orphaned data.
+
+**Fix:** Wrap every Firestore write in `budget.js` and `budget-templates.js` with
+`try/catch` that calls `showToast('Error — please try again')`. Pattern from `add.js`:
+```js
+try {
+  await someFirestoreWrite(...);
+  showToast('Saved!');
+} catch (e) {
+  console.error(e);
+  showToast('Error — please try again');
+}
+```
+Priority functions to wrap: `markPaid`, `markUnpaid`, `saveIncomeEdit`, any `persistBudgetMonth`
+call in `budget.js`; `saveItem`, `deleteItem`, `deleteGroup`, `saveTopLevel` in `budget-templates.js`.
+
+---
+
+#### Bug 3 — `todayString` unused import in `report.js`
+File: `js/report.js` line 2
+
+**Problem:** `todayString` is imported from `helpers.js` but never called in the current code.
+Stale import from an earlier version of the period logic.
+
+**Fix:** Remove `todayString` from the import line:
+```js
+// before
+import { fmt, parseLocalDate, todayString, monthLabel, catColor } from './helpers.js';
+// after
+import { fmt, parseLocalDate, monthLabel, catColor } from './helpers.js';
+```
+
+---
+
+### Multi-user readiness issues
+
+#### Issue 4 — `DEFAULT_BUDGET_TEMPLATE` seeds personal data for every new user
+File: `js/budget-templates.js` lines 5–64
+
+**Problem:** The seed template is personal — it includes PTPTN, MLMT car loan, Unifi,
+Umobile (parents), TNB, Air Selangor, Wife, Aidan, Groceries, Netflix, Sooka, Quronly,
+LinkedIn, Claude, SPaylater, Zakat, Sedekah. Every new user who opens Budget Templates
+for the first time gets this structure and must manually delete entries they don't need.
+
+**Fix:** Replace the default seed with a minimal generic scaffold — group names only,
+no items pre-filled (or a short set of universally common items). Users build out their
+own items from there.
+
+Suggested minimal seed:
+```js
+const DEFAULT_BUDGET_TEMPLATE = {
+  ccBudget: 0,
+  carMaintenanceBudget: 0,
+  groups: [
+    { id:'loan',      name:'Loan',      items:[] },
+    { id:'bills',     name:'Bills',     items:[] },
+    { id:'insurance', name:'Insurance', items:[] },
+    { id:'family',    name:'Family',    items:[] },
+    { id:'subs',      name:'Subs',      items:[] },
+    { id:'saving',    name:'Saving',    items:[] },
+    { id:'cc', name:'CC', items:[
+      { id:'cc-charge',  name:'Charge',  paymentMethod:'', defaultAmount:0, isVariable:true,  isCalculated:false },
+      { id:'cc-balance', name:'Balance', paymentMethod:'', defaultAmount:0, isVariable:false, isCalculated:true  }
+    ]},
+    { id:'carmaint', name:'Car Maintenance', items:[
+      { id:'carmaint-balance', name:'Balance', paymentMethod:'', defaultAmount:0, isVariable:false, isCalculated:true }
+    ]}
+  ]
+};
+```
+
+Keep `cc-balance` and `carmaint-balance` in the seed because the auto-calc feature
+depends on them by ID. Users who don't want them can delete them (this is now allowed
+since the Bug 2 guard was removed).
+
+---
+
+#### Issue 5 — Default categories and payment methods are personal/regional
+Files: `js/helpers.js` lines 40–41
+
+**Problem:** `DEFAULT_CATEGORIES` includes `'Car Maintenance'` (fixed in Bug 1) and
+`DEFAULT_PAYMENTS` includes `TNG`, `MLMT`, `SETEL`, `AEON`, `SPAY` — Malaysian e-wallet
+and payment method names. Non-Malaysian users will see these as noise on first sign-in.
+
+**Decision required:** If the app is shared only within Malaysia, leave as-is.
+If broader sharing is intended, replace with generic defaults:
+```js
+export const DEFAULT_PAYMENTS = ['Cash', 'Credit Card', 'Bank Transfer'];
+```
+
+---
+
+### Phase 3 task list
+
+| # | What | File(s) | Priority |
+|---|------|---------|----------|
+| P3-1 | Fix `DEFAULT_CATEGORIES`: `'Car'` → `'Car Maintenance'`; add colour key | `js/helpers.js` | 🔴 bug |
+| P3-2 | Add try/catch to all Firestore writes in budget modules | `js/budget.js`, `js/budget-templates.js` | 🔴 bug |
+| P3-3 | Remove unused `todayString` import | `js/report.js` | 🟡 minor |
+| P3-4 | Slim `DEFAULT_BUDGET_TEMPLATE` to generic scaffold | `js/budget-templates.js` | 🟠 sharing |
+| P3-5 | Decide and update `DEFAULT_PAYMENTS` / `DEFAULT_CATEGORIES` for target audience | `js/helpers.js` | 🟠 sharing |
