@@ -405,10 +405,17 @@ function buildChkGroup(group, payments) {
   if (!isCollapsed) {
     const gbody = document.createElement('div');
     gbody.className = 'chk-group-body';
-    group.items.forEach(item => {
-      const payment = payments.find(p => p.itemId === item.id);
-      gbody.appendChild(buildChkItem(item, payment));
-    });
+    if (group.items.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:14px 16px;font-size:13px;font-weight:500;color:var(--ink-3);font-style:italic';
+      empty.textContent = 'No items — add in Settings → Budget templates';
+      gbody.appendChild(empty);
+    } else {
+      group.items.forEach(item => {
+        const payment = payments.find(p => p.itemId === item.id);
+        gbody.appendChild(buildChkItem(item, payment));
+      });
+    }
     wrapper.appendChild(gbody);
   }
 

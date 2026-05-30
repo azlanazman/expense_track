@@ -1,29 +1,36 @@
-import { fmt, showToast } from './helpers.js';
+import { fmt, showToast, DEFAULT_CATEGORIES, MY_CATEGORIES_PRESET, DEFAULT_PAYMENTS, MY_PAYMENTS_PRESET, MY_PAYMENTS_TYPES, DEFAULT_PAYMENT_TYPES } from './helpers.js';
 import {
   updateUserSettings, persistAccounts, fetchAccounts, updateBudgetMonthIncome
 } from './db.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const ACCOUNT_TYPE_MAP = {
-  TNG: 'ewallet', SETEL: 'ewallet', AEON: 'ewallet', SPAY: 'ewallet',
-  CIMB: 'bank', RHB: 'bank', MLMT: 'bank',
-};
-
 const ICON_BANK    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`;
 const ICON_EWALLET = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/></svg>`;
 const ICON_CARD    = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`;
 const ICON_SAVINGS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.8 2-3 2-4.5C20 9 20 5 19 5z"/><path d="M2 9.5a5 5 0 0 1 5-5"/></svg>`;
-const TYPE_ICONS = { bank: ICON_BANK, ewallet: ICON_EWALLET, card: ICON_CARD, savings: ICON_SAVINGS };
+const TYPE_ICONS   = { bank: ICON_BANK, ewallet: ICON_EWALLET, card: ICON_CARD, savings: ICON_SAVINGS };
+
+const TYPE_CYCLE = ['bank', 'ewallet', 'card', 'savings'];
+const TYPE_BADGE_STYLE = {
+  bank:    'background:var(--accent-soft);color:var(--accent-ink)',
+  ewallet: 'background:#fff8e8;color:#854F0B',
+  card:    'background:#f0f7ff;color:#185FA5',
+  savings: 'background:#f0fff8;color:#0F6E56',
+};
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
 let uid;
 const state = {
-  salaryDay: null,
-  methods:   ['TNG', 'CIMB', 'RHB', 'MLMT', 'SETEL', 'AEON', 'SPAY'],
-  salary:    0,
-  claim:     0,
+  categoryPreset: 'general',
+  categories:     [...DEFAULT_CATEGORIES],
+  methodPreset:   'general',
+  methods:        [...DEFAULT_PAYMENTS],
+  methodTypes:    { ...DEFAULT_PAYMENT_TYPES },
+  salaryDay:      null,
+  salary:         0,
+  claim:          0,
 };
 let seededAccounts = [];
 
@@ -45,6 +52,7 @@ function showStep(id) {
   if (!el) return;
   el.classList.add('active');
   if (id === 's0') renderDayGrid();
+  if (id === 'sc') renderCategoryChips();
   if (id === 's1') renderMethodChips();
   if (id === 's2') renderBalanceRows();
 }
@@ -55,6 +63,7 @@ function showFinalScreen() {
 
   const rows = [
     summaryRow('Salary day', state.salaryDay ? ordinal(state.salaryDay) : 'Not set'),
+    summaryRow('Categories', String(state.categories.length)),
     summaryRow('Accounts linked', String(seededAccounts.length)),
     summaryRow('Monthly salary', state.salary > 0 ? `RM ${fmt(state.salary)}` : 'Not set', true),
   ];
@@ -89,27 +98,102 @@ function renderDayGrid() {
   if (state.salaryDay) qs('#ob-s0-cont').disabled = false;
 }
 
+function renderCategoryChips() {
+  const container = qs('#ob-cat-chips');
+  container.innerHTML = state.categories.map(c =>
+    `<button class="ob-chip on" data-cat="${escapeHtml(c)}" type="button">${escapeHtml(c)}</button>`
+  ).join('') + `<button class="ob-chip add" id="ob-add-cat" type="button">+ add</button>`;
+
+  container.querySelectorAll('.ob-chip[data-cat]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cat = chip.dataset.cat;
+      if (chip.classList.contains('on')) {
+        if (state.categories.length <= 1) { showToast('Keep at least one category'); return; }
+        state.categories = state.categories.filter(c => c !== cat);
+        chip.classList.remove('on');
+      } else {
+        state.categories.push(cat);
+        chip.classList.add('on');
+      }
+      updateCatCount();
+    });
+  });
+
+  qs('#ob-add-cat').addEventListener('click', () => {
+    const addChip = qs('#ob-add-cat');
+    addChip.style.display = 'none';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Category name';
+    inp.style.cssText = 'padding:9px 14px;border-radius:999px;border:1.5px solid var(--accent);font:inherit;font-size:14px;font-weight:600;outline:none;max-width:140px;color:var(--ink);background:var(--surface)';
+    container.appendChild(inp);
+    inp.focus();
+
+    const commit = () => {
+      const name = inp.value.trim();
+      inp.remove();
+      addChip.style.display = '';
+      if (name && !state.categories.includes(name)) {
+        state.categories.push(name);
+        renderCategoryChips();
+      }
+    };
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { inp.remove(); addChip.style.display = ''; }
+    });
+    inp.addEventListener('blur', commit);
+  });
+
+  updateCatCount();
+}
+
+function updateCatCount() {
+  qs('#ob-cat-count').textContent = `${state.categories.length} selected`;
+}
+
 function renderMethodChips() {
   const container = qs('#ob-method-chips');
-  container.innerHTML = state.methods.map(m =>
-    `<button class="ob-chip on" data-method="${escapeHtml(m)}" type="button">${escapeHtml(m)}</button>`
-  ).join('') + `<button class="ob-chip add" id="ob-add-chip" type="button">+ add</button>`;
+  container.innerHTML = state.methods.map(m => {
+    const type  = state.methodTypes[m] || 'bank';
+    const bstyle = TYPE_BADGE_STYLE[type] || TYPE_BADGE_STYLE.bank;
+    return `
+      <div class="ob-chip-wrap">
+        <button class="ob-chip on" data-method="${escapeHtml(m)}" type="button">${escapeHtml(m)}</button>
+        <button class="ob-type-badge" data-method="${escapeHtml(m)}" style="${bstyle}" type="button">${type}</button>
+      </div>`;
+  }).join('') + `<button class="ob-chip add" id="ob-add-chip" type="button">+ add</button>`;
 
+  // Toggle chip on/off
   container.querySelectorAll('.ob-chip[data-method]').forEach(chip => {
     chip.addEventListener('click', () => {
       const method = chip.dataset.method;
       if (chip.classList.contains('on')) {
         if (state.methods.length <= 1) { showToast('Keep at least one method'); return; }
         state.methods = state.methods.filter(m => m !== method);
-        chip.classList.remove('on');
+        delete state.methodTypes[method];
+        renderMethodChips();
       } else {
         state.methods.push(method);
-        chip.classList.add('on');
+        renderMethodChips();
       }
       updateMethodCount();
     });
   });
 
+  // Cycle type badge
+  container.querySelectorAll('.ob-type-badge').forEach(badge => {
+    badge.addEventListener('click', () => {
+      const method = badge.dataset.method;
+      const cur    = state.methodTypes[method] || 'bank';
+      const next   = TYPE_CYCLE[(TYPE_CYCLE.indexOf(cur) + 1) % TYPE_CYCLE.length];
+      state.methodTypes[method] = next;
+      badge.textContent = next;
+      Object.assign(badge.style, parseBadgeStyle(TYPE_BADGE_STYLE[next]));
+    });
+  });
+
+  // Add custom method
   qs('#ob-add-chip').addEventListener('click', () => {
     const addChip = qs('#ob-add-chip');
     addChip.style.display = 'none';
@@ -126,10 +210,10 @@ function renderMethodChips() {
       addChip.style.display = '';
       if (name && !state.methods.includes(name)) {
         state.methods.push(name);
+        state.methodTypes[name] = 'bank';
         renderMethodChips();
       }
     };
-
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); commit(); }
       if (e.key === 'Escape') { inp.remove(); addChip.style.display = ''; }
@@ -138,6 +222,18 @@ function renderMethodChips() {
   });
 
   updateMethodCount();
+}
+
+function parseBadgeStyle(styleStr) {
+  const result = {};
+  styleStr.split(';').forEach(pair => {
+    const [prop, val] = pair.split(':').map(s => s.trim());
+    if (prop && val) {
+      const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      result[camel] = val;
+    }
+  });
+  return result;
 }
 
 function updateMethodCount() {
@@ -187,12 +283,54 @@ function bindEvents() {
     if (!state.salaryDay) return;
     try { await updateUserSettings(uid, { salaryDay: state.salaryDay }); }
     catch (e) { showToast('Error saving — please try again'); return; }
-    showStep('s1');
+    showStep('sc');
   });
   qs('#ob-s0-back').addEventListener('click', () => showStep('t2'));
-  qs('#ob-s0-skip').addEventListener('click', () => showStep('s1'));
+  qs('#ob-s0-skip').addEventListener('click', () => showStep('sc'));
+
+  // Setup categories (sc) — preset buttons
+  qs('#ob-cat-preset-general').addEventListener('click', () => {
+    state.categoryPreset = 'general';
+    state.categories = [...DEFAULT_CATEGORIES];
+    updatePresetButtons('#ob-cat-preset-general', '#ob-cat-preset-my', '#ob-cat-preset-blank');
+    renderCategoryChips();
+  });
+  qs('#ob-cat-preset-my').addEventListener('click', () => {
+    state.categoryPreset = 'my';
+    state.categories = [...MY_CATEGORIES_PRESET];
+    updatePresetButtons('#ob-cat-preset-my', '#ob-cat-preset-general', '#ob-cat-preset-blank');
+    renderCategoryChips();
+  });
+  qs('#ob-cat-preset-blank').addEventListener('click', () => {
+    state.categoryPreset = 'blank';
+    state.categories = [];
+    updatePresetButtons('#ob-cat-preset-blank', '#ob-cat-preset-general', '#ob-cat-preset-my');
+    renderCategoryChips();
+  });
+  qs('#ob-sc-cont').addEventListener('click', async () => {
+    try { await updateUserSettings(uid, { categories: state.categories }); }
+    catch (e) { showToast('Error saving — please try again'); return; }
+    showStep('s1');
+  });
+  qs('#ob-sc-back').addEventListener('click', () => showStep('s0'));
+  qs('#ob-sc-skip').addEventListener('click', () => showStep('s1'));
 
   // Setup 1 — payment methods
+  qs('#ob-method-preset-general').addEventListener('click', () => {
+    state.methodPreset = 'general';
+    state.methods = [...DEFAULT_PAYMENTS];
+    state.methodTypes = { ...DEFAULT_PAYMENT_TYPES };
+    updatePresetButtons('#ob-method-preset-general', '#ob-method-preset-my');
+    renderMethodChips();
+  });
+  qs('#ob-method-preset-my').addEventListener('click', () => {
+    state.methodPreset = 'my';
+    const existing = new Set(state.methods);
+    MY_PAYMENTS_PRESET.forEach(m => { if (!existing.has(m)) state.methods.push(m); });
+    MY_PAYMENTS_PRESET.forEach(m => { state.methodTypes[m] = MY_PAYMENTS_TYPES[m] || 'bank'; });
+    updatePresetButtons('#ob-method-preset-my', '#ob-method-preset-general');
+    renderMethodChips();
+  });
   qs('#ob-s1-cont').addEventListener('click', async () => {
     if (state.methods.length === 0) { showToast('Select at least one method'); return; }
     try {
@@ -203,7 +341,7 @@ function bindEvents() {
           id:             `acc-${Date.now()}-${i}`,
           name,
           openingBalance: 0,
-          type:           ACCOUNT_TYPE_MAP[name] || 'bank',
+          type:           state.methodTypes[name] || 'bank',
           createdAt:      new Date().toISOString(),
         }));
         await persistAccounts(uid, seededAccounts);
@@ -215,7 +353,7 @@ function bindEvents() {
     }
     showStep('s2');
   });
-  qs('#ob-s1-back').addEventListener('click', () => showStep('s0'));
+  qs('#ob-s1-back').addEventListener('click', () => showStep('sc'));
 
   // Setup 2 — opening balances
   qs('#ob-s2-cont').addEventListener('click', async () => {
@@ -257,6 +395,23 @@ function bindEvents() {
   });
 }
 
+function updatePresetButtons(activeId, ...inactiveIds) {
+  const active = qs(activeId);
+  if (active) {
+    active.style.background = 'var(--ink)';
+    active.style.color = 'var(--screen-bg)';
+    active.style.borderColor = 'var(--ink)';
+  }
+  inactiveIds.forEach(id => {
+    const el = qs(id);
+    if (el) {
+      el.style.background = 'transparent';
+      el.style.color = 'var(--ink-2)';
+      el.style.borderColor = 'var(--line)';
+    }
+  });
+}
+
 // ── Firestore: save balances ───────────────────────────────────────────────────
 
 async function saveBalances() {
@@ -292,7 +447,7 @@ function buildHTML() {
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:32px 24px 24px">
         <div style="width:72px;height:72px;border-radius:20px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:28px;color:var(--accent-ink)">${walletSVG(32)}</div>
         <h1 style="font-size:30px;font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Your finances,<br>finally clear</h1>
-        <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Track every ringgit — expenses, fixed bills, income, savings, and account balances in one place.</p>
+        <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Track every dollar — expenses, fixed bills, income, savings, and account balances in one place.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${featureRow('Log expenses instantly')}
           ${featureRow('Smart monthly reports')}
@@ -320,8 +475,8 @@ function buildHTML() {
         <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">See exactly what's left after salary, fixed bills, and daily spending — updated live every month.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${featureRow('Income tracking')}
-          ${featureRow('Fixed bill checklist')}
-          ${featureRow('Savings pots')}
+          ${featureRow('All your accounts tracked live')}
+          ${featureRow('Mark fixed bills as paid each month')}
         </div>
       </div>
       <div style="padding:0 24px 48px;display:flex;flex-direction:column;gap:12px">
@@ -363,8 +518,8 @@ function buildHTML() {
     <div class="ob-step" id="ob-s0">
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:25%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 1 of 4</span>
+          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:20%"></div></div>
+          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 1 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
@@ -383,18 +538,51 @@ function buildHTML() {
       </div>
     </div>
 
+    <!-- Setup categories (sc) -->
+    <div class="ob-step" id="ob-sc">
+      <div style="padding:20px 24px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:40%"></div></div>
+          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 2 of 5</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your spending</div>
+        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">How do you categorise?</h2>
+        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Choose a starting set. You can add, rename, or remove categories later in Settings.</p>
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+          <button id="ob-cat-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
+          <button id="ob-cat-preset-my" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Malaysian</button>
+          <button id="ob-cat-preset-blank" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Start blank</button>
+        </div>
+        <div id="ob-cat-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
+        <p id="ob-cat-count" style="font-size:13px;font-weight:600;color:var(--ink-3)"></p>
+      </div>
+      <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
+        <button class="ob-btn-main" id="ob-sc-cont">Continue</button>
+        <div style="display:flex;gap:10px">
+          <button class="ob-btn-outline" style="flex:1" id="ob-sc-back">← Back</button>
+          <button style="flex:1;background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-sc-skip">Skip for now</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Setup 1: Payment Methods -->
     <div class="ob-step" id="ob-s1">
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:50%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 2 of 4</span>
+          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:60%"></div></div>
+          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 3 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
         <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your accounts</div>
         <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Which do you use?</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:24px">Select all your payment methods. You can add more later in Settings.</p>
+        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your payment methods. Tap the type badge to change account type.</p>
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+          <button id="ob-method-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
+          <button id="ob-method-preset-my" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">+ Malaysian</button>
+        </div>
         <div id="ob-method-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
         <p id="ob-method-count" style="font-size:13px;font-weight:600;color:var(--ink-3)"></p>
       </div>
@@ -408,8 +596,8 @@ function buildHTML() {
     <div class="ob-step" id="ob-s2">
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:75%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 3 of 4</span>
+          <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:80%"></div></div>
+          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 4 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
@@ -432,7 +620,7 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:100%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 4 of 4</span>
+          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 5 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
@@ -440,7 +628,7 @@ function buildHTML() {
         <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Your monthly income</h2>
         <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:28px">Used to calculate your net balance. You can update this anytime in Budget → Overview.</p>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
-          <label style="font-size:13px;font-weight:600;color:var(--ink-2)">Salary (Gaji) <span style="color:var(--ink-3);font-weight:500">required*</span></label>
+          <label style="font-size:13px;font-weight:600;color:var(--ink-2)">Salary <span style="color:var(--ink-3);font-weight:500">required*</span></label>
           <div style="display:flex;align-items:center;border:2px solid var(--accent);border-radius:var(--radius);background:var(--surface);overflow:hidden">
             <span style="padding:14px 10px 14px 16px;font-size:15px;font-weight:700;color:var(--accent-ink)">RM</span>
             <input id="ob-salary" type="text" inputmode="decimal" placeholder="0.00"
