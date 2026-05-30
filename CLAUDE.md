@@ -170,8 +170,7 @@ Row tap → edit/delete sheet (confirm before delete). Footer: "✎ tap a row to
 filter chips: multi-select, `All` resets. Three tabs: Variable · Fixed · Combined.
 - Each tab: two stat cards (Total spent teal + Daily avg black) + category bar chart + table.
 - Variable tab: category × method table, ▾ expands to daily totals (same-day transactions summed).
-- Fixed tab: fixed group × method table, ▾ expands items. CC Balance + Car Maintenance Balance
-  rows amber, conditional on those items existing in `budgetTemplates`.
+- Fixed tab: fixed group × method table, ▾ expands items.
 - Combined tab: Family/Subs/Car Maintenance merged (var+fixed); others get `var`/`fixed` pill.
 - Table: sticky first column, zero cells → `—`, total column `.tot-col`, footer totals row.
 
@@ -184,8 +183,8 @@ filter chips: multi-select, `All` resets. Three tabs: Variable · Fixed · Combi
 6. Sign out — danger row card
 
 Budget templates sub-page: groups as collapsible sections, items with name/payMethod/amount/
-isVariable toggle. Add item per group, add group at bottom. CC budget + Car Maintenance budget
-at top. Slide transition ≤ 220ms via `translateX` JS mini-stack (`subPageStack`).
+isVariable toggle. Add item per group, add group at bottom (delete group via visible trash button
+in header). Slide transition ≤ 220ms via `translateX` JS mini-stack (`subPageStack`).
 
 **Screen 5 — Budget:**
 - **5a Overview:** Net balance hero card (black bg, teal number) = Income − Fixed − Variable.
@@ -251,3 +250,374 @@ All other fixed groups → `fixed` pill. All other variable categories → `var`
 | P3-3 | Removed unused `todayString` import | `js/report.js` | ✓ done |
 | P3-4 | `DEFAULT_BUDGET_TEMPLATE` slimmed to generic scaffold; kept `cc-balance` + `carmaint-balance` by ID | `js/budget-templates.js` | ✓ done |
 | P3-5 | `DEFAULT_PAYMENTS` left as-is — app targets Malaysian users | `js/helpers.js` | ✓ decided |
+
+---
+
+## Phase 4 — Accounts, Transfers & Savings Pots
+
+### Overview
+
+Budget tab gains 3 internal sub-tabs: **Overview · Accounts · Savings**
+Navigation stays at 5 tabs — no new tab added.
+
+| Sub-tab | What's inside |
+|---|---|
+| Overview | Existing 5a + 5b (unchanged) |
+| Accounts | Account balances, running totals, transfer history, add transfer |
+| Savings | Savings pots with goals, progress bars, contribute/withdraw |
+
+---
+
+### Design decisions (locked)
+
+- Payment methods (TNG, CIMB, RHB, MLMT, SETEL, AEON, SPAY) ARE the accounts — seeded automatically from `userSettings.paymentMethods` on first open of Accounts tab
+- User can add extra accounts (e.g. CIMB THAJI) via `+ Add account` — name + opening balance + optional type
+- Account type affects icon only (bank / e-wallet / card / savings) — no functional difference
+- Transfers appear in the Expense Log with a double-arrow icon, teal colour, and are excluded from expense totals
+- Log gets a new `Transfers` filter chip alongside payment method chips
+- Savings pot contributions reduce the linked account balance; withdrawals increase it
+- Both monthly fixed and ad-hoc contributions supported per pot
+
+---
+
+### New Firestore collections
+
+#### `accounts/{uid}`
+```
+accounts: [
+  {
+    id              string    unique id
+    name            string    e.g. "CIMB", "TNG", "CIMB THAJI"
+    openingBalance  number    manually set by user
+    type            string    "bank" | "ewallet" | "card" | "savings"
+    createdAt       timestamp
+  }
+]
+```
+
+Seeded on first open of Accounts tab from `userSettings.paymentMethods`.
+Each seeded account gets `openingBalance: 0` — user edits to set real value.
+New manually added accounts also start at `openingBalance: 0`.
+
+#### `transfers/{id}`
+```
+uid             string
+fromAccountId   string    references accounts[].id
+toAccountId     string    references accounts[].id
+amount          number
+date            string    "YYYY-MM-DD"
+notes           string    optional
+createdAt       timestamp
+type            string    "transfer" (for Log filtering)
+```
+
+#### `savingsPots/{uid}`
+```
+pots: [
+  {
+    id              string
+    name            string    e.g. "Emergency", "Car", "Vacation"
+    linkedAccountId string    references accounts[].id
+    targetAmount    number    goal amount (0 = no goal set)
+    currentBalance  number    running balance
+    colour          string    oklch colour string for dot + progress bar
+    isMonthlyFixed  boolean   true = has a recurring monthly contribution
+    monthlyAmount   number    amount if isMonthlyFixed = true
+    createdAt       timestamp
+  }
+]
+```
+
+---
+
+### Account balance calculation
+
+Computed client-side on render — never stored directly (avoids race conditions):
+
+```js
+function calcAccountBalance(accountId, accountName, openingBalance, expenses, transfers, potTransactions) {
+  // income adds to balance
+  const incomeTotal = expenses
+    .filter(e => e.isIncome && e.paymentMethod === accountName)
+    .reduce((s, e) => s + e.amount, 0);
+
+  // variable + fixed spending reduces balance
+  const spendTotal = expenses
+    .filter(e => !e.isIncome && e.paymentMethod === accountName)
+    .reduce((s, e) => s + e.amount, 0);
+
+  // transfers out reduce balance
+  const transferOut = transfers
+    .filter(t => t.fromAccountId === accountId)
+    .reduce((s, t) => s + t.amount, 0);
+
+  // transfers in increase balance
+  const transferIn = transfers
+    .filter(t => t.toAccountId === accountId)
+    .reduce((s, t) => s + t.amount, 0);
+
+  // pot contributions reduce linked account balance
+  const potOut = potTransactions
+    .filter(c => c.linkedAccountId === accountId && c.type === 'contribute')
+    .reduce((s, c) => s + c.amount, 0);
+
+  // pot withdrawals increase linked account balance
+  const potIn = potTransactions
+    .filter(c => c.linkedAccountId === accountId && c.type === 'withdraw')
+    .reduce((s, c) => s + c.amount, 0);
+
+  return openingBalance + incomeTotal - spendTotal - transferOut + transferIn - potOut + potIn;
+}
+```
+
+Match expenses to accounts by `paymentMethod` name (string match against `account.name`).
+
+**Query boundary:** Only load expenses and transfers dated on or after `account.createdAt`. Ignore older records — they predate the account and would distort the balance.
+
+---
+
+### Screen behaviour — Accounts sub-tab (Budget → Accounts)
+
+**Header:** eyebrow "Budget", h1 "Accounts"
+
+**Total card:** teal card at top — "Total across accounts" + sum of all account balances
+
+**Account list:**
+- Each account: icon (by type), name, running balance (large, tabular), opening balance (muted small below)
+- Running balance: teal if ≥ 0, danger red if < 0
+- "last updated" = date of most recent expense/transfer touching this account
+- Tap account → account detail sheet: edit name, edit opening balance only — no delete (accounts are permanent; deleting would orphan transfers and pot links)
+- `+ Add account` dashed card at bottom → bottom sheet: name input, opening balance, type selector (bank/ewallet/card/savings)
+
+**Recent transfers section:**
+- Shows last 5 transfers, double-arrow icon, teal text
+- "See all" link → switches to Log tab with Transfers chip active; `log.js` exports `showLogTransfers()` which `app.js` calls on nav switch
+
+**`+ Transfer` button** (floating or in header):
+- Bottom sheet: From dropdown (account list), To dropdown, amount input, date, notes
+- From and To must differ — confirm button disabled if same account selected
+- Preview card: shows new balance for both accounts after transfer
+- Confirm → write to `transfers/{id}`, update both account balances (recalculated on next render)
+- Transfer appears in Expense Log
+
+---
+
+### Screen behaviour — Savings sub-tab (Budget → Savings)
+
+**Header:** eyebrow "Budget", h1 "Savings"
+
+**Total card:** teal card — "Total saved" + sum of all pot `currentBalance` values
+
+**Pot cards (one per pot):**
+- Colour dot + pot name + linked account name (muted, right-aligned)
+- Progress bar: `currentBalance / targetAmount` width, coloured by pot colour
+  - If `targetAmount = 0`: bar shows solid fill, no percentage
+- Balance line: `RM <currentBalance>` (large tabular) + `goal RM <targetAmount>` (muted)
+- Two buttons: `Add` (teal tint) + `Withdraw` (neutral tint)
+- Tap pot name → edit sheet: name, linked account, target amount, colour picker,
+  monthly fixed toggle + amount input (toggle is a reminder label only — contributions are always manual)
+- Edit sheet has a Delete button at bottom: confirm dialog → hard-delete pot + all its `potTransactions`
+
+**Add contribution flow:**
+1. Tap `Add` → bottom sheet: amount input, date, notes
+2. On confirm: `pots[id].currentBalance += amount`, deduct from linked account balance (recalculated on next render)
+   Write to `potTransactions/{txId}` (top-level collection)
+
+**Withdraw flow:**
+1. Tap `Withdraw` → bottom sheet: amount input (max = currentBalance), date, notes
+2. On confirm: `pots[id].currentBalance -= amount`, add to linked account balance (recalculated on next render)
+   Write to `potTransactions/{txId}` (top-level collection)
+
+**`+ New pot` dashed card** at bottom → bottom sheet:
+- Name, linked account (dropdown from accounts list), target amount (optional),
+  colour picker (6 preset oklch colours), monthly fixed toggle + amount
+
+#### `potTransactions/{txId}` — top-level collection
+```
+uid             string
+potId           string
+type            string    "contribute" | "withdraw"
+amount          number
+linkedAccountId string
+date            string    "YYYY-MM-DD"
+notes           string
+createdAt       timestamp
+```
+
+---
+
+### Log — Transfers chip
+
+Add `Transfers` as a new filter chip in Screen 2 (Expense Log), after the payment method chips.
+
+**Transfer rows in Log:**
+- Icon: double-arrow (`ti-arrows-exchange`), teal background circle
+- Category text: "CIMB → TNG" in teal colour
+- Meta: date · "transfer" · notes (if any)
+- Amount: teal, no minus sign (not an expense)
+- Excluded from the header total RM and entry count when "All" or a payment method chip is selected
+- Shown only when "Transfers" chip is active
+
+**Implementation note:** Query `transfers` collection separately when Log month changes.
+Merge and sort with expenses by date desc when Transfers chip is active.
+
+---
+
+### New JS module
+
+Add `js/accounts.js` for all Accounts + Savings logic.
+Add `js/transfers.js` for transfer Firestore operations (or fold into `db.js`).
+
+Updated module list:
+```
+js/
+  app.js
+  firebase.js
+  state.js
+  helpers.js
+  db.js
+  add.js
+  log.js              ← add Transfers chip + transfer row rendering
+  report.js
+  settings.js
+  budget.js           ← add Budget sub-tab routing (Overview / Accounts / Savings)
+  budget-templates.js
+  accounts.js         ← NEW: account list, balance calc, add account, add transfer
+  savings.js          ← NEW: savings pots, contribute, withdraw
+```
+
+---
+
+### Firestore security rules additions
+
+Add to `firestore.rules`:
+```
+match /transfers/{transferId} {
+  allow read, update, delete: if request.auth != null
+    && request.auth.uid == resource.data.uid;
+  allow create: if request.auth != null
+    && request.auth.uid == request.resource.data.uid;
+}
+
+match /accounts/{uid} {
+  allow read, write: if request.auth != null
+    && request.auth.uid == uid;
+}
+
+match /savingsPots/{uid} {
+  allow read, write: if request.auth != null
+    && request.auth.uid == uid;
+}
+
+match /potTransactions/{txId} {
+  allow read, update, delete: if request.auth != null
+    && request.auth.uid == resource.data.uid;
+  allow create: if request.auth != null
+    && request.auth.uid == request.resource.data.uid;
+}
+```
+
+---
+
+### Build tasks — Phase 4
+
+Run after Phase 3 is complete and stable.
+
+#### Task P4-1 — Budget sub-tab routing
+Prompt:
+```
+Add 3 internal sub-tabs to the Budget screen: Overview, Accounts, Savings.
+Render as chip-style tabs below the Budget header. Overview shows the
+existing 5a content unchanged. Accounts and Savings show placeholder text
+for now. Active tab state persists while Budget tab is open.
+```
+
+#### Task P4-2 — Accounts list + opening balances
+Prompt:
+```
+Build the Accounts sub-tab in budget.js / accounts.js.
+On first open, seed accounts/{uid} from userSettings.paymentMethods —
+one account per method, openingBalance: 0, type: "ewallet" default.
+Render each account as a card: type icon, name, computed running balance
+(openingBalance + income - expenses - transfersOut + transfersIn - potContributions + potWithdrawals),
+opening balance shown muted below. Running balance: teal if ≥ 0, danger red if < 0.
+Only load expenses/transfers dated on or after the account's createdAt.
+Add account card (dashed) at bottom → bottom sheet: name, opening balance,
+type selector. Tap existing account → edit sheet for name and opening balance only (no delete).
+Total across accounts teal card at top.
+```
+
+#### Task P4-3 — Add Transfer
+Prompt:
+```
+Add Transfer flow to accounts.js. Floating + Transfer button on Accounts
+sub-tab → bottom sheet: From account dropdown, To account dropdown, amount
+input (inputmode=decimal), date input, notes. Confirm button disabled when
+From and To are the same account. Preview card shows new balances for both
+accounts after transfer. Confirm writes to transfers/{id} collection with uid,
+fromAccountId, toAccountId, amount, date, notes, createdAt, type="transfer".
+Balances recalculate on next render. Recent transfers section below account
+list shows last 5 transfers. "See all" in that section calls showLogTransfers()
+from log.js (exported) which switches to Log tab with Transfers chip active —
+wire this in app.js.
+```
+
+#### Task P4-4 — Transfers in Log
+Prompt:
+```
+Add Transfers filter chip to Screen 2 Expense Log (log.js), after payment
+method chips. When active: query transfers collection for current month +
+current user, merge with expenses sorted date desc. Render transfer rows
+with ti-arrows-exchange icon in teal circle, "FROM → TO" label in teal,
+meta shows date + "transfer" + notes. Transfers excluded from header total
+RM and count when any other chip (All, payment method) is selected.
+```
+
+#### Task P4-5 — Savings pots
+Prompt:
+```
+Build Savings sub-tab in savings.js. Load savingsPots/{uid}. Render each
+pot as a card: colour dot, name, linked account name, progress bar
+(currentBalance/targetAmount, coloured by pot colour), balance + goal text,
+Add and Withdraw buttons.
+Add button → bottom sheet: amount, date, notes. On confirm:
+  pots[id].currentBalance += amount
+  write top-level potTransactions/{txId} with uid, potId, type="contribute", linkedAccountId
+  linked account balance recalculates on next render
+Withdraw button → same sheet, max = currentBalance. type="withdraw", reverses balance.
+Tap pot name → edit sheet: name, linked account, target amount, colour picker,
+monthly fixed toggle + amount (toggle is a label only — no auto-apply).
+Edit sheet has Delete button at bottom: confirm → hard-delete pot doc + all its potTransactions.
+New pot dashed card → bottom sheet: name, linked account dropdown, target amount,
+6-colour picker, monthly fixed toggle + amount input.
+Total saved teal card at top.
+```
+
+---
+
+### Default pot colours (6 presets)
+
+```js
+const POT_COLOURS = [
+  'oklch(0.62 0.115 185)',  // teal (accent)
+  'oklch(0.64 0.115 5)',    // coral (complement)
+  'oklch(0.64 0.085 250)',  // blue
+  'oklch(0.64 0.085 60)',   // amber
+  'oklch(0.58 0.13 145)',   // green (positive)
+  'oklch(0.64 0.085 300)',  // purple
+];
+```
+
+---
+
+### Account type icons (Tabler outline)
+
+```js
+const ACCOUNT_TYPE_ICONS = {
+  bank:    'ti-building-bank',
+  ewallet: 'ti-wallet',
+  card:    'ti-credit-card',
+  savings: 'ti-piggy-bank',
+};
+```
+

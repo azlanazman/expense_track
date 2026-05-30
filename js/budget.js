@@ -1,6 +1,8 @@
 import { currentUser } from './state.js';
 import { fmt, monthLabel, showToast } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, deleteExpense } from './db.js';
+import { initAccounts } from './accounts.js';
+import { initSavings } from './savings.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -25,15 +27,47 @@ let bdgState = {
   monthData:          null,
   template:           null,
   variableExpenses:   [],
-  chkCollapsed:       new Set()
+  chkCollapsed:       new Set(),
+  subTab:             'overview'
 };
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
 export async function initBudget() {
   bdgState.template = null; // always reload fresh
-  await loadData();
-  renderBudget();
+  wireSubTabs();
+  await switchSubTab(bdgState.subTab);
+}
+
+function wireSubTabs() {
+  document.querySelectorAll('#budget-subtab-bar .rpt-tab').forEach(btn => {
+    btn.onclick = () => switchSubTab(btn.dataset.subtab);
+  });
+}
+
+async function switchSubTab(tab) {
+  bdgState.subTab = tab;
+  document.querySelectorAll('#budget-subtab-bar .rpt-tab').forEach(b =>
+    b.classList.toggle('on', b.dataset.subtab === tab)
+  );
+
+  const showMonthNav = tab === 'overview';
+  document.getElementById('budget-prev-month').style.visibility = showMonthNav ? '' : 'hidden';
+  document.getElementById('budget-next-month').style.visibility = showMonthNav ? '' : 'hidden';
+  document.getElementById('budget-month-title').textContent =
+    tab === 'overview' ? monthLabel(bdgState.year, bdgState.month) :
+    tab === 'accounts' ? 'Accounts' : 'Savings';
+
+  document.getElementById('acc-transfer-fab').classList.toggle('show', tab === 'accounts');
+
+  if (tab === 'overview') {
+    await loadData();
+    renderBudget();
+  } else if (tab === 'accounts') {
+    await initAccounts();
+  } else {
+    await initSavings();
+  }
 }
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -80,6 +114,8 @@ function renderBudget() {
   const { year, month, monthData, template, variableExpenses } = bdgState;
 
   document.getElementById('budget-month-title').textContent = monthLabel(year, month);
+  document.getElementById('budget-prev-month').style.visibility = '';
+  document.getElementById('budget-next-month').style.visibility = '';
 
   const body = document.getElementById('budget-body');
   body.innerHTML = '';
@@ -527,6 +563,7 @@ async function markUnpaid(itemId) {
 // ── Month navigation ──────────────────────────────────────────────────────────
 
 document.getElementById('budget-prev-month').addEventListener('click', async () => {
+  if (bdgState.subTab !== 'overview') return;
   bdgState.month--;
   if (bdgState.month < 1) { bdgState.month = 12; bdgState.year--; }
   await loadData();
@@ -534,6 +571,7 @@ document.getElementById('budget-prev-month').addEventListener('click', async () 
 });
 
 document.getElementById('budget-next-month').addEventListener('click', async () => {
+  if (bdgState.subTab !== 'overview') return;
   bdgState.month++;
   if (bdgState.month > 12) { bdgState.month = 1; bdgState.year++; }
   await loadData();

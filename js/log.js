@@ -1,76 +1,160 @@
 import { currentUser, userSettings } from './state.js';
 import { fmt, displayDate, monthLabel, catColor, showToast } from './helpers.js';
-import { fetchMonth, updateExpense, deleteExpense } from './db.js';
+import { fetchMonth, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const CAL_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 const CHEV_SVG  = `<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 const CHECK_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const EDIT_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
+const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+
 let logState = {
   year: new Date().getFullYear(), month: new Date().getMonth() + 1,
-  filter: 'All', entries: [], openId: null
+  filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
+  showTransfers: false,
 };
 
 export async function initLog() {
-  logState.year   = new Date().getFullYear();
-  logState.month  = new Date().getMonth() + 1;
-  logState.filter = 'All';
-  logState.openId = null;
+  logState.year          = new Date().getFullYear();
+  logState.month         = new Date().getMonth() + 1;
+  logState.filter        = 'All';
+  logState.openId        = null;
+  logState.showTransfers = false;
   await loadLog();
 }
 
+export function showLogTransfers() {
+  logState.showTransfers = true;
+  logState.filter        = 'All';
+  loadLog();
+}
+
 async function loadLog() {
-  logState.entries = await fetchMonth(currentUser.uid, logState.year, logState.month);
+  const { year, month } = logState;
+  const uid = currentUser.uid;
+  const y   = String(year);
+  const m   = String(month).padStart(2, '0');
+  [logState.entries, logState.accounts] = await Promise.all([
+    fetchMonth(uid, year, month),
+    fetchAccounts(uid).catch(() => []),
+  ]);
+  try {
+    logState.transfers = await fetchTransfersByMonth(uid, `${y}-${m}-01`, `${y}-${m}-31`);
+  } catch {
+    logState.transfers = [];
+  }
   renderLog();
 }
 
 function renderLog() {
-  const { entries, filter, year, month } = logState;
-  document.getElementById('log-eyebrow').textContent    = monthLabel(year, month);
+  const { entries, filter, year, month, showTransfers, transfers } = logState;
+  document.getElementById('log-eyebrow').textContent     = monthLabel(year, month);
   document.getElementById('log-month-title').textContent = monthLabel(year, month);
+
+  if (showTransfers) {
+    const sorted = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
+    document.getElementById('log-total').innerHTML =
+      `RM ${fmt(sorted.reduce((s, t) => s + t.amount, 0))} <span>· ${sorted.length} transfer${sorted.length === 1 ? '' : 's'}</span>`;
+    renderFilterChips();
+    const list = document.getElementById('log-list');
+    if (sorted.length === 0) {
+      list.innerHTML = '<div class="list-hint">No transfers this month</div>';
+    } else {
+      list.innerHTML = '';
+      sorted.forEach(tf => list.appendChild(buildTransferLogRow(tf)));
+    }
+    return;
+  }
 
   const filtered = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
     .sort((a, b) => b.date.localeCompare(a.date));
-  const total    = filtered.reduce((s, e) => s + e.amount, 0);
+  const total = filtered.reduce((s, e) => s + e.amount, 0);
   document.getElementById('log-total').innerHTML =
     `RM ${fmt(total)} <span>· ${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}</span>`;
 
-  // Filter chips
-  const methods   = ['All', ...new Set(entries.map(e => e.paymentMethod))];
-  const shown     = methods.slice(0, 4);
-  const hidden    = methods.slice(4);
-  const filterRow = document.getElementById('log-filter-row');
+  renderFilterChips();
 
-  filterRow.innerHTML =
-    shown.map(m => `<button class="chip${m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`).join('') +
-    (hidden.length ? `<button class="chip add" id="log-more-chip" type="button">+${hidden.length}</button>` : '');
-
-  filterRow.querySelectorAll('.chip:not(.add)').forEach(btn =>
-    btn.addEventListener('click', () => { logState.filter = btn.dataset.method; renderLog(); }));
-
-  const moreChip = document.getElementById('log-more-chip');
-  if (moreChip) {
-    moreChip.addEventListener('click', () => {
-      filterRow.innerHTML = methods.map(m =>
-        `<button class="chip${m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`).join('');
-      filterRow.querySelectorAll('.chip').forEach(btn =>
-        btn.addEventListener('click', () => { logState.filter = btn.dataset.method; renderLog(); }));
-    });
-  }
-
-  // List
   const list = document.getElementById('log-list');
   if (filtered.length === 0) {
     list.innerHTML = '<div class="list-hint">No expenses this month</div>';
     return;
   }
   list.innerHTML = '';
-  filtered.forEach(entry => {
-    list.appendChild(entry.id === logState.openId ? buildEditForm(entry) : buildLogRow(entry));
-  });
+  filtered.forEach(entry =>
+    list.appendChild(entry.id === logState.openId ? buildEditForm(entry) : buildLogRow(entry))
+  );
   list.insertAdjacentHTML('beforeend',
     `<div class="list-hint">${EDIT_SVG}tap a row to edit or delete</div>`);
+}
+
+function renderFilterChips() {
+  const { entries, filter, showTransfers, transfers } = logState;
+  const methods   = ['All', ...new Set(entries.map(e => e.paymentMethod))];
+  const hasTransfers = transfers.length > 0;
+  const chipMethods = methods.slice(0, 4);
+  const hidden      = methods.slice(4);
+  const filterRow   = document.getElementById('log-filter-row');
+
+  filterRow.innerHTML =
+    chipMethods.map(m =>
+      `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`
+    ).join('') +
+    (hidden.length ? `<button class="chip add" id="log-more-chip" type="button">+${hidden.length}</button>` : '') +
+    (hasTransfers ? `<button class="chip${showTransfers ? ' on' : ''}" id="log-transfers-chip" type="button">Transfers</button>` : '');
+
+  filterRow.querySelectorAll('.chip:not(.add):not(#log-transfers-chip)').forEach(btn =>
+    btn.addEventListener('click', () => {
+      logState.showTransfers = false;
+      logState.filter        = btn.dataset.method;
+      renderLog();
+    })
+  );
+
+  const moreChip = document.getElementById('log-more-chip');
+  if (moreChip) {
+    moreChip.addEventListener('click', () => {
+      filterRow.innerHTML = methods.map(m =>
+        `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`
+      ).join('') +
+      (hasTransfers ? `<button class="chip${showTransfers ? ' on' : ''}" id="log-transfers-chip" type="button">Transfers</button>` : '');
+      filterRow.querySelectorAll('.chip:not(#log-transfers-chip)').forEach(b =>
+        b.addEventListener('click', () => { logState.showTransfers = false; logState.filter = b.dataset.method; renderLog(); })
+      );
+      wireTransfersChip();
+    });
+  }
+
+  wireTransfersChip();
+}
+
+function wireTransfersChip() {
+  const chip = document.getElementById('log-transfers-chip');
+  if (chip) chip.addEventListener('click', () => { logState.showTransfers = true; renderLog(); });
+}
+
+function buildTransferLogRow(tf) {
+  const accounts = logState.accounts || [];
+  const fromAcc  = accounts.find(a => a.id === tf.fromAccountId);
+  const toAcc    = accounts.find(a => a.id === tf.toAccountId);
+  const fromName = fromAcc?.name || tf.fromAccountId;
+  const toName   = toAcc?.name   || tf.toAccountId;
+
+  const row = document.createElement('div');
+  row.className = 'log-row log-transfer-row';
+  row.style.cursor = 'default';
+  row.innerHTML = `
+    <div style="width:36px;height:36px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex-shrink:0">
+      ${TRANSFER_SVG}
+    </div>
+    <div class="log-main">
+      <div class="log-cat" style="color:var(--accent-ink)">${fromName} → ${toName}</div>
+      <div class="log-meta">${tf.date ? tf.date : ''}${tf.notes ? ' · ' + tf.notes : ''} <span class="pay-pill xs">transfer</span></div>
+    </div>
+    <div class="log-right">
+      <div class="log-amt" style="color:var(--accent-ink)">RM ${fmt(tf.amount)}</div>
+    </div>`;
+  return row;
 }
 
 function buildLogRow(entry) {
@@ -229,12 +313,12 @@ function buildEditForm(entry) {
 document.getElementById('log-prev-month').addEventListener('click', async () => {
   logState.month--;
   if (logState.month < 1) { logState.month = 12; logState.year--; }
-  logState.filter = 'All'; logState.openId = null;
+  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false;
   await loadLog();
 });
 document.getElementById('log-next-month').addEventListener('click', async () => {
   logState.month++;
   if (logState.month > 12) { logState.month = 1; logState.year++; }
-  logState.filter = 'All'; logState.openId = null;
+  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false;
   await loadLog();
 });

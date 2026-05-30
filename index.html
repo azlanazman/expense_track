@@ -1416,6 +1416,127 @@
     }
     .chk-entry-cancel:hover { background: var(--surface); border-color: var(--line); }
 
+    /* ── Phase 4: Accounts ── */
+    .acc-total-card {
+      background: var(--accent); color: var(--on-accent);
+      border-radius: var(--radius-lg); padding: 22px 24px;
+      box-shadow: 0 12px 28px -12px var(--accent-shadow);
+    }
+    .acc-total-label { font-size: 13px; font-weight: 600; opacity: 0.7; }
+    .acc-total-val { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; margin-top: 4px; }
+    .acc-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 16px; }
+    .acc-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0; border-bottom: 1px solid var(--line-2);
+      cursor: pointer; width: 100%; background: none; border-top: none; border-left: none; border-right: none; text-align: left;
+    }
+    .acc-row:last-child { border-bottom: none; }
+    .acc-icon {
+      width: 38px; height: 38px; border-radius: var(--radius-sm);
+      background: var(--accent-soft); border: 1px solid var(--accent-line);
+      color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0;
+    }
+    .acc-info { flex: 1; min-width: 0; }
+    .acc-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+    .acc-meta { font-size: 11.5px; font-weight: 500; color: var(--ink-3); margin-top: 1px; }
+    .acc-bal-col { text-align: right; flex-shrink: 0; }
+    .acc-bal-val { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .acc-bal-open { font-size: 11px; font-weight: 500; color: var(--ink-3); margin-top: 1px; }
+    .acc-add-btn {
+      border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: var(--ink-3); font-size: 14px; font-weight: 600;
+      cursor: pointer; background: none; width: 100%; transition: 0.14s;
+    }
+    .acc-add-btn:hover { border-color: var(--accent-line); color: var(--accent-ink); }
+    .type-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .type-chip {
+      display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border-radius: 999px; border: 1.5px solid var(--line); background: none;
+      font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3); cursor: pointer; transition: 0.14s;
+    }
+    .type-chip.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
+    .recent-transfers { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 16px; }
+    .transfer-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 0; border-bottom: 1px solid var(--line-2);
+    }
+    .transfer-row:last-child { border-bottom: none; }
+    .transfer-icon {
+      width: 34px; height: 34px; border-radius: 999px;
+      background: var(--accent-soft); color: var(--accent-ink);
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .transfer-info { flex: 1; min-width: 0; }
+    .transfer-label { font-size: 14px; font-weight: 700; color: var(--accent-ink); }
+    .transfer-meta { font-size: 11.5px; font-weight: 500; color: var(--ink-3); }
+    .transfer-amt { font-size: 15px; font-weight: 800; color: var(--accent-ink); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+    .transfer-preview {
+      background: var(--screen-bg); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; display: none;
+    }
+    .transfer-preview.show { display: block; }
+    .transfer-preview-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+    .transfer-preview-lbl { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+    .transfer-preview-val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .fab {
+      position: fixed;
+      bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
+      right: 20px;
+      background: var(--accent); color: var(--on-accent);
+      border: none; border-radius: 999px; padding: 12px 18px;
+      font: inherit; font-size: 13.5px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 8px 20px -8px var(--accent-shadow);
+      display: none; align-items: center; gap: 7px; z-index: 40; transition: 0.15s;
+    }
+    .fab.show { display: flex; }
+    .fab:hover { opacity: 0.88; }
+    /* ── Phase 4: Savings ── */
+    .sav-total-card {
+      background: var(--accent); color: var(--on-accent);
+      border-radius: var(--radius-lg); padding: 22px 24px;
+      box-shadow: 0 12px 28px -12px var(--accent-shadow);
+    }
+    .pot-card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 16px;
+    }
+    .pot-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .pot-dot { width: 11px; height: 11px; border-radius: 999px; flex-shrink: 0; }
+    .pot-name-btn { flex: 1; font-size: 15px; font-weight: 700; color: var(--ink); background: none; border: none; text-align: left; padding: 0; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; }
+    .pot-acc-lbl { font-size: 12px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
+    .pot-bar-wrap { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+    .pot-bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+    .pot-bal-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+    .pot-bal-val { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .pot-bal-goal { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+    .pot-btns { display: flex; gap: 8px; }
+    .pot-btn {
+      flex: 1; padding: 10px; border-radius: var(--radius); font: inherit;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.14s;
+    }
+    .pot-btn.add { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent-ink); }
+    .pot-btn.withdraw { background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); }
+    .pot-btn:hover { opacity: 0.8; }
+    .pot-add-btn {
+      border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 16px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: var(--ink-3); font-size: 14px; font-weight: 600;
+      cursor: pointer; background: none; width: 100%; transition: 0.14s;
+    }
+    .pot-add-btn:hover { border-color: var(--accent-line); color: var(--accent-ink); }
+    .colour-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+    .colour-swatch {
+      width: 32px; height: 32px; border-radius: 999px;
+      border: 2.5px solid transparent; cursor: pointer; transition: 0.14s;
+    }
+    .colour-swatch.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface); outline: 2px solid var(--ink); }
+    .log-transfer-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 0; border-bottom: 1px solid var(--line-2); width: 100%;
+    }
+    .log-transfer-row:last-child { border-bottom: none; }
+
     /* ── Mobile ── */
     @media (max-width: 460px) {
       body {
@@ -1718,8 +1839,21 @@
           </svg>
         </button>
       </div>
+      <div class="rpt-tab-bar" id="budget-subtab-bar">
+        <button class="rpt-tab on" data-subtab="overview" type="button">Overview</button>
+        <button class="rpt-tab" data-subtab="accounts" type="button">Accounts</button>
+        <button class="rpt-tab" data-subtab="savings" type="button">Savings</button>
+      </div>
       <div class="screen-body" id="budget-body"></div>
     </div>
+
+    <!-- Transfer FAB (shown only on Accounts sub-tab) -->
+    <button class="fab" id="acc-transfer-fab" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+      Transfer
+    </button>
 
     <!-- Budget checklist sub-page -->
     <div class="sub-page" id="budget-checklist-page">
@@ -1819,6 +1953,130 @@
       <div class="sheet-sub">Choose the day your salary arrives each month</div>
       <div class="day-grid" id="day-picker-grid"></div>
     </div>
+    <!-- Account add/edit sheet -->
+    <div class="bottom-sheet" id="acc-sheet" style="max-height:85dvh;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">
+      <div class="sheet-title" id="acc-sheet-title">Add account</div>
+      <div class="field" style="margin-top:16px">
+        <label class="field-label">Name</label>
+        <input class="input-row" type="text" id="acc-name-inp" placeholder="e.g. CIMB Savings" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Opening balance (RM)</label>
+        <input class="input-row" type="text" inputmode="decimal" id="acc-bal-inp" placeholder="0.00" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Type</label>
+        <div class="type-chips" id="acc-type-chips"></div>
+      </div>
+      <button class="btn-save" id="acc-save-btn" type="button" style="margin-top:20px">Save</button>
+      <button id="acc-cancel-btn" type="button" style="margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
+    </div>
+
+    <!-- Transfer sheet -->
+    <div class="bottom-sheet" id="transfer-sheet" style="max-height:90dvh;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">
+      <div class="sheet-title">Transfer</div>
+      <div class="field" style="margin-top:16px">
+        <label class="field-label">From</label>
+        <div style="position:relative">
+          <select class="input-row" id="tf-from" style="appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;width:100%;background:var(--surface)"></select>
+          <svg style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ink-3)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">To</label>
+        <div style="position:relative">
+          <select class="input-row" id="tf-to" style="appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;width:100%;background:var(--surface)"></select>
+          <svg style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ink-3)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Amount (RM)</label>
+        <input class="input-row" type="text" inputmode="decimal" id="tf-amount" placeholder="0.00" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Date</label>
+        <input class="input-row" type="date" id="tf-date" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Notes</label>
+        <input class="input-row" type="text" id="tf-notes" placeholder="optional…" autocomplete="off" />
+      </div>
+      <div class="transfer-preview" id="tf-preview">
+        <div class="transfer-preview-row">
+          <span class="transfer-preview-lbl" id="tf-prev-from-lbl">From after</span>
+          <span class="transfer-preview-val" id="tf-prev-from-val">—</span>
+        </div>
+        <div class="transfer-preview-row">
+          <span class="transfer-preview-lbl" id="tf-prev-to-lbl">To after</span>
+          <span class="transfer-preview-val" id="tf-prev-to-val">—</span>
+        </div>
+      </div>
+      <button class="btn-save" id="tf-confirm-btn" type="button" style="margin-top:16px">Confirm transfer</button>
+      <button id="tf-cancel-btn" type="button" style="margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
+    </div>
+
+    <!-- Pot contribute / withdraw sheet -->
+    <div class="bottom-sheet" id="pot-txn-sheet">
+      <div class="sheet-title" id="ptxn-title">Add to pot</div>
+      <div class="field" style="margin-top:16px">
+        <label class="field-label">Amount (RM)</label>
+        <input class="input-row" type="text" inputmode="decimal" id="ptxn-amount" placeholder="0.00" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Date</label>
+        <input class="input-row" type="date" id="ptxn-date" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Notes</label>
+        <input class="input-row" type="text" id="ptxn-notes" placeholder="optional…" autocomplete="off" />
+      </div>
+      <button class="btn-save" id="ptxn-confirm-btn" type="button" style="margin-top:16px">Confirm</button>
+      <button id="ptxn-cancel-btn" type="button" style="margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
+    </div>
+
+    <!-- Pot add/edit sheet -->
+    <div class="bottom-sheet" id="pot-sheet" style="max-height:90dvh;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">
+      <div class="sheet-title" id="pot-sheet-title">New savings pot</div>
+      <div class="field" style="margin-top:16px">
+        <label class="field-label">Name</label>
+        <input class="input-row" type="text" id="pot-name-inp" placeholder="e.g. Emergency fund" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Linked account</label>
+        <div style="position:relative">
+          <select class="input-row" id="pot-acc-select" style="appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;width:100%;background:var(--surface)"></select>
+          <svg style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ink-3)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Goal amount (RM) — optional</label>
+        <input class="input-row" type="text" inputmode="decimal" id="pot-target-inp" placeholder="0" autocomplete="off" />
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="field-label">Colour</label>
+        <div class="colour-swatches" id="pot-colour-swatches"></div>
+      </div>
+      <div class="toggle-row" style="margin-top:16px">
+        <div style="flex:1">
+          <div class="toggle-label">Monthly recurring</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;font-weight:500">Reminder — contributions are always manual</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pot-monthly-chk" />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="pot-monthly-row" style="display:none">
+        <div class="field" style="margin-top:12px">
+          <label class="field-label">Monthly amount (RM)</label>
+          <input class="input-row" type="text" inputmode="decimal" id="pot-monthly-amt" placeholder="0.00" autocomplete="off" />
+        </div>
+      </div>
+      <button class="btn-save" id="pot-save-btn" type="button" style="margin-top:20px">Save</button>
+      <button id="pot-delete-btn" type="button" style="display:none;margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--danger);font:inherit;font-size:15px;font-weight:700;cursor:pointer;border-radius:var(--radius)">Delete pot</button>
+      <button id="pot-cancel-btn" type="button" style="margin-top:4px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
+    </div>
+
     <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <!-- Bottom navigation -->

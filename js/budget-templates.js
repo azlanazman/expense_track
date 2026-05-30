@@ -259,7 +259,7 @@ document.getElementById('ies-save').addEventListener('click', async () => {
   if (isNew) {
     group.items.push({
       id: `${editGroupId}-${Date.now()}`,
-      name, paymentMethod, defaultAmount, isVariable, isCalculated: false
+      name, paymentMethod, defaultAmount, isVariable
     });
   } else {
     const item = group.items.find(it => it.id === editItemId);

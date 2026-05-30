@@ -6,7 +6,7 @@ import { currentUser, setCurrentUser, setUserSettings } from './state.js';
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS } from './helpers.js';
 import { fetchUserSettings, persistUserSettings } from './db.js';
 import { initAdd } from './add.js';
-import { initLog } from './log.js';
+import { initLog, showLogTransfers } from './log.js';
 import { initReport } from './report.js';
 import { renderSettings } from './settings.js';
 import { initBudget } from './budget.js';
@@ -25,6 +25,11 @@ document.getElementById('nav-log').addEventListener('click', () => { initLog(); 
 document.getElementById('nav-report').addEventListener('click', () => { initReport(); showScreen('report'); });
 document.getElementById('nav-budget').addEventListener('click', () => { initBudget(); showScreen('budget'); });
 document.getElementById('nav-settings').addEventListener('click', () => { renderSettings(); showScreen('settings'); });
+
+document.addEventListener('nav:show-log-transfers', () => {
+  showScreen('log');
+  initLog().then(() => showLogTransfers());
+});
 
 // ── Auth ────────────────────────────────────────────────────────────────────
 

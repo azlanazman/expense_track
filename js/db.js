@@ -1,6 +1,6 @@
 import {
   collection, addDoc, query, where, orderBy, getDocs,
-  doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp
+  doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp, writeBatch
 } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
 import { db } from './firebase.js';
 
@@ -61,4 +61,79 @@ export async function fetchBudgetMonth(uid, year, month) {
 export function persistBudgetMonth(uid, year, month, data) {
   const id = `${uid}_${year}-${String(month).padStart(2, '0')}`;
   return setDoc(doc(db, 'budgetMonths', id), data);
+}
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+
+export async function fetchAccounts(uid) {
+  const snap = await getDoc(doc(db, 'accounts', uid));
+  return snap.exists() ? snap.data().accounts : null;
+}
+
+export function persistAccounts(uid, accounts) {
+  return setDoc(doc(db, 'accounts', uid), { accounts });
+}
+
+// ── Transfers ─────────────────────────────────────────────────────────────────
+
+export function addTransfer(data) {
+  return addDoc(collection(db, 'transfers'), { ...data, createdAt: serverTimestamp() });
+}
+
+export async function fetchTransfersByMonth(uid, startDate, endDate) {
+  const q = query(
+    collection(db, 'transfers'),
+    where('uid',  '==', uid),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+    orderBy('date', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchAllTransfers(uid) {
+  const q = query(collection(db, 'transfers'), where('uid', '==', uid));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ── Savings pots ──────────────────────────────────────────────────────────────
+
+export async function fetchSavingsPots(uid) {
+  const snap = await getDoc(doc(db, 'savingsPots', uid));
+  return snap.exists() ? snap.data().pots : null;
+}
+
+export function persistSavingsPots(uid, pots) {
+  return setDoc(doc(db, 'savingsPots', uid), { pots });
+}
+
+// ── Pot transactions ──────────────────────────────────────────────────────────
+
+export function addPotTransaction(data) {
+  return addDoc(collection(db, 'potTransactions'), { ...data, createdAt: serverTimestamp() });
+}
+
+export async function fetchPotTransactions(uid) {
+  const q = query(collection(db, 'potTransactions'), where('uid', '==', uid));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function deletePotTransactionsByPot(potId) {
+  const q = query(collection(db, 'potTransactions'), where('potId', '==', potId));
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  return batch.commit();
+}
+
+// ── All expenses (no date filter) ─────────────────────────────────────────────
+
+export async function fetchAllExpenses(uid) {
+  const q = query(collection(db, 'expenses'), where('uid', '==', uid));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
