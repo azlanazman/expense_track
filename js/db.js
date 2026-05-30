@@ -137,3 +137,12 @@ export async function fetchAllExpenses(uid) {
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+
+export function updateUserSettings(uid, fields) {
+  return updateDoc(doc(db, 'userSettings', uid), fields);
+}
+
+export function updateBudgetMonthIncome(uid, year, month, income) {
+  const id = `${uid}_${year}-${String(month).padStart(2, '0')}`;
+  return setDoc(doc(db, 'budgetMonths', id), { income }, { merge: true });
+}

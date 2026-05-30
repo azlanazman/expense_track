@@ -1543,6 +1543,78 @@
         padding: 0;
       }
     }
+
+    /* ── Onboarding ── */
+    #onboarding-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: var(--screen-bg);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .ob-step {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .ob-step.active {
+      display: flex;
+      animation: obFadeIn 0.25s ease;
+    }
+    @keyframes obFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ob-dots { display: flex; align-items: center; gap: 6px; }
+    .ob-dot {
+      width: 6px; height: 6px; border-radius: 999px;
+      background: rgba(0,0,0,0.12);
+      transition: width 0.3s ease, background 0.3s ease;
+    }
+    .ob-dot.current { width: 18px; background: var(--accent); }
+    .ob-dot.done { background: var(--accent); opacity: 0.4; }
+    .ob-prog-bar { height: 3px; background: var(--line); border-radius: 999px; width: 100%; }
+    .ob-prog-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width 0.35s ease; }
+    .ob-day {
+      aspect-ratio: 1; border-radius: 8px; border: 1.5px solid var(--line);
+      background: var(--surface); font-size: 13px; font-weight: 600; color: var(--ink);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      min-height: 40px; transition: background 0.14s, border-color 0.14s, color 0.14s;
+    }
+    .ob-day.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .ob-chip {
+      padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--line);
+      background: var(--surface); font: inherit; font-size: 14px; font-weight: 600;
+      color: var(--ink); cursor: pointer; transition: 0.14s;
+    }
+    .ob-chip.on { background: var(--comp); border-color: var(--comp); color: var(--on-comp); }
+    .ob-chip.add { border-style: dashed; color: var(--ink-3); }
+    .ob-bal-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; }
+    .ob-bal-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; border-bottom: 1px solid var(--line-2);
+    }
+    .ob-bal-row:last-child { border-bottom: none; }
+    .ob-btn-main {
+      width: 100%; background: var(--accent); color: var(--on-accent);
+      border: none; border-radius: var(--radius-lg); padding: 16px;
+      font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 3px 12px var(--accent-shadow);
+    }
+    .ob-btn-main:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+    .ob-btn-outline {
+      background: transparent; border: 2px solid var(--line);
+      border-radius: var(--radius-lg); padding: 14px 20px;
+      font: inherit; font-size: 15px; font-weight: 700;
+      color: var(--ink-2); cursor: pointer;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ob-step { animation: none; }
+      .ob-dot, .ob-prog-fill, .ob-day, .ob-chip { transition: none; }
+    }
   </style>
 </head>
 
@@ -1573,6 +1645,9 @@
 
   <!-- App wrapper (shown when logged in) -->
   <div id="app" style="display:none">
+
+    <!-- Onboarding overlay (content injected by onboarding.js) -->
+    <div id="onboarding-overlay"></div>
 
     <!-- Screen 1: Add Expense -->
     <div id="screen-add" class="screen" style="display:none">

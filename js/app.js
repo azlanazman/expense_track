@@ -10,6 +10,7 @@ import { initLog, showLogTransfers } from './log.js';
 import { initReport } from './report.js';
 import { renderSettings } from './settings.js';
 import { initBudget } from './budget.js';
+import { initOnboarding } from './onboarding.js';
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -31,6 +32,11 @@ document.addEventListener('nav:show-log-transfers', () => {
   initLog().then(() => showLogTransfers());
 });
 
+document.addEventListener('nav:go-add', () => {
+  initAdd();
+  showScreen('add');
+});
+
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 document.getElementById('btn-google-signin').addEventListener('click', async () => {
@@ -45,9 +51,14 @@ onAuthStateChanged(auth, async (user) => {
     setCurrentUser(user);
     document.getElementById('screen-login').style.display = 'none';
     document.getElementById('app').style.display = '';
-    await loadUserSettings();
-    initAdd();
-    showScreen('add');
+    const settings = await loadUserSettings();
+    if (settings?.onboardingComplete) {
+      initAdd();
+      showScreen('add');
+    } else {
+      document.getElementById('onboarding-overlay').style.display = 'flex';
+      initOnboarding(user.uid);
+    }
   } else {
     setCurrentUser(null);
     document.getElementById('screen-login').style.display = '';
@@ -69,5 +80,7 @@ async function loadUserSettings() {
     const defaults = { categories: DEFAULT_CATEGORIES, paymentMethods: DEFAULT_PAYMENTS, salaryDay: 25 };
     setUserSettings(defaults);
     await persistUserSettings(currentUser.uid, defaults);
+    settings = defaults;
   }
+  return settings;
 }
