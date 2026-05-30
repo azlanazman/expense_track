@@ -32,22 +32,25 @@ shadows, elevated cards. Accent = teal (`--accent`), complement = black (`--comp
 │   ├── firebase.js         # Firebase init (auth, db, provider)
 │   ├── state.js            # Shared mutable state (currentUser, userSettings)
 │   ├── helpers.js          # Pure utils: fmt, parseLocalDate, catColor, showToast
-│   ├── db.js               # All Firestore operations
+│   ├── db.js               # All Firestore operations (expenses, accounts, transfers, pots)
 │   ├── add.js              # Screen 1 — Add Expense
-│   ├── log.js              # Screen 2 — Expense Log
+│   ├── log.js              # Screen 2 — Expense Log (+ Transfers chip)
 │   ├── report.js           # Screen 3 — Monthly Report
 │   ├── settings.js         # Screen 4 — Settings
-│   ├── budget.js           # Screen 5 — Budget overview (5a) + checklist (5b)
-│   └── budget-templates.js # Budget templates sub-page (Settings)
+│   ├── budget.js           # Screen 5 — Budget overview/checklist + sub-tab routing
+│   ├── budget-templates.js # Budget templates sub-page (Settings)
+│   ├── accounts.js         # Budget → Accounts sub-tab + Transfer flow
+│   └── savings.js          # Budget → Savings sub-tab
 └── firestore.rules
 ```
 
 ### Module dependency graph
 
 ```
-firebase.js ◄── db.js ◄── add.js, log.js, report.js, settings.js, budget.js
-state.js    ◄── db.js, add.js, log.js, report.js, settings.js, budget.js
-helpers.js  ◄── add.js, log.js, report.js, settings.js, budget.js
+firebase.js ◄── db.js ◄── add.js, log.js, report.js, settings.js, budget.js, accounts.js, savings.js
+state.js    ◄── db.js, add.js, log.js, report.js, settings.js, budget.js, accounts.js, savings.js
+helpers.js  ◄── add.js, log.js, report.js, settings.js, budget.js, accounts.js, savings.js
+budget.js   ◄── accounts.js, savings.js  (sub-tab routing)
 app.js      ◄── imports all screen modules (single <script> entry point)
 ```
 
@@ -253,7 +256,19 @@ All other fixed groups → `fixed` pill. All other variable categories → `var`
 
 ---
 
-## Phase 4 — Accounts, Transfers & Savings Pots
+## Phase 4 — Accounts, Transfers & Savings Pots — COMPLETE ✓
+
+| # | What | File(s) | Status |
+|---|------|---------|--------|
+| P4-1 | Budget sub-tab chips: Overview · Accounts · Savings; month nav hides on non-Overview tabs | `js/budget.js`, `index.html` | ✓ done |
+| P4-2 | Accounts list seeded from paymentMethods; running balance calc; add/edit sheet (no delete) | `js/accounts.js`, `js/db.js` | ✓ done |
+| P4-3 | Transfer FAB → sheet; From ≠ To validation (toast); preview card; recent transfers section; "See all" → Log Transfers | `js/accounts.js`, `js/app.js` | ✓ done |
+| P4-4 | Transfers chip in Log; transfer rows with formatted date + teal icon; `showLogTransfers()` export | `js/log.js` | ✓ done |
+| P4-5 | Savings pots: progress bar, Add/Withdraw flow, colour picker, monthly toggle (label only), delete pot | `js/savings.js`, `js/db.js` | ✓ done |
+
+**Firestore index required:** `fetchTransfersByMonth` queries `transfers` on `(uid, date)`. First use will throw an error in the console with a direct link to create the composite index in Firebase console.
+
+---
 
 ### Overview
 
@@ -460,138 +475,6 @@ Add `Transfers` as a new filter chip in Screen 2 (Expense Log), after the paymen
 
 **Implementation note:** Query `transfers` collection separately when Log month changes.
 Merge and sort with expenses by date desc when Transfers chip is active.
-
----
-
-### New JS module
-
-Add `js/accounts.js` for all Accounts + Savings logic.
-Add `js/transfers.js` for transfer Firestore operations (or fold into `db.js`).
-
-Updated module list:
-```
-js/
-  app.js
-  firebase.js
-  state.js
-  helpers.js
-  db.js
-  add.js
-  log.js              ← add Transfers chip + transfer row rendering
-  report.js
-  settings.js
-  budget.js           ← add Budget sub-tab routing (Overview / Accounts / Savings)
-  budget-templates.js
-  accounts.js         ← NEW: account list, balance calc, add account, add transfer
-  savings.js          ← NEW: savings pots, contribute, withdraw
-```
-
----
-
-### Firestore security rules additions
-
-Add to `firestore.rules`:
-```
-match /transfers/{transferId} {
-  allow read, update, delete: if request.auth != null
-    && request.auth.uid == resource.data.uid;
-  allow create: if request.auth != null
-    && request.auth.uid == request.resource.data.uid;
-}
-
-match /accounts/{uid} {
-  allow read, write: if request.auth != null
-    && request.auth.uid == uid;
-}
-
-match /savingsPots/{uid} {
-  allow read, write: if request.auth != null
-    && request.auth.uid == uid;
-}
-
-match /potTransactions/{txId} {
-  allow read, update, delete: if request.auth != null
-    && request.auth.uid == resource.data.uid;
-  allow create: if request.auth != null
-    && request.auth.uid == request.resource.data.uid;
-}
-```
-
----
-
-### Build tasks — Phase 4
-
-Run after Phase 3 is complete and stable.
-
-#### Task P4-1 — Budget sub-tab routing
-Prompt:
-```
-Add 3 internal sub-tabs to the Budget screen: Overview, Accounts, Savings.
-Render as chip-style tabs below the Budget header. Overview shows the
-existing 5a content unchanged. Accounts and Savings show placeholder text
-for now. Active tab state persists while Budget tab is open.
-```
-
-#### Task P4-2 — Accounts list + opening balances
-Prompt:
-```
-Build the Accounts sub-tab in budget.js / accounts.js.
-On first open, seed accounts/{uid} from userSettings.paymentMethods —
-one account per method, openingBalance: 0, type: "ewallet" default.
-Render each account as a card: type icon, name, computed running balance
-(openingBalance + income - expenses - transfersOut + transfersIn - potContributions + potWithdrawals),
-opening balance shown muted below. Running balance: teal if ≥ 0, danger red if < 0.
-Only load expenses/transfers dated on or after the account's createdAt.
-Add account card (dashed) at bottom → bottom sheet: name, opening balance,
-type selector. Tap existing account → edit sheet for name and opening balance only (no delete).
-Total across accounts teal card at top.
-```
-
-#### Task P4-3 — Add Transfer
-Prompt:
-```
-Add Transfer flow to accounts.js. Floating + Transfer button on Accounts
-sub-tab → bottom sheet: From account dropdown, To account dropdown, amount
-input (inputmode=decimal), date input, notes. Confirm button disabled when
-From and To are the same account. Preview card shows new balances for both
-accounts after transfer. Confirm writes to transfers/{id} collection with uid,
-fromAccountId, toAccountId, amount, date, notes, createdAt, type="transfer".
-Balances recalculate on next render. Recent transfers section below account
-list shows last 5 transfers. "See all" in that section calls showLogTransfers()
-from log.js (exported) which switches to Log tab with Transfers chip active —
-wire this in app.js.
-```
-
-#### Task P4-4 — Transfers in Log
-Prompt:
-```
-Add Transfers filter chip to Screen 2 Expense Log (log.js), after payment
-method chips. When active: query transfers collection for current month +
-current user, merge with expenses sorted date desc. Render transfer rows
-with ti-arrows-exchange icon in teal circle, "FROM → TO" label in teal,
-meta shows date + "transfer" + notes. Transfers excluded from header total
-RM and count when any other chip (All, payment method) is selected.
-```
-
-#### Task P4-5 — Savings pots
-Prompt:
-```
-Build Savings sub-tab in savings.js. Load savingsPots/{uid}. Render each
-pot as a card: colour dot, name, linked account name, progress bar
-(currentBalance/targetAmount, coloured by pot colour), balance + goal text,
-Add and Withdraw buttons.
-Add button → bottom sheet: amount, date, notes. On confirm:
-  pots[id].currentBalance += amount
-  write top-level potTransactions/{txId} with uid, potId, type="contribute", linkedAccountId
-  linked account balance recalculates on next render
-Withdraw button → same sheet, max = currentBalance. type="withdraw", reverses balance.
-Tap pot name → edit sheet: name, linked account, target amount, colour picker,
-monthly fixed toggle + amount (toggle is a label only — no auto-apply).
-Edit sheet has Delete button at bottom: confirm → hard-delete pot doc + all its potTransactions.
-New pot dashed card → bottom sheet: name, linked account dropdown, target amount,
-6-colour picker, monthly fixed toggle + amount input.
-Total saved teal card at top.
-```
 
 ---
 

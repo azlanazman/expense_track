@@ -149,7 +149,7 @@ function buildTransferLogRow(tf) {
     </div>
     <div class="log-main">
       <div class="log-cat" style="color:var(--accent-ink)">${fromName} → ${toName}</div>
-      <div class="log-meta">${tf.date ? tf.date : ''}${tf.notes ? ' · ' + tf.notes : ''} <span class="pay-pill xs">transfer</span></div>
+      <div class="log-meta">${tf.date ? displayDate(tf.date) : ''}${tf.notes ? ' · ' + tf.notes : ''} <span class="pay-pill xs">transfer</span></div>
     </div>
     <div class="log-right">
       <div class="log-amt" style="color:var(--accent-ink)">RM ${fmt(tf.amount)}</div>

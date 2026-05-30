@@ -157,7 +157,7 @@ function buildAccRow(acc) {
       <div class="acc-meta">${lastUpdated(acc)}</div>
     </div>
     <div class="acc-bal-col">
-      <div class="acc-bal-val" style="color:${isNeg ? 'var(--danger)' : 'var(--accent-ink)'}">RM ${fmt(Math.abs(bal))}${isNeg ? ' −' : ''}</div>
+      <div class="acc-bal-val" style="color:${isNeg ? 'var(--danger)' : 'var(--accent-ink)'}">${isNeg ? '−' : ''}RM ${fmt(Math.abs(bal))}</div>
       <div class="acc-bal-open">Opening RM ${fmt(acc.openingBalance || 0)}</div>
     </div>`;
   btn.addEventListener('click', () => openAccSheet(acc.id));
@@ -270,8 +270,8 @@ function updateTransferPreview() {
 
   document.getElementById('tf-prev-from-lbl').textContent = `${fromAcc.name} after`;
   document.getElementById('tf-prev-to-lbl').textContent   = `${toAcc.name} after`;
-  document.getElementById('tf-prev-from-val').textContent = `RM ${fmt(fromBal)}`;
-  document.getElementById('tf-prev-to-val').textContent   = `RM ${fmt(toBal)}`;
+  document.getElementById('tf-prev-from-val').textContent = `${fromBal < 0 ? '−' : ''}RM ${fmt(Math.abs(fromBal))}`;
+  document.getElementById('tf-prev-to-val').textContent   = `${toBal   < 0 ? '−' : ''}RM ${fmt(Math.abs(toBal))}`;
   document.getElementById('tf-prev-from-val').style.color = fromBal < 0 ? 'var(--danger)' : 'var(--ink)';
   document.getElementById('tf-prev-to-val').style.color   = toBal   < 0 ? 'var(--danger)' : 'var(--ink)';
   preview.classList.add('show');
