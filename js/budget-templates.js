@@ -65,39 +65,7 @@ async function saveTemplate() {
 
 function renderBudgetTemplates() {
   const body = document.getElementById('budget-templates-body');
-
-  // Budget fields section
-  body.innerHTML = `
-    <section>
-      <span class="block-label">Monthly budgets</span>
-      <div class="row-card" style="cursor:default">
-        <div class="rc-main">
-          <div class="rc-title">CC monthly budget</div>
-          <div class="rc-sub">Used to calculate CC Balance</div>
-        </div>
-        <div class="tmpl-amt-wrap">
-          <span class="tmpl-rm">RM</span>
-          <input class="tmpl-amt-input" type="text" inputmode="decimal" id="tmpl-cc-budget"
-            value="${btState.template.ccBudget > 0 ? btState.template.ccBudget : ''}"
-            placeholder="0" autocomplete="off" />
-        </div>
-      </div>
-      <div class="row-card" style="margin-top:10px;cursor:default">
-        <div class="rc-main">
-          <div class="rc-title">Car Maintenance budget</div>
-          <div class="rc-sub">Used to calculate Car Maintenance Balance</div>
-        </div>
-        <div class="tmpl-amt-wrap">
-          <span class="tmpl-rm">RM</span>
-          <input class="tmpl-amt-input" type="text" inputmode="decimal" id="tmpl-car-budget"
-            value="${btState.template.carMaintenanceBudget > 0 ? btState.template.carMaintenanceBudget : ''}"
-            placeholder="0" autocomplete="off" />
-        </div>
-      </div>
-    </section>`;
-
-  setupAmtField('tmpl-cc-budget', 'ccBudget');
-  setupAmtField('tmpl-car-budget', 'carMaintenanceBudget');
+  body.innerHTML = '';
 
   // Groups section
   const groupsSec = document.createElement('section');
@@ -115,23 +83,6 @@ function renderBudgetTemplates() {
   groupsSec.appendChild(addGroupBtn);
 
   body.appendChild(groupsSec);
-}
-
-// ── Budget field inputs ───────────────────────────────────────────────────────
-
-function setupAmtField(elId, field) {
-  const inp = document.getElementById(elId);
-  if (!inp) return;
-  inp.addEventListener('input', e => {
-    const v = e.target.value.replace(/[^0-9.]/g, '');
-    const parts = v.split('.');
-    e.target.value = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : v;
-  });
-  inp.addEventListener('blur', () => {
-    btState.template[field] = parseFloat(inp.value) || 0;
-    saveTemplate();
-  });
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
 }
 
 // ── Group accordion ───────────────────────────────────────────────────────────
@@ -152,6 +103,9 @@ function buildGroup(group) {
     <span class="tmpl-group-count">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>
     <button class="tmpl-add-item" type="button" title="Add item" aria-label="Add item">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button class="tmpl-del-group" type="button" title="Delete group" aria-label="Delete group">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     </button>`;
 
   hdr.querySelector('.tmpl-group-name').addEventListener('click', () => toggleGroup(group.id));
@@ -160,13 +114,13 @@ function buildGroup(group) {
     e.stopPropagation();
     openEditSheet(group.id, null);
   });
-
-  wireLongPress(hdr, () => {
+  hdr.querySelector('.tmpl-del-group').addEventListener('click', async e => {
+    e.stopPropagation();
     if (!confirm(`Delete group "${group.name}" and all its items?`)) return;
     btState.template.groups = btState.template.groups.filter(g => g.id !== group.id);
-    saveTemplate();
+    await saveTemplate();
     renderBudgetTemplates();
-  }, hdr.querySelector('.tmpl-add-item'));
+  });
 
   wrap.appendChild(hdr);
 
@@ -336,19 +290,3 @@ document.getElementById('ies-amount').addEventListener('input', e => {
   e.target.value = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : v;
 });
 
-// ── Long-press helper ─────────────────────────────────────────────────────────
-
-function wireLongPress(el, cb, excludeEl) {
-  let timer = null;
-  const start = e => {
-    if (excludeEl && excludeEl.contains(e.target)) return;
-    timer = setTimeout(() => { timer = null; cb(); }, 650);
-  };
-  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  el.addEventListener('mousedown',  start);
-  el.addEventListener('touchstart', start,  { passive: true });
-  el.addEventListener('mouseup',    cancel);
-  el.addEventListener('mouseleave', cancel);
-  el.addEventListener('touchend',   cancel);
-  el.addEventListener('touchmove',  cancel, { passive: true });
-}

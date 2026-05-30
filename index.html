@@ -903,6 +903,18 @@
       transition: 0.14s;
     }
     .tmpl-add-item:hover { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+    .tmpl-del-group {
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: none;
+      color: var(--ink-3);
+      display: grid; place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: 0.14s;
+    }
+    .tmpl-del-group:hover { background: oklch(0.95 0.03 25); border-color: oklch(0.8 0.08 25); color: var(--danger); }
     .tmpl-group-body { border-top: 1px solid var(--line-2); }
     .tmpl-item-row {
       display: flex;
