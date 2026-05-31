@@ -14,16 +14,6 @@ const DEFAULT_BUDGET_TEMPLATE = {
   ]
 };
 
-const MY_BUDGET_TEMPLATE_ITEMS = {
-  housing:       [{ name:'PTPTN' }, { name:'Car loan' }],
-  transport:     [{ name:'Internet' }, { name:'Mobile (self)' }, { name:'Mobile (family)' }, { name:'Electricity' }, { name:'Water' }],
-  insurance:     [{ name:'Takaful / insurance' }],
-  family:        [{ name:'Parents' }, { name:'Spouse' }, { name:'Children' }, { name:'Groceries' }],
-  subscriptions: [{ name:'Streaming' }, { name:'Cloud / apps' }],
-  savings:       [{ name:'Emergency fund' }],
-  other:         [{ name:'Zakat' }, { name:'Sedekah' }, { name:'SPaylater' }],
-};
-
 let btState = {
   template:    null,
   collapsed:   new Set(),
@@ -63,51 +53,11 @@ async function saveTemplate() {
   }
 }
 
-// ── Malaysian quick-setup ─────────────────────────────────────────────────────
-
-async function applyMalaysianTemplate() {
-  if (!confirm('Add Malaysian bill items to your existing groups? Existing items will not be changed.')) return;
-  const payMethod = (userSettings.paymentMethods && userSettings.paymentMethods[0]) || '';
-  btState.template.groups.forEach(group => {
-    const presetItems = MY_BUDGET_TEMPLATE_ITEMS[group.id];
-    if (!presetItems) return;
-    presetItems.forEach(preset => {
-      const alreadyExists = group.items.some(it => it.name.toLowerCase() === preset.name.toLowerCase());
-      if (!alreadyExists) {
-        group.items.push({
-          id: `${group.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          name: preset.name,
-          paymentMethod: payMethod,
-          defaultAmount: 0,
-          isVariable: false,
-        });
-      }
-    });
-  });
-  await saveTemplate();
-  renderBudgetTemplates();
-  showToast('Malaysian template applied');
-}
-
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderBudgetTemplates() {
   const body = document.getElementById('budget-templates-body');
   body.innerHTML = '';
-
-  // Malaysian quick-setup card
-  const myCard = document.createElement('div');
-  myCard.style.cssText = 'background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;';
-  myCard.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:3px">Quick setup</div>
-        <div style="font-size:14px;font-weight:600;color:var(--ink-2)">Apply Malaysian template</div>
-      </div>
-      <button id="bt-apply-my" type="button" style="background:var(--accent);color:var(--on-accent);border:none;border-radius:var(--radius-sm);padding:9px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer">Apply</button>
-    </div>`;
-  myCard.querySelector('#bt-apply-my').addEventListener('click', applyMalaysianTemplate);
-  body.appendChild(myCard);
 
   // Groups section
   const groupsSec = document.createElement('section');

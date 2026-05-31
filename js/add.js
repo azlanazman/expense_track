@@ -17,7 +17,7 @@ export function initAdd() {
 function renderAddScreen() {
   const d = new Date();
   document.getElementById('add-eyebrow').textContent =
-    d.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' });
+    d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
   document.getElementById('add-date-display').textContent = displayDate(addState.date);
   document.getElementById('add-date-input').value = addState.date;
   document.getElementById('add-cat-display').innerHTML =

@@ -1,10 +1,10 @@
-export const fmt  = (n) => n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-export const fmt0 = (n) => Math.round(n).toLocaleString('en-MY');
+export const fmt  = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const fmt0 = (n) => Math.round(n).toLocaleString(undefined);
 
 export function parseLocalDate(s) { return new Date(s + 'T00:00:00'); }
 
 export function displayDate(s) {
-  return parseLocalDate(s).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+  return parseLocalDate(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function todayString() {
@@ -13,7 +13,7 @@ export function todayString() {
 }
 
 export function monthLabel(year, month) {
-  return new Date(year, month - 1, 1).toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
 export const CATEGORY_COLOURS = {
@@ -26,16 +26,6 @@ export const CATEGORY_COLOURS = {
   bills:            'oklch(0.64 0.085 250)',
   savings:          'oklch(0.64 0.085 150)',
   other:            'oklch(0.64 0.085 100)',
-  // Malaysian preset (preserved for existing users)
-  family:           'oklch(0.64 0.085 150)',
-  toll:             'oklch(0.64 0.085 60)',
-  parking:          'oklch(0.64 0.085 330)',
-  fuel:             'oklch(0.64 0.085 250)',
-  car:              'oklch(0.64 0.085 285)',
-  'car maintenance':'oklch(0.64 0.085 285)',
-  subs:             'oklch(0.64 0.085 200)',
-  medical:          'oklch(0.64 0.085 5)',
-  misc:             'oklch(0.64 0.085 100)',
   _default:         'oklch(0.64 0.085 265)',
 };
 export const FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230];
@@ -48,10 +38,7 @@ export function catColor(name, allCats) {
 }
 
 export const DEFAULT_CATEGORIES    = ['Food', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Bills', 'Savings', 'Other'];
-export const MY_CATEGORIES_PRESET  = ['Family', 'Food', 'Toll', 'Parking', 'Fuel', 'Car Maintenance', 'Subs', 'Medical', 'Misc'];
 export const DEFAULT_PAYMENTS      = ['Cash', 'Bank', 'Credit Card', 'E-Wallet'];
-export const MY_PAYMENTS_PRESET    = ['TNG', 'CIMB', 'RHB', 'MLMT', 'SETEL', 'AEON', 'SPAY'];
-export const MY_PAYMENTS_TYPES     = { TNG:'ewallet', SETEL:'ewallet', AEON:'ewallet', SPAY:'ewallet', CIMB:'bank', RHB:'bank', MLMT:'bank' };
 export const DEFAULT_PAYMENT_TYPES = { 'Cash':'ewallet', 'Bank':'bank', 'Credit Card':'card', 'E-Wallet':'ewallet' };
 
 let toastTimer;

@@ -37,7 +37,7 @@ export async function initReport() {
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 function shortDate(s) {
-  return parseLocalDate(s).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+  return parseLocalDate(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function daysBetween(s, e) {

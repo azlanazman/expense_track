@@ -1,4 +1,4 @@
-import { fmt, showToast, DEFAULT_CATEGORIES, MY_CATEGORIES_PRESET, DEFAULT_PAYMENTS, MY_PAYMENTS_PRESET, MY_PAYMENTS_TYPES, DEFAULT_PAYMENT_TYPES } from './helpers.js';
+import { fmt, showToast, DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, DEFAULT_PAYMENT_TYPES } from './helpers.js';
 import {
   updateUserSettings, persistAccounts, fetchAccounts, updateBudgetMonthIncome
 } from './db.js';
@@ -292,19 +292,13 @@ function bindEvents() {
   qs('#ob-cat-preset-general').addEventListener('click', () => {
     state.categoryPreset = 'general';
     state.categories = [...DEFAULT_CATEGORIES];
-    updatePresetButtons('#ob-cat-preset-general', '#ob-cat-preset-my', '#ob-cat-preset-blank');
-    renderCategoryChips();
-  });
-  qs('#ob-cat-preset-my').addEventListener('click', () => {
-    state.categoryPreset = 'my';
-    state.categories = [...MY_CATEGORIES_PRESET];
-    updatePresetButtons('#ob-cat-preset-my', '#ob-cat-preset-general', '#ob-cat-preset-blank');
+    updatePresetButtons('#ob-cat-preset-general', '#ob-cat-preset-blank');
     renderCategoryChips();
   });
   qs('#ob-cat-preset-blank').addEventListener('click', () => {
     state.categoryPreset = 'blank';
     state.categories = [];
-    updatePresetButtons('#ob-cat-preset-blank', '#ob-cat-preset-general', '#ob-cat-preset-my');
+    updatePresetButtons('#ob-cat-preset-blank', '#ob-cat-preset-general');
     renderCategoryChips();
   });
   qs('#ob-sc-cont').addEventListener('click', async () => {
@@ -320,15 +314,7 @@ function bindEvents() {
     state.methodPreset = 'general';
     state.methods = [...DEFAULT_PAYMENTS];
     state.methodTypes = { ...DEFAULT_PAYMENT_TYPES };
-    updatePresetButtons('#ob-method-preset-general', '#ob-method-preset-my');
-    renderMethodChips();
-  });
-  qs('#ob-method-preset-my').addEventListener('click', () => {
-    state.methodPreset = 'my';
-    const existing = new Set(state.methods);
-    MY_PAYMENTS_PRESET.forEach(m => { if (!existing.has(m)) state.methods.push(m); });
-    MY_PAYMENTS_PRESET.forEach(m => { state.methodTypes[m] = MY_PAYMENTS_TYPES[m] || 'bank'; });
-    updatePresetButtons('#ob-method-preset-my', '#ob-method-preset-general');
+    updatePresetButtons('#ob-method-preset-general');
     renderMethodChips();
   });
   qs('#ob-s1-cont').addEventListener('click', async () => {
@@ -552,7 +538,6 @@ function buildHTML() {
         <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Choose a starting set. You can add, rename, or remove categories later in Settings.</p>
         <div style="display:flex;gap:8px;margin-bottom:20px">
           <button id="ob-cat-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
-          <button id="ob-cat-preset-my" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Malaysian</button>
           <button id="ob-cat-preset-blank" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Start blank</button>
         </div>
         <div id="ob-cat-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
@@ -581,7 +566,6 @@ function buildHTML() {
         <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your payment methods. Tap the type badge to change account type.</p>
         <div style="display:flex;gap:8px;margin-bottom:20px">
           <button id="ob-method-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
-          <button id="ob-method-preset-my" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">+ Malaysian</button>
         </div>
         <div id="ob-method-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
         <p id="ob-method-count" style="font-size:13px;font-weight:600;color:var(--ink-3)"></p>
