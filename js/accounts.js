@@ -91,7 +91,7 @@ export function renderAccounts() {
   totalCard.className = 'acc-total-card';
   totalCard.innerHTML = `
     <div class="acc-total-label">Total across accounts</div>
-    <div class="acc-total-val">RM ${fmt(total)}</div>`;
+    <div class="acc-total-val">${total < 0 ? '−' : ''}RM ${fmt(Math.abs(total))}</div>`;
   body.appendChild(totalCard);
 
   // Account list

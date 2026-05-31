@@ -130,17 +130,20 @@ function renderBudget() {
   }
 
   const incomeTotal   = monthData.income.reduce((s, i) => s + (i.amount || 0), 0);
-  const fixedPaid     = monthData.payments.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
   const variableTotal = variableExpenses.reduce((s, e) => s + e.amount, 0);
-  const netBalance    = incomeTotal - fixedPaid - variableTotal;
 
-  const totalItems  = template.groups.reduce((s, g) => s + g.items.length, 0);
-  const paidCount   = monthData.payments.filter(p => p.paid).length;
+  // Only count payments that correspond to current template items (orphaned records are ignored)
+  const templateItemIds = new Set(template.groups.flatMap(g => g.items.map(i => i.id)));
+  const activePayments  = monthData.payments.filter(p => templateItemIds.has(p.itemId));
+  const totalItems  = templateItemIds.size;
+  const paidCount   = activePayments.filter(p => p.paid).length;
+  const fixedPaidActive = activePayments.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
   const progressPct = totalItems > 0 ? (paidCount / totalItems * 100) : 0;
+  const netBalance  = incomeTotal - fixedPaidActive - variableTotal;
 
-  body.appendChild(buildHero(netBalance, incomeTotal, fixedPaid, variableTotal, progressPct, paidCount, totalItems));
+  body.appendChild(buildHero(netBalance, incomeTotal, fixedPaidActive, variableTotal, progressPct, paidCount, totalItems));
   body.appendChild(buildIncomeSection(monthData.income));
-  body.appendChild(buildFixedSummary(template, monthData.payments, paidCount, totalItems));
+  body.appendChild(buildFixedSummary(template, activePayments, paidCount, totalItems));
 }
 
 // ── Hero card ─────────────────────────────────────────────────────────────────
@@ -417,13 +420,15 @@ function renderChecklist() {
     return;
   }
 
-  const totalItems = template.groups.reduce((s, g) => s + g.items.length, 0);
-  const paidCount  = monthData.payments.filter(p => p.paid).length;
+  const chkItemIds     = new Set(template.groups.flatMap(g => g.items.map(i => i.id)));
+  const chkPayments    = monthData.payments.filter(p => chkItemIds.has(p.itemId));
+  const totalItems     = chkItemIds.size;
+  const paidCount      = chkPayments.filter(p => p.paid).length;
 
   body.appendChild(buildChkProgress(paidCount, totalItems));
 
   template.groups.forEach(group => {
-    body.appendChild(buildChkGroup(group, monthData.payments));
+    body.appendChild(buildChkGroup(group, chkPayments));
   });
 
   const hint = document.createElement('div');
