@@ -1,6 +1,6 @@
 import { currentUser, userSettings } from './state.js';
 import { fmt, monthLabel, showToast } from './helpers.js';
-import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, deleteExpense } from './db.js';
+import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
 
@@ -215,12 +215,13 @@ function openIncomeAccDropdown(entry, row) {
       if (idx >= 0) {
         if (acc) bdgState.monthData.income[idx].account = acc;
         else delete bdgState.monthData.income[idx].account;
-      }
-      try {
-        await persistBudgetMonth(currentUser.uid, bdgState.year, bdgState.month, bdgState.monthData);
-      } catch (e) {
-        console.error(e);
-        showToast('Error — please try again');
+        try {
+          await persistBudgetMonth(currentUser.uid, bdgState.year, bdgState.month, bdgState.monthData);
+          await syncIncomeExpense(bdgState.monthData.income[idx]);
+        } catch (e) {
+          console.error(e);
+          showToast('Error — please try again');
+        }
       }
       renderBudget();
     });
@@ -263,6 +264,7 @@ function startIncomeEdit(entry) {
     if (idx >= 0) bdgState.monthData.income[idx].amount = val;
     try {
       await persistBudgetMonth(currentUser.uid, bdgState.year, bdgState.month, bdgState.monthData);
+      if (idx >= 0) await syncIncomeExpense(bdgState.monthData.income[idx]);
     } catch (e) {
       console.error(e);
       showToast('Error — please try again');
@@ -272,6 +274,47 @@ function startIncomeEdit(entry) {
 
   inp.addEventListener('blur', save);
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') renderBudget(); });
+}
+
+// ── Income ↔ expense sync ─────────────────────────────────────────────────────
+
+async function syncIncomeExpense(entry) {
+  const uid      = currentUser.uid;
+  const date     = `${bdgState.year}-${String(bdgState.month).padStart(2, '0')}-01`;
+  const hasData  = entry.account && entry.amount > 0;
+
+  if (entry.expenseId) {
+    if (!hasData) {
+      // Account removed or amount zeroed — delete the expense doc
+      try { await deleteExpense(entry.expenseId); } catch (_) {}
+      delete entry.expenseId;
+      await persistBudgetMonth(uid, bdgState.year, bdgState.month, bdgState.monthData);
+    } else {
+      // Update existing
+      try {
+        await updateExpense(entry.expenseId, {
+          amount: entry.amount, paymentMethod: entry.account,
+          date, subCategory: entry.name,
+        });
+      } catch (_) {
+        // Doc deleted externally — recreate
+        const ref = await addExpense({
+          uid, date, amount: entry.amount, paymentMethod: entry.account,
+          isIncome: true, type: 'income', category: 'Income', subCategory: entry.name,
+        });
+        entry.expenseId = ref.id;
+        await persistBudgetMonth(uid, bdgState.year, bdgState.month, bdgState.monthData);
+      }
+    }
+  } else if (hasData) {
+    // Create new expense doc
+    const ref = await addExpense({
+      uid, date, amount: entry.amount, paymentMethod: entry.account,
+      isIncome: true, type: 'income', category: 'Income', subCategory: entry.name,
+    });
+    entry.expenseId = ref.id;
+    await persistBudgetMonth(uid, bdgState.year, bdgState.month, bdgState.monthData);
+  }
 }
 
 // ── Fixed summary ─────────────────────────────────────────────────────────────
