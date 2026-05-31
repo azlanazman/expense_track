@@ -27,6 +27,7 @@ document.getElementById('settings-sub-back').addEventListener('click', () => {
 });
 document.getElementById('btn-budget-templates').addEventListener('click', async () => {
   subPage.classList.add('active');
+  history.pushState(null, '');
   await initBudgetTemplates();
 });
 

@@ -29,6 +29,15 @@ document.getElementById('nav-report').addEventListener('click', () => { initRepo
 document.getElementById('nav-budget').addEventListener('click', () => { initBudget(); showScreen('budget'); });
 document.getElementById('nav-settings').addEventListener('click', () => { renderSettings(); showScreen('settings'); });
 
+// Intercept phone back button — close any open sub-page instead of leaving the app
+window.addEventListener('popstate', () => {
+  const openSubPage = document.querySelector('.sub-page.active');
+  if (openSubPage) {
+    openSubPage.classList.remove('active');
+    // Don't pushState here — popping already consumed the entry
+  }
+});
+
 document.addEventListener('nav:show-log-transfers', () => {
   showScreen('log');
   initLog().then(() => showLogTransfers());

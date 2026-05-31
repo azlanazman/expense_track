@@ -288,6 +288,7 @@ function appendGroupRows(groups, payments, container) {
 export function showChecklist() {
   renderChecklist();
   document.getElementById('budget-checklist-page').classList.add('active');
+  history.pushState(null, '');
 }
 
 document.getElementById('budget-checklist-back').addEventListener('click', () => {
