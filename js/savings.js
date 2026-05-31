@@ -118,10 +118,17 @@ function openTxnSheet(potId, type) {
   savState.txnType  = type;
   const pot = savState.pots.find(p => p.id === potId);
 
-  document.getElementById('ptxn-title').textContent  = type === 'contribute' ? `Add to "${pot.name}"` : `Withdraw from "${pot.name}"`;
+  document.getElementById('ptxn-title').textContent     = type === 'contribute' ? `Add to "${pot.name}"` : `Withdraw from "${pot.name}"`;
+  document.getElementById('ptxn-acc-label').textContent = type === 'contribute' ? 'From account' : 'To account';
   document.getElementById('ptxn-amount').value = '';
   document.getElementById('ptxn-date').value   = todayString();
   document.getElementById('ptxn-notes').value  = '';
+
+  const accSel = document.getElementById('ptxn-account');
+  accSel.innerHTML = savState.accounts.map(a =>
+    `<option value="${a.id}"${a.id === pot.linkedAccountId ? ' selected' : ''}>${a.name}</option>`
+  ).join('');
+
   openSheet('pot-txn-sheet');
 }
 
@@ -152,7 +159,7 @@ document.getElementById('ptxn-confirm-btn').addEventListener('click', async () =
       potId:           txnPotId,
       type:            txnType,
       amount:          amt,
-      linkedAccountId: pot.linkedAccountId,
+      linkedAccountId: document.getElementById('ptxn-account').value || pot.linkedAccountId,
       date,
       notes: document.getElementById('ptxn-notes').value.trim(),
     });
