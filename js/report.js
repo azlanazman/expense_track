@@ -59,24 +59,39 @@ function computePeriodDates() {
 
 function salaryStart(sd) {
   const t = new Date();
-  const y = t.getFullYear(), m = t.getMonth() + 1;
-  const pm = m === 1 ? 12 : m - 1;
-  const py = m === 1 ? y - 1 : y;
-  const day = Math.min(sd, new Date(py, pm, 0).getDate());
-  return `${py}-${String(pm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const today = t.getDate(), y = t.getFullYear(), m = t.getMonth() + 1;
+  if (today >= sd) {
+    // Salary already arrived this month — period started this month
+    const day = Math.min(sd, new Date(y, m, 0).getDate());
+    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  } else {
+    // Before salary day — period started last month
+    const pm = m === 1 ? 12 : m - 1;
+    const py = m === 1 ? y - 1 : y;
+    const day = Math.min(sd, new Date(py, pm, 0).getDate());
+    return `${py}-${String(pm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
 }
 
 function salaryEnd(sd) {
   const t = new Date();
-  const y = t.getFullYear(), m = t.getMonth() + 1;
+  const today = t.getDate(), y = t.getFullYear(), m = t.getMonth() + 1;
   if (sd <= 1) {
-    const pm = m === 1 ? 12 : m - 1;
-    const py = m === 1 ? y - 1 : y;
-    const last = new Date(py, pm, 0).getDate();
-    return `${py}-${String(pm).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+    // Salary on 1st — period runs the full calendar month
+    const last = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
   }
-  const day = Math.min(sd - 1, new Date(y, m, 0).getDate());
-  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  if (today >= sd) {
+    // Salary arrived — period ends sd−1 of next month
+    const nm = m === 12 ? 1 : m + 1;
+    const ny = m === 12 ? y + 1 : y;
+    const day = Math.min(sd - 1, new Date(ny, nm, 0).getDate());
+    return `${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  } else {
+    // Before salary day — period ends sd−1 of this month
+    const day = Math.min(sd - 1, new Date(y, m, 0).getDate());
+    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
 }
 
 // ── Data load ─────────────────────────────────────────────────────────────────
