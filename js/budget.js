@@ -1,4 +1,4 @@
-import { currentUser } from './state.js';
+import { currentUser, userSettings } from './state.js';
 import { fmt, monthLabel, showToast } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
@@ -172,21 +172,69 @@ function buildIncomeSection(income) {
   card.className = 'income-card';
 
   income.forEach(entry => {
+    const hasAcc = !!entry.account;
     const row = document.createElement('div');
     row.className = 'income-row';
+    row.style.position = 'relative';
     row.innerHTML = `
       <span class="income-dot" style="background:${INCOME_DOTS[entry.id] || 'var(--ink-3)'}"></span>
       <span class="income-name">${entry.name}</span>
+      <button class="income-acc-pill${hasAcc ? ' set' : ''}" type="button" id="income-acc-${entry.id}">
+        ${entry.account || 'Account'}
+      </button>
       <span class="income-val" id="income-val-${entry.id}">
         RM ${fmt(entry.amount || 0)}
         <span style="color:var(--ink-3)">${PENCIL_IC}</span>
       </span>`;
     row.querySelector('.income-val').addEventListener('click', () => startIncomeEdit(entry));
+    row.querySelector(`#income-acc-${entry.id}`).addEventListener('click', e => {
+      e.stopPropagation();
+      openIncomeAccDropdown(entry, row);
+    });
     card.appendChild(row);
   });
 
   section.appendChild(card);
   return section;
+}
+
+function openIncomeAccDropdown(entry, row) {
+  document.querySelectorAll('.income-acc-dd').forEach(d => d.remove());
+
+  const dd = document.createElement('div');
+  dd.className = 'income-acc-dd';
+
+  ['', ...(userSettings.paymentMethods || [])].forEach(acc => {
+    const opt = document.createElement('button');
+    opt.type = 'button';
+    opt.className = `income-acc-opt${(entry.account || '') === acc ? ' on' : ''}`;
+    opt.textContent = acc || '— None';
+    opt.addEventListener('click', async () => {
+      dd.remove();
+      const idx = bdgState.monthData.income.findIndex(i => i.id === entry.id);
+      if (idx >= 0) {
+        if (acc) bdgState.monthData.income[idx].account = acc;
+        else delete bdgState.monthData.income[idx].account;
+      }
+      try {
+        await persistBudgetMonth(currentUser.uid, bdgState.year, bdgState.month, bdgState.monthData);
+      } catch (e) {
+        console.error(e);
+        showToast('Error — please try again');
+      }
+      renderBudget();
+    });
+    dd.appendChild(opt);
+  });
+
+  row.appendChild(dd);
+
+  setTimeout(() => {
+    const close = e => {
+      if (!dd.contains(e.target)) { dd.remove(); document.removeEventListener('click', close); }
+    };
+    document.addEventListener('click', close);
+  }, 0);
 }
 
 function startIncomeEdit(entry) {

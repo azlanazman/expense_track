@@ -135,13 +135,13 @@ function buildCombinedSheet(XLSX, varEntries, fixedEntries, methods) {
 // ── Sheet 4: Income ───────────────────────────────────────────────────────────
 
 function buildIncomeSheet(XLSX, incomeRows) {
-  const rows = [['Month', 'Source', 'Amount']];
+  const rows = [['Month', 'Source', 'Account', 'Amount']];
   let total  = 0;
-  incomeRows.forEach(r => { rows.push([r.month, r.source, r.amount]); total += r.amount; });
-  rows.push(['', 'TOTAL', total]);
+  incomeRows.forEach(r => { rows.push([r.month, r.source, r.account || '—', r.amount]); total += r.amount; });
+  rows.push(['', 'TOTAL', '', total]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 13 }];
+  ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 13 }];
   return ws;
 }
 
@@ -160,7 +160,7 @@ async function fetchIncomeForPeriod(startDate, endDate) {
     const data = await fetchBudgetMonth(uid, y, m);
     if (data?.income) {
       const label = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-      data.income.forEach(entry => rows.push({ month: label, source: entry.name, amount: entry.amount || 0 }));
+      data.income.forEach(entry => rows.push({ month: label, source: entry.name, account: entry.account || '', amount: entry.amount || 0 }));
     }
     cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
   }
