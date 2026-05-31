@@ -17,16 +17,15 @@ export function monthLabel(year, month) {
 }
 
 export const CATEGORY_COLOURS = {
-  // Universal defaults
-  food:             'oklch(0.64 0.085 25)',
-  transport:        'oklch(0.64 0.085 60)',
-  shopping:         'oklch(0.64 0.085 330)',
-  health:           'oklch(0.64 0.085 5)',
-  entertainment:    'oklch(0.64 0.085 285)',
-  bills:            'oklch(0.64 0.085 250)',
-  savings:          'oklch(0.64 0.085 150)',
-  other:            'oklch(0.64 0.085 100)',
-  _default:         'oklch(0.64 0.085 265)',
+  food:             'oklch(0.65 0.24 30)',
+  transport:        'oklch(0.70 0.20 80)',
+  shopping:         'oklch(0.62 0.27 345)',
+  health:           'oklch(0.58 0.24 12)',
+  entertainment:    'oklch(0.56 0.27 290)',
+  bills:            'oklch(0.52 0.24 245)',
+  savings:          'oklch(0.60 0.24 155)',
+  other:            'oklch(0.68 0.20 125)',
+  _default:         'oklch(0.58 0.24 268)',
 };
 export const FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230];
 
@@ -34,7 +33,7 @@ export function catColor(name, allCats) {
   const key = name.toLowerCase();
   if (CATEGORY_COLOURS[key]) return CATEGORY_COLOURS[key];
   const idx = allCats.findIndex(c => c.toLowerCase() === key);
-  return `oklch(0.64 0.085 ${FALLBACK_HUES[(idx < 0 ? 0 : idx) % 8]})`;
+  return `oklch(0.62 0.22 ${FALLBACK_HUES[(idx < 0 ? 0 : idx) % 8]})`;
 }
 
 export const DEFAULT_CATEGORIES    = ['Food', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Bills', 'Savings', 'Other'];

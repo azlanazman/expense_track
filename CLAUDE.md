@@ -106,9 +106,9 @@ const fmt0 = (n) => Math.round(n).toLocaleString(undefined);
 
 ### Category dot colours
 
-Defined in `helpers.js` as `CATEGORY_COLOURS` (lowercase keys). Pattern: `oklch(0.64 0.085 <hue>)`.
-`catColor(name, allCats)` returns the colour or cycles `FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230]`
-for unknown names. Universal keys: food, transport, shopping, health, entertainment, bills, savings, other.
+Defined in `helpers.js` as `CATEGORY_COLOURS` (lowercase keys). Vibrant colour-block style — high chroma
+(0.20–0.27), distinct hues per category. Fallback for unknown names cycles `FALLBACK_HUES = [40, 120, 220, 300, 170, 70, 10, 230]`
+at `oklch(0.62 0.22 <hue>)`. Universal keys: food, transport, shopping, health, entertainment, bills, savings, other.
 
 ---
 
