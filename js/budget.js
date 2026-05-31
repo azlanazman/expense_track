@@ -139,7 +139,6 @@ function renderBudget() {
   const progressPct = totalItems > 0 ? (paidCount / totalItems * 100) : 0;
 
   body.appendChild(buildHero(netBalance, incomeTotal, fixedPaid, variableTotal, progressPct, paidCount, totalItems));
-  body.appendChild(buildStatGrid(incomeTotal, fixedPaid, variableTotal, netBalance));
   body.appendChild(buildIncomeSection(monthData.income));
   body.appendChild(buildFixedSummary(template, monthData.payments, paidCount, totalItems));
 }
@@ -162,31 +161,6 @@ function buildHero(net, income, fixed, variable, pct, paid, total) {
   return div;
 }
 
-// ── Stat cards ────────────────────────────────────────────────────────────────
-
-function buildStatGrid(income, fixed, variable, remaining) {
-  const isPos = remaining >= 0;
-  const div   = document.createElement('div');
-  div.className = 'stat-grid';
-  div.innerHTML = `
-    <div class="stat-card accent">
-      <div class="stat-label">Income</div>
-      <div class="stat-val" style="font-size:22px">RM ${fmt(income)}</div>
-    </div>
-    <div class="stat-card comp">
-      <div class="stat-label">Fixed paid</div>
-      <div class="stat-val" style="font-size:22px">RM ${fmt(fixed)}</div>
-    </div>
-    <div class="stat-card surface">
-      <div class="stat-label">Variable so far</div>
-      <div class="stat-val" style="font-size:22px">RM ${fmt(variable)}</div>
-    </div>
-    <div class="stat-card ${isPos ? 'positive' : 'negative'}">
-      <div class="stat-label">Remaining</div>
-      <div class="stat-val" style="font-size:22px">${isPos ? '' : '−'}RM ${fmt(Math.abs(remaining))}</div>
-    </div>`;
-  return div;
-}
 
 // ── Income section ────────────────────────────────────────────────────────────
 
