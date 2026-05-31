@@ -57,11 +57,8 @@ async function loadAccounts() {
 
 function calcBalance(account) {
   const { id, name, openingBalance } = account;
-  const startDate = account.createdAt
-    ? (account.createdAt.toDate ? account.createdAt.toDate().toISOString().slice(0, 10) : account.createdAt.slice(0, 10))
-    : '2000-01-01';
 
-  const expenses = accState.allExpenses.filter(e => e.paymentMethod === name && e.date >= startDate);
+  const expenses = accState.allExpenses.filter(e => e.paymentMethod === name);
   const income   = expenses.filter(e => e.isIncome).reduce((s, e) => s + e.amount, 0);
   const spend    = expenses.filter(e => !e.isIncome).reduce((s, e) => s + e.amount, 0);
   const tfOut    = accState.allTransfers.filter(t => t.fromAccountId === id).reduce((s, t) => s + t.amount, 0);
