@@ -24,7 +24,7 @@ let rptState = {
 
 export async function initReport() {
   const now = new Date();
-  rptState.period   = 'monthly';
+  rptState.period   = 'salary';
   rptState.year     = now.getFullYear();
   rptState.month    = now.getMonth() + 1;
   rptState.selected = [];

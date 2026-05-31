@@ -19,6 +19,8 @@ export function showScreen(name) {
     document.getElementById(`screen-${s}`).style.display = s === name ? '' : 'none';
     document.getElementById(`nav-${s}`).classList.toggle('on', s === name);
   });
+  if (name !== 'budget') document.getElementById('acc-transfer-fab').classList.remove('show');
+  sessionStorage.setItem('activeScreen', name);
 }
 
 document.getElementById('nav-add').addEventListener('click', () => showScreen('add'));
@@ -53,8 +55,12 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('app').style.display = '';
     const settings = await loadUserSettings();
     if (settings?.onboardingComplete) {
-      initAdd();
-      showScreen('add');
+      const saved = sessionStorage.getItem('activeScreen') || 'add';
+      if      (saved === 'log')      { initLog();        showScreen('log'); }
+      else if (saved === 'report')   { initReport();     showScreen('report'); }
+      else if (saved === 'budget')   { initBudget();     showScreen('budget'); }
+      else if (saved === 'settings') { renderSettings(); showScreen('settings'); }
+      else                           { initAdd();        showScreen('add'); }
     } else {
       document.getElementById('onboarding-overlay').style.display = 'flex';
       initOnboarding(user.uid);
