@@ -1,6 +1,7 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, parseLocalDate, monthLabel, catColor } from './helpers.js';
+import { fmt, parseLocalDate, monthLabel, catColor, showToast } from './helpers.js';
 import { fetchExpenses } from './db.js';
+import { exportReport } from './export.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -254,6 +255,28 @@ function renderReport() {
   if (tab === 'variable')       renderVarTable(tableEl, filteredVar, colMethods);
   else if (tab === 'fixed')     renderFixedTable(tableEl, filteredFixed, colMethods);
   else                          renderCombinedTable(tableEl, filteredVar, filteredFixed, colMethods);
+
+  // Export button
+  const footnote = document.getElementById('rpt-footnote');
+  footnote.innerHTML = '';
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.style.cssText = 'margin-top:16px;width:100%;padding:13px 16px;border-radius:var(--radius);border:1.5px solid var(--accent-line);background:var(--accent-soft);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
+  exportBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>Export to Sheets`;
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled    = true;
+    exportBtn.textContent = 'Exporting…';
+    try {
+      await exportReport(rptState.entries, rptState.startDate, rptState.endDate);
+    } catch (e) {
+      console.error(e);
+      showToast('Export failed — check connection');
+    } finally {
+      exportBtn.disabled = false;
+      exportBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>Export to Sheets`;
+    }
+  });
+  footnote.appendChild(exportBtn);
 }
 
 // ── Variable tab ──────────────────────────────────────────────────────────────
