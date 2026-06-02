@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
+import { fmt, monthLabel, showToast, todayString, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
@@ -29,19 +29,15 @@ let bdgState = {
   variableExpenses:   [],
   chkCollapsed:       new Set(),
   subTab:             'overview',
-  _initialised:       false,
 };
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
 export async function initBudget() {
-  if (!bdgState._initialised) {
-    const sp = salaryPeriodMonth(userSettings.salaryDay);
-    bdgState.year  = sp.year;
-    bdgState.month = sp.month;
-    bdgState._initialised = true;
-  }
-  bdgState.template = null; // always reload fresh
+  const sp = salaryPeriodMonth(userSettings.salaryDay);
+  bdgState.year  = sp.year;
+  bdgState.month = sp.month;
+  bdgState.template = null;
   wireSubTabs();
   await switchSubTab(bdgState.subTab);
 }
@@ -313,7 +309,7 @@ function startIncomeEdit(entry) {
 
 async function syncIncomeExpense(entry) {
   const uid      = currentUser.uid;
-  const date     = `${bdgState.year}-${String(bdgState.month).padStart(2, '0')}-01`;
+  const date     = todayString();
   const hasData  = entry.account && entry.amount > 0;
 
   if (entry.expenseId) {
