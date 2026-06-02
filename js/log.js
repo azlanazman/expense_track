@@ -75,7 +75,8 @@ function renderLog() {
     return;
   }
 
-  const filtered   = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
+  const pool     = entries.filter(e => !e.isIncome);
+  const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
     .sort((a, b) => b.date.localeCompare(a.date));
   const total      = filtered.reduce((s, e) => s + e.amount, 0);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
@@ -370,7 +371,8 @@ async function exportLog() {
       XLSX.utils.book_append_sheet(wb, ws, 'Transfers');
       XLSX.writeFile(wb, `log-${y}-${m}-transfers.xlsx`);
     } else {
-      const filtered = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
+      const pool     = entries.filter(e => !e.isIncome);
+      const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
         .sort((a, b) => b.date.localeCompare(a.date));
       const rows = [['Date', 'Category', 'Sub-category', 'Payment Method', 'Notes', 'Amount', 'Type']];
       filtered.forEach(e => rows.push([
