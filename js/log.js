@@ -2,6 +2,9 @@ import { currentUser, userSettings } from './state.js';
 import { fmt, displayDate, monthLabel, catColor, showToast } from './helpers.js';
 import { fetchMonth, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
+const PAGE_SIZE   = 10;
+const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+
 const CAL_SVG   = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 const CHEV_SVG  = `<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 const CHECK_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -12,7 +15,7 @@ const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 let logState = {
   year: new Date().getFullYear(), month: new Date().getMonth() + 1,
   filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
-  showTransfers: false,
+  showTransfers: false, page: 1,
 };
 
 export async function initLog() {
@@ -21,12 +24,14 @@ export async function initLog() {
   logState.filter        = 'All';
   logState.openId        = null;
   logState.showTransfers = false;
+  logState.page          = 1;
   await loadLog();
 }
 
 export function showLogTransfers() {
   logState.showTransfers = true;
   logState.filter        = 'All';
+  logState.page          = 1;
   loadLog();
 }
 
@@ -48,12 +53,14 @@ async function loadLog() {
 }
 
 function renderLog() {
-  const { entries, filter, year, month, showTransfers, transfers } = logState;
+  const { entries, filter, year, month, showTransfers, transfers, page } = logState;
   document.getElementById('log-eyebrow').textContent     = monthLabel(year, month);
   document.getElementById('log-month-title').textContent = monthLabel(year, month);
 
   if (showTransfers) {
-    const sorted = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
+    const sorted     = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
+    const totalPages = Math.ceil(sorted.length / PAGE_SIZE) || 1;
+    const pageItems  = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     document.getElementById('log-total').innerHTML =
       `RM ${fmt(sorted.reduce((s, t) => s + t.amount, 0))} <span>· ${sorted.length} transfer${sorted.length === 1 ? '' : 's'}</span>`;
     renderFilterChips();
@@ -62,14 +69,17 @@ function renderLog() {
       list.innerHTML = '<div class="list-hint">No transfers this month</div>';
     } else {
       list.innerHTML = '';
-      sorted.forEach(tf => list.appendChild(buildTransferLogRow(tf)));
+      pageItems.forEach(tf => list.appendChild(buildTransferLogRow(tf)));
+      if (totalPages > 1) renderPagination(list, page, totalPages);
     }
     return;
   }
 
-  const filtered = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
+  const filtered   = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
     .sort((a, b) => b.date.localeCompare(a.date));
-  const total = filtered.reduce((s, e) => s + e.amount, 0);
+  const total      = filtered.reduce((s, e) => s + e.amount, 0);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const pageItems  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   document.getElementById('log-total').innerHTML =
     `RM ${fmt(total)} <span>· ${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}</span>`;
 
@@ -81,11 +91,26 @@ function renderLog() {
     return;
   }
   list.innerHTML = '';
-  filtered.forEach(entry =>
+  pageItems.forEach(entry =>
     list.appendChild(entry.id === logState.openId ? buildEditForm(entry) : buildLogRow(entry))
   );
+  if (totalPages > 1) renderPagination(list, page, totalPages);
   list.insertAdjacentHTML('beforeend',
     `<div class="list-hint">${EDIT_SVG}tap a row to edit or delete</div>`);
+}
+
+function renderPagination(list, page, totalPages) {
+  const PREV_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+  const NEXT_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const div = document.createElement('div');
+  div.className = 'log-pagination';
+  div.innerHTML = `
+    <button class="log-page-btn" id="lp-prev" type="button"${page <= 1 ? ' disabled' : ''}>${PREV_SVG}</button>
+    <span class="log-page-info">${page} of ${totalPages}</span>
+    <button class="log-page-btn" id="lp-next" type="button"${page >= totalPages ? ' disabled' : ''}>${NEXT_SVG}</button>`;
+  div.querySelector('#lp-prev').addEventListener('click', () => { logState.page--; renderLog(); });
+  div.querySelector('#lp-next').addEventListener('click', () => { logState.page++; renderLog(); });
+  list.appendChild(div);
 }
 
 function renderFilterChips() {
@@ -107,6 +132,7 @@ function renderFilterChips() {
     btn.addEventListener('click', () => {
       logState.showTransfers = false;
       logState.filter        = btn.dataset.method;
+      logState.page          = 1;
       renderLog();
     })
   );
@@ -119,7 +145,7 @@ function renderFilterChips() {
       ).join('') +
       (hasTransfers ? `<button class="chip${showTransfers ? ' on' : ''}" id="log-transfers-chip" type="button">Transfers</button>` : '');
       filterRow.querySelectorAll('.chip:not(#log-transfers-chip)').forEach(b =>
-        b.addEventListener('click', () => { logState.showTransfers = false; logState.filter = b.dataset.method; renderLog(); })
+        b.addEventListener('click', () => { logState.showTransfers = false; logState.filter = b.dataset.method; logState.page = 1; renderLog(); })
       );
       wireTransfersChip();
     });
@@ -130,7 +156,7 @@ function renderFilterChips() {
 
 function wireTransfersChip() {
   const chip = document.getElementById('log-transfers-chip');
-  if (chip) chip.addEventListener('click', () => { logState.showTransfers = true; renderLog(); });
+  if (chip) chip.addEventListener('click', () => { logState.showTransfers = true; logState.page = 1; renderLog(); });
 }
 
 function buildTransferLogRow(tf) {
@@ -308,17 +334,76 @@ function buildEditForm(entry) {
   return wrap;
 }
 
+// ── Export ───────────────────────────────────────────────────────────────────
+
+async function ensureSheetJS() {
+  if (window.XLSX) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src     = SHEETJS_URL;
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error('Failed to load SheetJS'));
+    document.head.appendChild(s);
+  });
+}
+
+async function exportLog() {
+  const { entries, filter, year, month, showTransfers, transfers, accounts } = logState;
+  showToast('Preparing export…');
+  try {
+    await ensureSheetJS();
+    const XLSX  = window.XLSX;
+    const wb    = XLSX.utils.book_new();
+    const y     = String(year);
+    const m     = String(month).padStart(2, '0');
+
+    if (showTransfers) {
+      const sorted = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
+      const rows   = [['Date', 'From', 'To', 'Amount', 'Notes']];
+      sorted.forEach(tf => {
+        const from = accounts.find(a => a.id === tf.fromAccountId);
+        const to   = accounts.find(a => a.id === tf.toAccountId);
+        rows.push([tf.date, from?.name || tf.fromAccountId, to?.name || tf.toAccountId, tf.amount, tf.notes || '']);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 24 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Transfers');
+      XLSX.writeFile(wb, `log-${y}-${m}-transfers.xlsx`);
+    } else {
+      const filtered = (filter === 'All' ? entries : entries.filter(e => e.paymentMethod === filter))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const rows = [['Date', 'Category', 'Sub-category', 'Payment Method', 'Notes', 'Amount', 'Type']];
+      filtered.forEach(e => rows.push([
+        e.date, e.category, e.subCategory || '', e.paymentMethod, e.notes || '', e.amount, e.type || 'variable',
+      ]));
+      const total = filtered.reduce((s, e) => s + e.amount, 0);
+      rows.push(['', '', '', '', 'TOTAL', total, '']);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Log');
+      const label = filter === 'All' ? '' : `-${filter.toLowerCase().replace(/\s+/g, '-')}`;
+      XLSX.writeFile(wb, `log-${y}-${m}${label}.xlsx`);
+    }
+    showToast('Downloaded!');
+  } catch (e) {
+    console.error(e);
+    showToast('Export failed');
+  }
+}
+
+document.getElementById('log-export-btn').addEventListener('click', exportLog);
+
 // ── Month nav ────────────────────────────────────────────────────────────────
 
 document.getElementById('log-prev-month').addEventListener('click', async () => {
   logState.month--;
   if (logState.month < 1) { logState.month = 12; logState.year--; }
-  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false;
+  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
   await loadLog();
 });
 document.getElementById('log-next-month').addEventListener('click', async () => {
   logState.month++;
   if (logState.month > 12) { logState.month = 1; logState.year++; }
-  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false;
+  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
   await loadLog();
 });
