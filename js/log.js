@@ -229,7 +229,7 @@ function buildEditForm(entry) {
       <div class="dropdown" id="ec-dd-${id}" style="display:none"></div>
     </div>
     <div class="field" id="ep-field-${id}">
-      <label class="field-label">Payment method</label>
+      <label class="field-label">Account</label>
       <button class="input-row select" id="ep-btn-${id}" type="button">
         <span class="sel-val" id="ep-disp-${id}"><span class="pay-pill sm">${entry.paymentMethod}</span></span>
         <span class="muted-ic"><svg class="chev" id="ep-chev-${id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
@@ -374,7 +374,7 @@ async function exportLog() {
       const pool     = entries.filter(e => !e.isIncome);
       const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
         .sort((a, b) => b.date.localeCompare(a.date));
-      const rows = [['Date', 'Category', 'Sub-category', 'Payment Method', 'Notes', 'Amount', 'Type']];
+      const rows = [['Date', 'Category', 'Sub-category', 'Account', 'Notes', 'Amount', 'Type']];
       filtered.forEach(e => rows.push([
         e.date, e.category, e.subCategory || '', e.paymentMethod, e.notes || '', e.amount, e.type || 'variable',
       ]));

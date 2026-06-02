@@ -563,7 +563,7 @@ function buildHTML() {
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
         <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your accounts</div>
         <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Which do you use?</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your payment methods. Tap the type badge to change account type.</p>
+        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your accounts. Tap the type badge to change account type.</p>
         <div style="display:flex;gap:8px;margin-bottom:20px">
           <button id="ob-method-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
         </div>

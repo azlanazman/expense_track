@@ -1,6 +1,6 @@
-import { currentUser, userSettings } from './state.js';
+import { currentUser, userSettings, setUserSettings } from './state.js';
 import { fmt, todayString, displayDate, showToast } from './helpers.js';
-import { fetchAccounts, persistAccounts, addTransfer, fetchAllTransfers, fetchAllExpenses, fetchPotTransactions } from './db.js';
+import { fetchAccounts, persistAccounts, persistUserSettings, addTransfer, fetchAllTransfers, fetchAllExpenses, fetchPotTransactions } from './db.js';
 
 const ACCOUNT_TYPE_ICONS = {
   bank:    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
@@ -212,19 +212,34 @@ document.getElementById('acc-save-btn').addEventListener('click', async () => {
   const bal   = parseFloat(document.getElementById('acc-bal-inp').value) || 0;
   const type  = document.querySelector('#acc-type-chips .type-chip.on')?.dataset.type || 'ewallet';
 
+  let oldName = null;
   if (accState.isNew) {
     accState.accounts.push({
-      id:             `acc-${Date.now()}`,
+      id:        `acc-${Date.now()}`,
       name, openingBalance: bal, type,
-      createdAt:      new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     });
   } else {
     const acc = accState.accounts.find(a => a.id === accState.editId);
-    if (acc) { acc.name = name; acc.openingBalance = bal; acc.type = type; }
+    if (acc) { oldName = acc.name; acc.name = name; acc.openingBalance = bal; acc.type = type; }
   }
 
+  // sync payment methods
+  let methods = [...(userSettings.paymentMethods || [])];
+  if (accState.isNew) {
+    if (!methods.includes(name)) methods.push(name);
+  } else if (oldName && oldName !== name) {
+    const idx = methods.indexOf(oldName);
+    if (idx !== -1) methods[idx] = name;
+  }
+  const updatedSettings = { ...userSettings, paymentMethods: methods };
+
   try {
-    await persistAccounts(currentUser.uid, accState.accounts);
+    await Promise.all([
+      persistAccounts(currentUser.uid, accState.accounts),
+      persistUserSettings(currentUser.uid, updatedSettings),
+    ]);
+    setUserSettings(updatedSettings);
     closeSheet('acc-sheet');
     renderAccounts();
   } catch (e) {

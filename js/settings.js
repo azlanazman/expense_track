@@ -1,6 +1,6 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
 import { catColor } from './helpers.js';
-import { persistUserSettings } from './db.js';
+import { persistUserSettings, fetchAccounts, persistAccounts } from './db.js';
 import { initBudgetTemplates } from './budget-templates.js';
 
 export function renderSettings() {
@@ -165,7 +165,11 @@ function renderPayChips() {
       if (val) {
         const updated = { ...userSettings, paymentMethods: [...userSettings.paymentMethods, val] };
         setUserSettings(updated);
-        await persistUserSettings(currentUser.uid, updated);
+        const accounts = (await fetchAccounts(currentUser.uid)) || [];
+        if (!accounts.find(a => a.name === val)) {
+          accounts.push({ id: `acc-${Date.now()}`, name: val, openingBalance: 0, type: 'ewallet', createdAt: new Date().toISOString() });
+        }
+        await Promise.all([persistUserSettings(currentUser.uid, updated), persistAccounts(currentUser.uid, accounts)]);
       }
       renderPayChips();
     }
@@ -196,7 +200,10 @@ function makePayChip(pay, idx) {
         methods[idx]  = val;
         const updated = { ...userSettings, paymentMethods: methods };
         setUserSettings(updated);
-        await persistUserSettings(currentUser.uid, updated);
+        const accounts = (await fetchAccounts(currentUser.uid)) || [];
+        const acc = accounts.find(a => a.name === pay);
+        if (acc) acc.name = val;
+        await Promise.all([persistUserSettings(currentUser.uid, updated), persistAccounts(currentUser.uid, accounts)]);
       }
       renderPayChips();
     }
