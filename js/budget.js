@@ -78,23 +78,35 @@ async function loadData() {
 
   bdgState.template = await fetchBudgetTemplate(uid);
 
-  if (!bdgState.template) {
-    bdgState.monthData        = { income: JSON.parse(JSON.stringify(DEFAULT_INCOME)), payments: [] };
-    bdgState.variableExpenses = [];
-    return;
-  }
-
   let monthData = await fetchBudgetMonth(uid, year, month);
   if (!monthData) {
-    monthData = seedMonth(bdgState.template);
-    try {
-      await persistBudgetMonth(uid, year, month, monthData);
-    } catch (e) {
-      console.error(e);
+    monthData = bdgState.template
+      ? seedMonth(bdgState.template)
+      : { income: JSON.parse(JSON.stringify(DEFAULT_INCOME)), payments: [] };
+    try { await persistBudgetMonth(uid, year, month, monthData); } catch (e) { console.error(e); }
+  } else {
+    // Onboarding may have written only {income} with no payments field
+    if (!monthData.income)   monthData.income   = JSON.parse(JSON.stringify(DEFAULT_INCOME));
+    if (!monthData.payments) monthData.payments = [];
+    // Seed any template items not yet represented in payments
+    if (bdgState.template) {
+      const existing = new Set(monthData.payments.map(p => p.itemId));
+      const missing  = bdgState.template.groups.flatMap(g =>
+        g.items.filter(i => !existing.has(i.id))
+          .map(i => ({ itemId: i.id, paid: false, amount: i.defaultAmount, paidDate: null, expenseId: null }))
+      );
+      if (missing.length > 0) {
+        monthData.payments.push(...missing);
+        try { await persistBudgetMonth(uid, year, month, monthData); } catch (e) { console.error(e); }
+      }
     }
   }
   bdgState.monthData = monthData;
 
+  if (!bdgState.template) {
+    bdgState.variableExpenses = [];
+    return;
+  }
   const all = await fetchMonth(uid, year, month);
   bdgState.variableExpenses = all.filter(e => !e.type || e.type === 'variable');
 }
@@ -121,11 +133,13 @@ function renderBudget() {
   body.innerHTML = '';
 
   if (!template) {
-    body.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:48px 0;color:var(--ink-3)">
-        <span style="font-size:15px;font-weight:600">No budget template set up</span>
-        <span style="font-size:13px">Go to Settings → Budget templates to get started</span>
-      </div>`;
+    body.appendChild(buildIncomeSection(monthData.income));
+    const notice = document.createElement('div');
+    notice.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0;color:var(--ink-3)';
+    notice.innerHTML = `
+      <span style="font-size:15px;font-weight:600">No budget template set up</span>
+      <span style="font-size:13px">Go to Settings → Budget templates to get started</span>`;
+    body.appendChild(notice);
     return;
   }
 
