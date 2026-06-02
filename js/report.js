@@ -257,26 +257,7 @@ function renderReport() {
   else                          renderCombinedTable(tableEl, filteredVar, filteredFixed, colMethods);
 
   // Export button
-  const footnote = document.getElementById('rpt-footnote');
-  footnote.innerHTML = '';
-  const exportBtn = document.createElement('button');
-  exportBtn.type = 'button';
-  exportBtn.style.cssText = 'margin-top:16px;width:100%;padding:13px 16px;border-radius:var(--radius);border:1.5px solid var(--accent-line);background:var(--accent-soft);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px';
-  exportBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>Export to Sheets`;
-  exportBtn.addEventListener('click', async () => {
-    exportBtn.disabled    = true;
-    exportBtn.textContent = 'Exporting…';
-    try {
-      await exportReport(rptState.entries, rptState.startDate, rptState.endDate);
-    } catch (e) {
-      console.error(e);
-      showToast('Export failed — check connection');
-    } finally {
-      exportBtn.disabled = false;
-      exportBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>Export to Sheets`;
-    }
-  });
-  footnote.appendChild(exportBtn);
+  renderExportButton();
 }
 
 // ── Variable tab ──────────────────────────────────────────────────────────────
@@ -519,6 +500,162 @@ function insertAfter(ref, rows) {
 function emptyRow(colCount, msg) {
   return `<tr><td colspan="${colCount + 2}" style="text-align:center;color:var(--ink-3);padding:24px;font-size:13.5px;font-weight:500">${msg}</td></tr>`;
 }
+
+// ── Export button + sheet ─────────────────────────────────────────────────────
+
+const SHEET_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+const CHECK_SVG_LG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const X_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const DL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+let _exportSheetOpen = false;
+
+function renderExportButton() {
+  const footnote = document.getElementById('rpt-footnote');
+  footnote.innerHTML = '';
+
+  const { period, year, month, startDate, endDate, entries } = rptState;
+  const entryCount = entries.length;
+  const rangeLabel = period === 'monthly'
+    ? monthLabel(year, month)
+    : `${shortDate(startDate)} – ${shortDate(endDate)}`;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'rpt-export-btn';
+  btn.className = 'export-btn';
+  btn.disabled = _exportSheetOpen;
+  btn.innerHTML = `
+    <span class="eb-tile">${SHEET_SVG}</span>
+    <span class="eb-text">
+      <span class="eb-title">Export to Sheets</span>
+      <span class="eb-sub">${rangeLabel} · ${entryCount} entr${entryCount === 1 ? 'y' : 'ies'} · XLSX</span>
+    </span>
+    <span class="eb-arrow">${DL_SVG}</span>`;
+
+  btn.addEventListener('click', () => {
+    if (_exportSheetOpen) return;
+    openExportSheet(entryCount);
+  });
+
+  footnote.appendChild(btn);
+}
+
+function openExportSheet(entryCount) {
+  _exportSheetOpen = true;
+  const exportBtn = document.getElementById('rpt-export-btn');
+  if (exportBtn) exportBtn.disabled = true;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'export-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'export-sheet-title');
+
+  const fileName = `expenses-${rptState.startDate}.xlsx`;
+
+  overlay.innerHTML = `
+    <div class="export-sheet" id="export-sheet-inner">
+      <span class="export-grabber"></span>
+      <div class="export-sheet-head">
+        <h3 id="export-sheet-title">Exporting to Sheets</h3>
+        <button class="export-sheet-x" type="button" aria-label="Close">${X_SVG}</button>
+      </div>
+      <div class="export-sheet-file">
+        <span class="export-file-ic" id="export-file-ic">${SHEET_SVG}</span>
+        <span class="export-file-col">
+          <span class="export-file-name">${fileName}</span>
+          <span class="export-file-meta" id="export-file-meta" aria-live="polite">Preparing export…</span>
+        </span>
+      </div>
+      <span class="export-pbar"><span class="export-pbar-fill" id="export-pbar-fill"></span></span>
+      <button class="export-cta ghost" id="export-cta" type="button" disabled>Cancel</button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  let autoDismissTimer = null;
+
+  function closeSheet() {
+    clearTimeout(autoDismissTimer);
+    document.removeEventListener('keydown', trapFocus);
+    document.removeEventListener('keydown', handleEsc);
+    overlay.remove();
+    _exportSheetOpen = false;
+    const btn = document.getElementById('rpt-export-btn');
+    if (btn) { btn.disabled = false; btn.focus(); }
+  }
+
+  function trapFocus(e) {
+    if (e.key !== 'Tab') return;
+    const els = [...overlay.querySelectorAll('button:not([disabled])')];
+    if (!els.length) return;
+    const first = els[0], last = els[els.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+
+  function handleEsc(e) { if (e.key === 'Escape') closeSheet(); }
+
+  document.addEventListener('keydown', trapFocus);
+  document.addEventListener('keydown', handleEsc);
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
+  overlay.querySelector('.export-sheet-x').addEventListener('click', closeSheet);
+
+  // Focus close button after sheet animates in
+  setTimeout(() => overlay.querySelector('.export-sheet-x')?.focus(), 50);
+
+  async function runExport() {
+    const pbarFill = document.getElementById('export-pbar-fill');
+    const fileMeta = document.getElementById('export-file-meta');
+    const fileIc   = document.getElementById('export-file-ic');
+    const ctaBtn   = document.getElementById('export-cta');
+    const titleEl  = document.getElementById('export-sheet-title');
+
+    // prep phase
+    await sleep(650);
+    if (!document.body.contains(overlay)) return;
+
+    // export phase — animate bar + run real export concurrently
+    pbarFill.style.width = '100%';
+    fileMeta.textContent = `Writing ${entryCount} rows…`;
+
+    const [, exportResult] = await Promise.allSettled([
+      sleep(1500),
+      exportReport(rptState.entries, rptState.startDate, rptState.endDate),
+    ]);
+
+    if (!document.body.contains(overlay)) return;
+
+    if (exportResult.status === 'rejected') {
+      console.error(exportResult.reason);
+      closeSheet();
+      showToast('Export failed — check connection');
+      return;
+    }
+
+    // done phase
+    titleEl.textContent = 'Export complete';
+    fileIc.innerHTML = CHECK_SVG_LG;
+    fileIc.classList.add('done');
+    fileMeta.textContent = `Saved · ${entryCount} rows · XLSX`;
+    ctaBtn.textContent = 'Done';
+    ctaBtn.classList.remove('ghost');
+    ctaBtn.disabled = false;
+    ctaBtn.addEventListener('click', closeSheet);
+    ctaBtn.focus();
+
+    autoDismissTimer = setTimeout(closeSheet, 1600);
+  }
+
+  runExport();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Month navigation ──────────────────────────────────────────────────────────
 
