@@ -44,14 +44,10 @@ export function salaryEndForMonth(sd, year, month) {
   return `${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-// Compact label: "25 May – 24 Jun 2026" (year shown once unless it spans years).
+// Compact label matching Report format: "25 May – 24 Jun" (no year).
 export function salaryPeriodLabel(startDate, endDate) {
-  const s = parseLocalDate(startDate), e = parseLocalDate(endDate);
-  const fmt = (d, showYear) =>
-    d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(showYear ? { year: 'numeric' } : {}) });
-  return s.getFullYear() === e.getFullYear()
-    ? `${fmt(s)} – ${fmt(e, true)}`
-    : `${fmt(s, true)} – ${fmt(e, true)}`;
+  const fmt = (d) => parseLocalDate(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return `${fmt(startDate)} – ${fmt(endDate)}`;
 }
 
 export const CATEGORY_COLOURS = {

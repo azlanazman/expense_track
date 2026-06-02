@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fmt, monthLabel, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
@@ -62,7 +62,7 @@ async function switchSubTab(tab) {
   document.getElementById('budget-prev-month').style.visibility = showMonthNav ? '' : 'hidden';
   document.getElementById('budget-next-month').style.visibility = showMonthNav ? '' : 'hidden';
   document.getElementById('budget-month-title').textContent =
-    tab === 'overview' ? monthLabel(bdgState.year, bdgState.month) :
+    tab === 'overview' ? _bdgPeriodLabel() :
     tab === 'accounts' ? 'Accounts' : 'Savings';
 
   document.getElementById('acc-transfer-fab').classList.toggle('show', tab === 'accounts');
@@ -132,10 +132,16 @@ function seedMonth(template) {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-function renderBudget() {
-  const { year, month, monthData, template, variableExpenses } = bdgState;
+function _bdgPeriodLabel() {
+  const { year, month } = bdgState;
+  const sd = userSettings.salaryDay;
+  return salaryPeriodLabel(salaryStartForMonth(sd, year, month), salaryEndForMonth(sd, year, month));
+}
 
-  document.getElementById('budget-month-title').textContent = monthLabel(year, month);
+function renderBudget() {
+  const { monthData, template, variableExpenses } = bdgState;
+
+  document.getElementById('budget-month-title').textContent = _bdgPeriodLabel();
   document.getElementById('budget-prev-month').style.visibility = '';
   document.getElementById('budget-next-month').style.visibility = '';
 
