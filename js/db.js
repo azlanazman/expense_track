@@ -1,6 +1,6 @@
 import {
   collection, addDoc, query, where, orderBy, getDocs,
-  doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp, writeBatch, documentId
+  doc, updateDoc, deleteDoc, setDoc, getDoc, serverTimestamp, writeBatch
 } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
 import { db } from './firebase.js';
 
@@ -139,22 +139,30 @@ export async function fetchAllExpenses(uid) {
 }
 
 export async function deleteAllUserData(uid) {
-  const [expSnap, tfSnap, ptSnap, bmSnap] = await Promise.all([
+  // Query collections that use uid field
+  const [expSnap, tfSnap, ptSnap] = await Promise.all([
     getDocs(query(collection(db, 'expenses'),        where('uid', '==', uid))),
     getDocs(query(collection(db, 'transfers'),       where('uid', '==', uid))),
     getDocs(query(collection(db, 'potTransactions'), where('uid', '==', uid))),
-    getDocs(query(collection(db, 'budgetMonths'),
-      where(documentId(), '>=', `${uid}_`),
-      where(documentId(), '<=', `${uid}_￿`)
-    )),
   ]);
 
-  const allDocs = [...expSnap.docs, ...tfSnap.docs, ...ptSnap.docs, ...bmSnap.docs];
+  const allDocs = [...expSnap.docs, ...tfSnap.docs, ...ptSnap.docs];
   for (let i = 0; i < allDocs.length; i += 490) {
     const batch = writeBatch(db);
     allDocs.slice(i, i + 490).forEach(d => batch.delete(d.ref));
     await batch.commit();
   }
+
+  // budgetMonths IDs are {uid}_{YYYY-MM} — build refs directly, no query needed.
+  // Firestore silently no-ops deletes of non-existent docs.
+  const bmBatch = writeBatch(db);
+  for (let y = 2020; y <= 2035; y++) {
+    for (let m = 1; m <= 12; m++) {
+      const id = `${uid}_${y}-${String(m).padStart(2, '0')}`;
+      bmBatch.delete(doc(db, 'budgetMonths', id));
+    }
+  }
+  await bmBatch.commit();
 
   const finalBatch = writeBatch(db);
   finalBatch.delete(doc(db, 'userSettings',    uid));
