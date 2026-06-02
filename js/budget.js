@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast } from './helpers.js';
+import { fmt, monthLabel, showToast, salaryPeriodMonth } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
@@ -28,12 +28,19 @@ let bdgState = {
   template:           null,
   variableExpenses:   [],
   chkCollapsed:       new Set(),
-  subTab:             'overview'
+  subTab:             'overview',
+  _initialised:       false,
 };
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
 export async function initBudget() {
+  if (!bdgState._initialised) {
+    const sp = salaryPeriodMonth(userSettings.salaryDay);
+    bdgState.year  = sp.year;
+    bdgState.month = sp.month;
+    bdgState._initialised = true;
+  }
   bdgState.template = null; // always reload fresh
   wireSubTabs();
   await switchSubTab(bdgState.subTab);

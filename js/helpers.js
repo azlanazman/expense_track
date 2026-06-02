@@ -16,6 +16,15 @@ export function monthLabel(year, month) {
   return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
+// Returns { year, month } of the month the current salary period started in.
+export function salaryPeriodMonth(salaryDay) {
+  const sd = salaryDay ?? 25;
+  const t = new Date();
+  const today = t.getDate(), y = t.getFullYear(), m = t.getMonth() + 1;
+  if (today >= sd) return { year: y, month: m };
+  return { year: m === 1 ? y - 1 : y, month: m === 1 ? 12 : m - 1 };
+}
+
 export const CATEGORY_COLOURS = {
   food:             'oklch(0.65 0.24 30)',
   transport:        'oklch(0.70 0.20 80)',

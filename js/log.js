@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, displayDate, monthLabel, catColor, showToast } from './helpers.js';
+import { fmt, displayDate, monthLabel, catColor, showToast, salaryPeriodMonth } from './helpers.js';
 import { fetchMonth, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const PAGE_SIZE   = 10;
@@ -19,8 +19,9 @@ let logState = {
 };
 
 export async function initLog() {
-  logState.year          = new Date().getFullYear();
-  logState.month         = new Date().getMonth() + 1;
+  const { year, month } = salaryPeriodMonth(userSettings.salaryDay);
+  logState.year          = year;
+  logState.month         = month;
   logState.filter        = 'All';
   logState.openId        = null;
   logState.showTransfers = false;
