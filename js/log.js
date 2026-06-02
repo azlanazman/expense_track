@@ -1,6 +1,6 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, displayDate, monthLabel, catColor, showToast, salaryPeriodMonth } from './helpers.js';
-import { fetchMonth, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
+import { fmt, displayDate, monthLabel, catColor, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
+import { fetchExpenses, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const PAGE_SIZE   = 10;
 const SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -14,6 +14,7 @@ const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 
 let logState = {
   year: new Date().getFullYear(), month: new Date().getMonth() + 1,
+  startDate: '', endDate: '',
   filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
   showTransfers: false, page: 1,
 };
@@ -26,7 +27,14 @@ export async function initLog() {
   logState.openId        = null;
   logState.showTransfers = false;
   logState.page          = 1;
+  _updateLogDates();
   await loadLog();
+}
+
+function _updateLogDates() {
+  const sd = userSettings.salaryDay;
+  logState.startDate = salaryStartForMonth(sd, logState.year, logState.month);
+  logState.endDate   = salaryEndForMonth(sd, logState.year, logState.month);
 }
 
 export function showLogTransfers() {
@@ -37,16 +45,14 @@ export function showLogTransfers() {
 }
 
 async function loadLog() {
-  const { year, month } = logState;
+  const { startDate, endDate } = logState;
   const uid = currentUser.uid;
-  const y   = String(year);
-  const m   = String(month).padStart(2, '0');
   [logState.entries, logState.accounts] = await Promise.all([
-    fetchMonth(uid, year, month),
+    fetchExpenses(uid, startDate, endDate),
     fetchAccounts(uid).catch(() => []),
   ]);
   try {
-    logState.transfers = await fetchTransfersByMonth(uid, `${y}-${m}-01`, `${y}-${m}-31`);
+    logState.transfers = await fetchTransfersByMonth(uid, startDate, endDate);
   } catch {
     logState.transfers = [];
   }
@@ -54,9 +60,9 @@ async function loadLog() {
 }
 
 function renderLog() {
-  const { entries, filter, year, month, showTransfers, transfers, page } = logState;
+  const { entries, filter, year, month, startDate, endDate, showTransfers, transfers, page } = logState;
   document.getElementById('log-eyebrow').textContent     = monthLabel(year, month);
-  document.getElementById('log-month-title').textContent = monthLabel(year, month);
+  document.getElementById('log-month-title').textContent = salaryPeriodLabel(startDate, endDate);
 
   if (showTransfers) {
     const sorted     = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -350,14 +356,13 @@ async function ensureSheetJS() {
 }
 
 async function exportLog() {
-  const { entries, filter, year, month, showTransfers, transfers, accounts } = logState;
+  const { entries, filter, showTransfers, transfers, accounts } = logState;
   showToast('Preparing export…');
   try {
     await ensureSheetJS();
     const XLSX  = window.XLSX;
     const wb    = XLSX.utils.book_new();
-    const y     = String(year);
-    const m     = String(month).padStart(2, '0');
+    const { startDate, endDate } = logState;
 
     if (showTransfers) {
       const sorted = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -370,7 +375,7 @@ async function exportLog() {
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 24 }];
       XLSX.utils.book_append_sheet(wb, ws, 'Transfers');
-      XLSX.writeFile(wb, `log-${y}-${m}-transfers.xlsx`);
+      XLSX.writeFile(wb, `log-${startDate}–${endDate}-transfers.xlsx`);
     } else {
       const pool     = entries.filter(e => !e.isIncome);
       const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
@@ -385,7 +390,7 @@ async function exportLog() {
       ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 12 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(wb, ws, 'Log');
       const label = filter === 'All' ? '' : `-${filter.toLowerCase().replace(/\s+/g, '-')}`;
-      XLSX.writeFile(wb, `log-${y}-${m}${label}.xlsx`);
+      XLSX.writeFile(wb, `log-${startDate}–${endDate}${label}.xlsx`);
     }
     showToast('Downloaded!');
   } catch (e) {
@@ -402,11 +407,13 @@ document.getElementById('log-prev-month').addEventListener('click', async () => 
   logState.month--;
   if (logState.month < 1) { logState.month = 12; logState.year--; }
   logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
+  _updateLogDates();
   await loadLog();
 });
 document.getElementById('log-next-month').addEventListener('click', async () => {
   logState.month++;
   if (logState.month > 12) { logState.month = 1; logState.year++; }
   logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
+  _updateLogDates();
   await loadLog();
 });

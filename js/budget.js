@@ -1,6 +1,6 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast, salaryPeriodMonth } from './helpers.js';
-import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchMonth, addExpense, updateExpense, deleteExpense } from './db.js';
+import { fmt, monthLabel, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
 
@@ -114,7 +114,10 @@ async function loadData() {
     bdgState.variableExpenses = [];
     return;
   }
-  const all = await fetchMonth(uid, year, month);
+  const sd = userSettings.salaryDay;
+  const spStart = salaryStartForMonth(sd, year, month);
+  const spEnd   = salaryEndForMonth(sd, year, month);
+  const all = await fetchExpenses(uid, spStart, spEnd);
   bdgState.variableExpenses = all.filter(e => !e.type || e.type === 'variable');
 }
 

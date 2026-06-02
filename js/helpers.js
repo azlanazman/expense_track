@@ -25,6 +25,35 @@ export function salaryPeriodMonth(salaryDay) {
   return { year: m === 1 ? y - 1 : y, month: m === 1 ? 12 : m - 1 };
 }
 
+// "YYYY-MM-DD" start of the salary period whose anchor month is (year, month).
+export function salaryStartForMonth(sd, year, month) {
+  const day = Math.min(sd ?? 25, new Date(year, month, 0).getDate());
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// "YYYY-MM-DD" end of the salary period whose anchor month is (year, month).
+export function salaryEndForMonth(sd, year, month) {
+  sd = sd ?? 25;
+  if (sd <= 1) {
+    const last = new Date(year, month, 0).getDate();
+    return `${year}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+  }
+  const nm = month === 12 ? 1 : month + 1;
+  const ny = month === 12 ? year + 1 : year;
+  const day = Math.min(sd - 1, new Date(ny, nm, 0).getDate());
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// Compact label: "25 May – 24 Jun 2026" (year shown once unless it spans years).
+export function salaryPeriodLabel(startDate, endDate) {
+  const s = parseLocalDate(startDate), e = parseLocalDate(endDate);
+  const fmt = (d, showYear) =>
+    d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(showYear ? { year: 'numeric' } : {}) });
+  return s.getFullYear() === e.getFullYear()
+    ? `${fmt(s)} – ${fmt(e, true)}`
+    : `${fmt(s, true)} – ${fmt(e, true)}`;
+}
+
 export const CATEGORY_COLOURS = {
   food:             'oklch(0.65 0.24 30)',
   transport:        'oklch(0.70 0.20 80)',
