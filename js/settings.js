@@ -1,6 +1,8 @@
+import { signOut } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
 import { currentUser, userSettings, setUserSettings } from './state.js';
-import { catColor } from './helpers.js';
-import { persistUserSettings, fetchAccounts, persistAccounts } from './db.js';
+import { catColor, showToast } from './helpers.js';
+import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData } from './db.js';
+import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
 
 export function renderSettings() {
@@ -64,8 +66,59 @@ function closeSalarySheet() {
 sheetBackdrop.addEventListener('click', () => {
   document.querySelectorAll('.bottom-sheet.active').forEach(s => s.classList.remove('active'));
   sheetBackdrop.classList.remove('active');
+  deleteStep = 0;
 });
 document.getElementById('btn-salary-day').addEventListener('click', openSalarySheet);
+
+// ── Google account sheet ──────────────────────────────────────────────────────
+
+const accountSheet = document.getElementById('account-sheet');
+let deleteStep = 0;
+
+function openAccountSheet() {
+  deleteStep = 0;
+  document.getElementById('acct-delete-confirm').style.display = 'none';
+  document.getElementById('acct-delete-label').textContent = 'Delete all data';
+  document.getElementById('acct-delete-sub').textContent   = 'Permanently removes all your data';
+  document.getElementById('acct-delete-btn').disabled      = false;
+  document.getElementById('acct-sheet-email').textContent  = currentUser?.email || '';
+  accountSheet.classList.add('active');
+  sheetBackdrop.classList.add('active');
+}
+
+function closeAccountSheet() {
+  accountSheet.classList.remove('active');
+  sheetBackdrop.classList.remove('active');
+}
+
+document.getElementById('btn-account').addEventListener('click', openAccountSheet);
+document.getElementById('acct-close-btn').addEventListener('click', closeAccountSheet);
+
+document.getElementById('acct-delete-btn').addEventListener('click', async () => {
+  if (deleteStep === 0) {
+    deleteStep = 1;
+    document.getElementById('acct-delete-confirm').style.display = '';
+    document.getElementById('acct-delete-label').textContent = 'Tap again to confirm';
+    document.getElementById('acct-delete-sub').textContent   = 'All data will be permanently deleted';
+    return;
+  }
+  const btn = document.getElementById('acct-delete-btn');
+  btn.disabled = true;
+  document.getElementById('acct-delete-label').textContent = 'Deleting…';
+  document.getElementById('acct-delete-sub').textContent   = 'Please wait';
+  try {
+    await deleteAllUserData(currentUser.uid);
+    await signOut(auth);
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    deleteStep = 0;
+    document.getElementById('acct-delete-confirm').style.display = 'none';
+    document.getElementById('acct-delete-label').textContent = 'Delete all data';
+    document.getElementById('acct-delete-sub').textContent   = 'Permanently removes all your data';
+    showToast('Error — please try again');
+  }
+});
 
 // ── Categories ───────────────────────────────────────────────────────────────
 

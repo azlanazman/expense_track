@@ -2404,6 +2404,31 @@
       <button id="pot-cancel-btn" type="button" style="margin-top:4px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
     </div>
 
+    <!-- Google account sheet -->
+    <div class="bottom-sheet" id="account-sheet">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent-ink)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="min-width:0">
+          <div style="font-size:16px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="acct-sheet-email"></div>
+          <div style="font-size:12.5px;font-weight:600;color:var(--ink-3);margin-top:2px">Signed in with Google</div>
+        </div>
+      </div>
+      <div id="acct-delete-confirm" style="display:none;background:oklch(0.97 0.01 25);border:1.5px solid oklch(0.88 0.05 25);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:4px">This cannot be undone</div>
+        <div style="font-size:13px;font-weight:500;color:var(--ink-2);line-height:1.5">All expenses, transfers, savings, budget data and settings will be permanently deleted.</div>
+      </div>
+      <button id="acct-delete-btn" type="button" class="row-card danger" style="width:100%;text-align:left;margin-bottom:8px">
+        <div class="rc-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div>
+        <div class="rc-main">
+          <div class="rc-title" id="acct-delete-label">Delete all data</div>
+          <div class="rc-sub" id="acct-delete-sub">Permanently removes all your data</div>
+        </div>
+      </button>
+      <button id="acct-close-btn" type="button" style="width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Close</button>
+    </div>
+
     <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <!-- Bottom navigation -->
