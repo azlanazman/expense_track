@@ -12,12 +12,14 @@ Design: **colour blocking, bold, pop-up feel** — solid fills, strong coloured 
 
 ```
 index.html              # HTML skeleton + ALL CSS (source of truth for styles)
+_headers                # GitHub Pages security headers (CSP, HSTS, X-Frame-Options)
+SECURITY.md             # API key domain restriction + App Check setup instructions
 js/
-  app.js                # Entry point: auth, navigation, sessionStorage screen restore
-  firebase.js           # Firebase init
+  app.js                # Entry point: auth, navigation, session timeout, state clearing
+  firebase.js           # Firebase init + App Check stub
   state.js              # Shared mutable state (currentUser, userSettings)
-  helpers.js            # Pure utils: fmt, catColor, showToast; DEFAULT_* constants
-  db.js                 # All Firestore operations
+  helpers.js            # Pure utils: fmt, catColor, showToast, escapeHtml, sanitise*
+  db.js                 # All Firestore operations + audit log
   export.js             # Report → Export to Sheets (.xlsx via SheetJS CDN, lazy-loaded)
   onboarding.js         # New-user onboarding overlay
   add.js                # Screen 1 — Add Expense
@@ -39,11 +41,57 @@ firestore.rules
 
 ---
 
+## Security
+
+### Rules (non-negotiable)
+
+- **Never use `innerHTML` with user-supplied data.** Always call `escapeHtml(str)` from `helpers.js` first. This includes: category names, payment method names, account names, notes, pot names, group/item names from templates.
+- **Never write to Firestore without sanitising.** Call `sanitiseAmount(n)`, `sanitiseDate(s)`, `sanitiseText(s, maxLen)` from `helpers.js` before any write. These are already called inside `db.js` write functions — don't bypass them by writing directly.
+- **Never call Firestore APIs directly from screen modules.** All reads and writes go through `db.js`. This ensures audit logging and sanitisation are never skipped.
+
+### Helpers (`helpers.js`)
+
+```js
+escapeHtml(str)              // encode &, <, >, ", ' — use before any innerHTML with user data
+sanitiseText(val, maxLen)    // trim + cap at maxLen chars (default 200)
+sanitiseAmount(val)          // throws if ≤ 0 or ≥ 1,000,000; returns rounded float
+sanitiseDate(val)            // throws if not "YYYY-MM-DD" format
+```
+
+### Session & state
+
+- **15-minute idle timeout** in `app.js` — resets on mouse/key/touch/click. Warns at 14 min via toast, signs out at 15 min.
+- **On signOut / tab hide:** `clearLogState()`, `clearBudgetState()`, `clearReportState()`, `clearAccountsState()`, `clearSavingsState()` wipe financial data from memory. Each module exports its own `clear*State()` function.
+- **visibilitychange** in `app.js`: clears state on tab hide, re-initialises active screen on tab show.
+- `sessionStorage` stores only the active screen name — never financial data.
+
+### Firestore rules summary
+
+- Ownership enforced on every collection via `request.auth.uid`
+- `amount`: number, `> 0`, `< 1,000,000`
+- `date`: string matching `YYYY-MM-DD`
+- `notes` / text fields: `≤ 500` chars
+- `transfers` and `potTransactions`: **immutable** after creation (`allow update: if false`)
+- `auditLog/{uid}/entries`: create-only — no read, update, or delete
+- Catch-all deny at bottom
+
+### Audit log
+
+Every `addExpense`, `updateExpense`, `deleteExpense`, `addTransfer`, `addPotTransaction` in `db.js` calls `writeAuditLog(action, collection, docId)` — fire-and-forget, never blocks the main operation. Writes to `auditLog/{uid}/entries/{auto-id}`.
+
+### `markPaid` with zero amount
+
+If a checklist item is marked paid with amount = 0, no `expenses` doc is created (Firestore rules reject amount ≤ 0). The payment is still recorded in `budgetMonths` with `expenseId: null`.
+
+---
+
 ## Design system
 
 **Font:** Plus Jakarta Sans (400/500/600/700/800). Always: `-webkit-font-smoothing: antialiased`, `font-feature-settings: "ss01" 1, "cv01" 1`.
 
 **Tabular numerals:** `font-variant-numeric: tabular-nums` on ALL money values and report figures.
+
+**Global form element reset** in `index.html`: `button, input, select, textarea { font: inherit; }` — ensures all form elements use Plus Jakarta Sans.
 
 **CSS variables** in `index.html :root`: `--ink`/`--ink-2`/`--ink-3` (text), `--line`/`--line-2` (borders), `--surface`/`--screen-bg` (fills), `--accent`/`--accent-soft`/`--accent-line`/`--accent-ink`/`--accent-shadow`/`--on-accent` (teal), `--comp`/`--comp-soft` (black/coral), `--amber`/`--on-amber` (needs-entry), `--positive`/`--on-positive` (green), `--danger`, `--radius`/`--radius-sm`/`--radius-lg`, `--sp` (spacing multiplier).
 
@@ -162,7 +210,7 @@ Seeded from `userSettings.paymentMethods` on first Accounts open or during onboa
 ```
 uid, fromAccountId, toAccountId, amount, date ("YYYY-MM-DD"), notes, createdAt, type="transfer"
 ```
-Month queries use compound index on `(uid, date)` — first use logs console error with index creation link.
+Immutable after creation (Firestore rule: `allow update: if false`). Month queries use compound index on `(uid, date)`.
 
 ### `savingsPots/{uid}`
 ```
@@ -174,6 +222,13 @@ pots: [{ id, name, linkedAccountId, targetAmount, currentBalance, colour, isMont
 uid, potId, type ("contribute"|"withdraw"), amount, linkedAccountId, date, notes, createdAt
 // linkedAccountId = account used for this transaction (may differ from pot's linkedAccountId)
 ```
+Immutable after creation (Firestore rule: `allow update: if false`).
+
+### `auditLog/{uid}/entries/{id}`
+```
+uid, action ("create"|"update"|"delete"), collection, docId, timestamp, userAgent
+```
+Write-only — Firestore rules block all reads, updates, deletes. Never queried by the app.
 
 ---
 
@@ -191,7 +246,7 @@ uid, potId, type ("contribute"|"withdraw"), amount, linkedAccountId, date, notes
 
 Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state.
 
-**Screen persistence:** `showScreen(name)` → `sessionStorage('activeScreen')`. Restored on `onAuthStateChanged` (including refresh). Clears on tab close.
+**Screen persistence:** `showScreen(name)` → `sessionStorage('activeScreen')`. Restored on `onAuthStateChanged` (including refresh). Cleared on signOut.
 
 **Phone back button:** Sub-pages call `history.pushState(null,'')` on open. `popstate` listener in `app.js` closes `.sub-page.active`. Covers: Settings → Budget Templates, Budget → Checklist.
 
@@ -215,7 +270,7 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 
 **Budget Overview:** Net balance = Income − Fixed − Variable. Progress bar denominator = current template items only (orphaned records excluded). Income rows have account selector pill → triggers `syncIncomeExpense()`.
 
-**Budget Checklist:** Marking paid writes `expenses` doc (type="fixed") + updates `budgetMonths`. Unchecking deletes the expense doc + sets `paid:false`. Uses `chkPayments` filtered to current template items only.
+**Budget Checklist:** Marking paid writes `expenses` doc (type="fixed", amount > 0) + updates `budgetMonths`. If amount = 0, only `budgetMonths` is updated (no expense doc — Firestore rules require amount > 0). Unchecking deletes the expense doc + sets `paid:false`.
 
 **Budget Accounts:** Balance computed client-side — never stored. Formula: `openingBalance + income − spend − transfersOut + transfersIn − potContributions + potWithdrawals`. All expenses for that `paymentMethod` included (no date floor). Income from `isIncome:true` expense docs.
 
@@ -256,6 +311,8 @@ location.reload();
 ## Key invariants
 
 - **Negative money:** always `−RM ${fmt(Math.abs(n))}` — en-dash, never locale negative. Everywhere.
+- **XSS:** every user-supplied string in `innerHTML` must be wrapped in `escapeHtml()`. Never skip this.
+- **Sanitisation:** `sanitiseAmount` / `sanitiseDate` / `sanitiseText` are called inside `db.js` — do not duplicate in screen modules, but do not bypass `db.js` either.
 - **Income sync:** `syncIncomeExpense()` in `budget.js` creates/updates/deletes `expenses` doc (`isIncome:true, type:'income'`) when income amount or account changes. Stores `expenseId` back on income entry.
 - **Budget counts:** filter payments to current template `itemId`s in both `renderBudget` and `renderChecklist` — never count orphaned records.
 - **Transfer FAB:** hidden via `classList.remove('show')` in `showScreen()`. Re-shown by `switchSubTab('accounts')`.
