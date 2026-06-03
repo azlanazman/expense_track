@@ -245,10 +245,11 @@ function renderReport() {
   filtered.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount; });
   const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
   const maxCat  = topCats[0]?.[1] || 1;
+  const abbrev  = s => s.length > 10 ? s.slice(0, 9) + '.' : s;
   document.getElementById('rpt-breakdown').innerHTML = topCats.length
     ? topCats.map(([cat, amt]) => `
       <div class="bd-row">
-        <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(cat)}</div>
+        <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(abbrev(cat))}</div>
         <div class="bd-bar"><span class="bd-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat, userSettings.categories)}"></span></div>
         <div class="bd-amt">RM ${fmt(amt)}</div>
       </div>`).join('')
