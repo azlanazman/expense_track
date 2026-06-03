@@ -1472,6 +1472,50 @@
       background: var(--accent-strong);
     }
 
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+      color: var(--ink-3);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .login-divider::before, .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .btn-demo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: none;
+      border: 2px solid var(--line);
+      color: var(--ink-2);
+      border-radius: var(--radius-lg);
+      padding: 14px 28px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 320px;
+      transition: 0.15s;
+    }
+    .btn-demo:hover {
+      border-color: var(--accent-line);
+      color: var(--accent-ink);
+    }
+    .btn-demo:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     /* ── Save button ── */
     .btn-save {
       display: flex;
@@ -1882,6 +1926,8 @@
       </svg>
       Sign in with Google
     </button>
+    <div class="login-divider">or</div>
+    <button id="btn-demo-signin" class="btn-demo" type="button">Try Demo</button>
   </div>
 
   <!-- App wrapper (shown when logged in) -->
@@ -2123,6 +2169,20 @@
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
+          <div id="demo-reset-row" style="display:none;margin-top:10px">
+            <button class="row-card" id="btn-demo-reset" type="button">
+              <div class="rc-ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.64"/>
+                </svg>
+              </div>
+              <div class="rc-main">
+                <div class="rc-title">Reset demo data</div>
+                <div class="rc-sub">Restore all sample data to defaults</div>
+              </div>
+            </button>
+          </div>
           <button class="row-card danger" id="btn-signout" type="button" style="margin-top:10px">
             <div class="rc-ic">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

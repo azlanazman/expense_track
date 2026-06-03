@@ -1,4 +1,4 @@
-import { signInWithPopup, onAuthStateChanged, signOut }
+import { signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged, signOut }
   from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
 
 import { auth, provider } from './firebase.js';
@@ -13,6 +13,7 @@ import { initBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
 import { clearSavingsState } from './savings.js';
 import { initOnboarding } from './onboarding.js';
+import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 
 // ── Production: silence console output ──────────────────────────────────────
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -100,12 +101,34 @@ document.getElementById('btn-google-signin').addEventListener('click', async () 
   catch (e) { console.error(e); showToast('Sign-in failed — please try again'); }
 });
 
+document.getElementById('btn-demo-signin').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-demo-signin');
+  btn.disabled = true;
+  btn.textContent = 'Loading demo…';
+  try {
+    await signInWithEmailAndPassword(auth, DEMO_EMAIL, 'TrackMoney!23');
+  } catch (e) {
+    console.error(e);
+    showToast('Demo sign-in failed — please try again');
+    btn.disabled = false;
+    btn.textContent = 'Try Demo';
+  }
+});
+
 document.getElementById('btn-signout').addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     setCurrentUser(user);
     resetIdleTimer();
+
+    if (user.email === DEMO_EMAIL) {
+      const btn = document.getElementById('btn-demo-signin');
+      btn.disabled = true;
+      btn.textContent = 'Setting up demo…';
+      try { await seedDemoDataIfNeeded(user.uid); } catch (_) {}
+    }
+
     document.getElementById('screen-login').style.display = 'none';
     document.getElementById('app').style.display = '';
     const settings = await loadUserSettings();

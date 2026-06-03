@@ -4,6 +4,7 @@ import { catColor, showToast, escapeHtml } from './helpers.js';
 import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData } from './db.js';
 import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
+import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 
 export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
@@ -11,6 +12,8 @@ export function renderSettings() {
   document.getElementById('salary-day-val').textContent   = ordinal(userSettings.salaryDay ?? 25);
   renderCatChips();
   renderPayChips();
+  const resetRow = document.getElementById('demo-reset-row');
+  if (resetRow) resetRow.style.display = currentUser?.email === DEMO_EMAIL ? '' : 'none';
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,6 +120,26 @@ document.getElementById('acct-delete-btn').addEventListener('click', async () =>
     document.getElementById('acct-delete-label').textContent = 'Delete all data';
     document.getElementById('acct-delete-sub').textContent   = 'Permanently removes all your data';
     showToast('Error — please try again');
+  }
+});
+
+// ── Demo reset ───────────────────────────────────────────────────────────────
+
+document.getElementById('btn-demo-reset').addEventListener('click', async () => {
+  if (!confirm('Reset all demo data to defaults?')) return;
+  const btn = document.getElementById('btn-demo-reset');
+  btn.disabled = true;
+  btn.textContent = 'Resetting…';
+  try {
+    await deleteAllUserData(currentUser.uid);
+    await seedDemoDataIfNeeded(currentUser.uid);
+    showToast('Demo data reset');
+    location.reload();
+  } catch (e) {
+    console.error(e);
+    showToast('Reset failed — please try again');
+    btn.disabled = false;
+    btn.textContent = 'Reset demo data';
   }
 });
 
