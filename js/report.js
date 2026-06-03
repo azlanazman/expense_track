@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, parseLocalDate, monthLabel, catColor, showToast } from './helpers.js';
+import { fmt, parseLocalDate, monthLabel, catColor, showToast, escapeHtml } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
 
@@ -20,6 +20,11 @@ let rptState = {
   entries:   [],
   expanded:  new Set()
 };
+
+export function clearReportState() {
+  rptState.entries = [];
+  rptState.expanded = new Set();
+}
 
 // ── Public entry ──────────────────────────────────────────────────────────────
 
@@ -243,7 +248,7 @@ function renderReport() {
   document.getElementById('rpt-breakdown').innerHTML = topCats.length
     ? topCats.map(([cat, amt]) => `
       <div class="bd-row">
-        <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}</div>
+        <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(cat)}</div>
         <div class="bd-bar"><span class="bd-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat, userSettings.categories)}"></span></div>
         <div class="bd-amt">RM ${fmt(amt)}</div>
       </div>`).join('')
@@ -297,7 +302,7 @@ function buildVarRow(cat, catEntries, colMethods) {
   tr.innerHTML = `
     <td class="sticky-col">
       <button class="rpt-expand-btn" type="button">▸</button>
-      <span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${cat}
+      <span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(cat)}
     </td>
     ${methodCells}
     <td class="tot-col">RM ${fmt(rowTotal)}</td>`;
@@ -381,7 +386,7 @@ function buildFixedRow(groupName, groupEntries, colMethods) {
   tr.innerHTML = `
     <td class="sticky-col">
       <button class="rpt-expand-btn" type="button">▸</button>
-      ${groupName}
+      ${escapeHtml(groupName)}
     </td>
     ${methodCells}
     <td class="tot-col">RM ${fmt(rowTotal)}</td>`;
@@ -477,7 +482,7 @@ function renderCombinedTable(tableEl, varEntries, fixedEntries, colMethods) {
         : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="sticky-col"><span class="chip-dot" style="background:${catColor(row.cat, userSettings.categories)}"></span>${row.cat}${pill}</td>
+      <td class="sticky-col"><span class="chip-dot" style="background:${catColor(row.cat, userSettings.categories)}"></span>${escapeHtml(row.cat)}${pill}</td>
       ${methodCells}
       <td class="tot-col">RM ${fmt(row.total)}</td>`;
     tbody.appendChild(tr);

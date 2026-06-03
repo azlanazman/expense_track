@@ -1,6 +1,6 @@
 import { signOut } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
 import { currentUser, userSettings, setUserSettings } from './state.js';
-import { catColor, showToast } from './helpers.js';
+import { catColor, showToast, escapeHtml } from './helpers.js';
 import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData } from './db.js';
 import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
@@ -159,7 +159,7 @@ function makeCatChip(cat, idx) {
   chip.style.position = 'relative';
   chip.innerHTML = `
     <span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>
-    <span class="cat-label" style="cursor:pointer">${cat}</span>
+    <span class="cat-label" style="cursor:pointer">${escapeHtml(cat)}</span>
     <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--ink-3);padding:0 0 0 6px;font-size:14px;line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
 
   chip.querySelector('.cat-label').addEventListener('click', () => {
@@ -236,7 +236,7 @@ function makePayChip(pay, idx) {
   const chip = document.createElement('span');
   chip.className = 'chip soft comp';
   chip.innerHTML = `
-    <span class="pay-label" style="cursor:pointer">${pay}</span>
+    <span class="pay-label" style="cursor:pointer">${escapeHtml(pay)}</span>
     <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--comp-ink);padding:0 0 0 6px;font-size:14px;line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
 
   chip.querySelector('.pay-label').addEventListener('click', () => {

@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { displayDate, todayString, catColor, showToast } from './helpers.js';
+import { displayDate, todayString, catColor, showToast, escapeHtml } from './helpers.js';
 import { addExpense } from './db.js';
 
 const CHEV_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
@@ -21,9 +21,9 @@ function renderAddScreen() {
   document.getElementById('add-date-display').textContent = displayDate(addState.date);
   document.getElementById('add-date-input').value = addState.date;
   document.getElementById('add-cat-display').innerHTML =
-    `<span class="chip-dot" style="background:${catColor(addState.category, userSettings.categories)}"></span>${addState.category}`;
+    `<span class="chip-dot" style="background:${catColor(addState.category, userSettings.categories)}"></span>${escapeHtml(addState.category)}`;
   document.getElementById('add-pay-display').innerHTML =
-    `<span class="pay-pill sm">${addState.payment}</span>`;
+    `<span class="pay-pill sm">${escapeHtml(addState.payment)}</span>`;
 }
 
 // ── Date picker ─────────────────────────────────────────────────────────────
@@ -50,8 +50,8 @@ function openCatDd() {
   addCatChev.classList.add('open');
   addCatDd.style.display = '';
   addCatDd.innerHTML = userSettings.categories.map(c => `
-    <button class="dd-item${c === addState.category ? ' on' : ''}" data-cat="${c}" type="button">
-      <span class="chip-dot" style="background:${catColor(c, userSettings.categories)}"></span>${c}
+    <button class="dd-item${c === addState.category ? ' on' : ''}" data-cat="${escapeHtml(c)}" type="button">
+      <span class="chip-dot" style="background:${catColor(c, userSettings.categories)}"></span>${escapeHtml(c)}
       ${c === addState.category ? `<span class="dd-check">${CHECK_SVG}</span>` : ''}
     </button>`).join('');
   addCatDd.querySelectorAll('.dd-item').forEach(btn => {
@@ -59,7 +59,7 @@ function openCatDd() {
       addState.category = btn.dataset.cat;
       closeCatDd();
       document.getElementById('add-cat-display').innerHTML =
-        `<span class="chip-dot" style="background:${catColor(addState.category, userSettings.categories)}"></span>${addState.category}`;
+        `<span class="chip-dot" style="background:${catColor(addState.category, userSettings.categories)}"></span>${escapeHtml(addState.category)}`;
     });
   });
 }
@@ -82,8 +82,8 @@ function openPayDd() {
   addPayChev.classList.add('open');
   addPayDd.style.display = '';
   addPayDd.innerHTML = userSettings.paymentMethods.map(p => `
-    <button class="dd-item${p === addState.payment ? ' on' : ''}" data-pay="${p}" type="button">
-      <span class="pay-pill sm">${p}</span>
+    <button class="dd-item${p === addState.payment ? ' on' : ''}" data-pay="${escapeHtml(p)}" type="button">
+      <span class="pay-pill sm">${escapeHtml(p)}</span>
       ${p === addState.payment ? `<span class="dd-check">${CHECK_SVG}</span>` : ''}
     </button>`).join('');
   addPayDd.querySelectorAll('.dd-item').forEach(btn => {
@@ -91,7 +91,7 @@ function openPayDd() {
       addState.payment = btn.dataset.pay;
       closePayDd();
       document.getElementById('add-pay-display').innerHTML =
-        `<span class="pay-pill sm">${addState.payment}</span>`;
+        `<span class="pay-pill sm">${escapeHtml(addState.payment)}</span>`;
     });
   });
 }

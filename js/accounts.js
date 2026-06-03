@@ -1,5 +1,5 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
-import { fmt, todayString, displayDate, showToast } from './helpers.js';
+import { fmt, todayString, displayDate, showToast, escapeHtml } from './helpers.js';
 import { fetchAccounts, persistAccounts, persistUserSettings, addTransfer, fetchAllTransfers, fetchAllExpenses, fetchPotTransactions } from './db.js';
 
 const ACCOUNT_TYPE_ICONS = {
@@ -20,6 +20,13 @@ let accState = {
   editId:          null,
   isNew:           false,
 };
+
+export function clearAccountsState() {
+  accState.accounts        = null;
+  accState.allExpenses     = [];
+  accState.allTransfers    = [];
+  accState.potTransactions = [];
+}
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -150,7 +157,7 @@ function buildAccRow(acc) {
   btn.innerHTML = `
     <div class="acc-icon">${ACCOUNT_TYPE_ICONS[acc.type] || ACCOUNT_TYPE_ICONS.ewallet}</div>
     <div class="acc-info">
-      <div class="acc-name">${acc.name}</div>
+      <div class="acc-name">${escapeHtml(acc.name)}</div>
       <div class="acc-meta">${lastUpdated(acc)}</div>
     </div>
     <div class="acc-bal-col">
@@ -172,8 +179,8 @@ function buildTransferRow(tf) {
   row.innerHTML = `
     <div class="transfer-icon">${ARROW_SVG}</div>
     <div class="transfer-info">
-      <div class="transfer-label">${fromName} → ${toName}</div>
-      <div class="transfer-meta">${tf.date ? displayDate(tf.date) : ''}${tf.notes ? ' · ' + tf.notes : ''}</div>
+      <div class="transfer-label">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
+      <div class="transfer-meta">${tf.date ? displayDate(tf.date) : ''}${tf.notes ? ' · ' + escapeHtml(tf.notes) : ''}</div>
     </div>
     <div class="transfer-amt">RM ${fmt(tf.amount)}</div>`;
   return row;

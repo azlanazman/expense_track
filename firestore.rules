@@ -1,43 +1,94 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function validAmount(amount) {
+      return amount is number && amount > 0 && amount < 1000000;
+    }
+    function validDate(date) {
+      return date is string && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    function validText(text) {
+      return text is string && text.size() <= 500;
+    }
+    function validOptText(text) {
+      return text == null || (text is string && text.size() <= 500);
+    }
+
+    // ── expenses ──────────────────────────────────────────────────────────────
     match /expenses/{expenseId} {
-      allow read, write: if request.auth != null
+      allow read, update, delete: if request.auth != null
         && request.auth.uid == resource.data.uid;
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid;
+        && request.auth.uid == request.resource.data.uid
+        && validAmount(request.resource.data.amount)
+        && validDate(request.resource.data.date)
+        && validText(request.resource.data.category)
+        && validOptText(request.resource.data.notes);
     }
+
+    // ── userSettings ──────────────────────────────────────────────────────────
     match /userSettings/{uid} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
     }
+
+    // ── budgetTemplates ───────────────────────────────────────────────────────
     match /budgetTemplates/{uid} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
     }
+
+    // ── budgetMonths ──────────────────────────────────────────────────────────
     match /budgetMonths/{docId} {
       allow read, write: if request.auth != null
         && docId.matches(request.auth.uid + '_.*');
     }
+
+    // ── accounts ──────────────────────────────────────────────────────────────
     match /accounts/{uid} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
     }
+
+    // ── transfers (immutable after creation — allow update: if false) ─────────
     match /transfers/{transferId} {
-      allow read, update, delete: if request.auth != null
+      allow read, delete: if request.auth != null
         && request.auth.uid == resource.data.uid;
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid;
+        && request.auth.uid == request.resource.data.uid
+        && validAmount(request.resource.data.amount)
+        && validDate(request.resource.data.date)
+        && validOptText(request.resource.data.notes);
+      allow update: if false;
     }
+
+    // ── savingsPots ───────────────────────────────────────────────────────────
     match /savingsPots/{uid} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == uid;
+      allow read, write: if isOwner(uid);
     }
+
+    // ── potTransactions (immutable after creation) ────────────────────────────
     match /potTransactions/{txId} {
-      allow read, update, delete: if request.auth != null
+      allow read, delete: if request.auth != null
         && request.auth.uid == resource.data.uid;
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid;
+        && request.auth.uid == request.resource.data.uid
+        && validAmount(request.resource.data.amount)
+        && validDate(request.resource.data.date);
+      allow update: if false;
+    }
+
+    // ── auditLog (create-only, no read/update/delete) ─────────────────────────
+    match /auditLog/{uid}/entries/{entryId} {
+      allow create: if isOwner(uid);
+      allow read, update, delete: if false;
+    }
+
+    // ── catch-all deny ────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

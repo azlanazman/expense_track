@@ -1,5 +1,5 @@
 import { currentUser } from './state.js';
-import { fmt, todayString, showToast } from './helpers.js';
+import { fmt, todayString, showToast, escapeHtml } from './helpers.js';
 import { fetchSavingsPots, persistSavingsPots, addPotTransaction, deletePotTransactionsByPot, fetchAccounts } from './db.js';
 
 const POT_COLOURS = [
@@ -19,6 +19,11 @@ let savState = {
   editPotId: null,
   selectedColour: POT_COLOURS[0],
 };
+
+export function clearSavingsState() {
+  savState.pots     = null;
+  savState.accounts = null;
+}
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -89,8 +94,8 @@ function buildPotCard(pot) {
   card.innerHTML = `
     <div class="pot-hdr">
       <div class="pot-dot" style="background:${colour}"></div>
-      <button class="pot-name-btn" type="button">${pot.name}</button>
-      ${acc ? `<span class="pot-acc-lbl">${acc.name}</span>` : ''}
+      <button class="pot-name-btn" type="button">${escapeHtml(pot.name)}</button>
+      ${acc ? `<span class="pot-acc-lbl">${escapeHtml(acc.name)}</span>` : ''}
     </div>
     <div class="pot-bar-wrap">
       <div class="pot-bar-fill" style="width:${pct.toFixed(1)}%;background:${colour}"></div>

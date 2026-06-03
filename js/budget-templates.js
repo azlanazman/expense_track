@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, showToast } from './helpers.js';
+import { fmt, showToast, escapeHtml } from './helpers.js';
 import { fetchBudgetTemplate, persistBudgetTemplate } from './db.js';
 
 const DEFAULT_BUDGET_TEMPLATE = {
@@ -91,7 +91,7 @@ function buildGroup(group) {
   hdr.className = 'tmpl-group-hdr';
   hdr.innerHTML = `
     ${CHEV}
-    <span class="tmpl-group-name">${group.name}</span>
+    <span class="tmpl-group-name">${escapeHtml(group.name)}</span>
     <span class="tmpl-group-count">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>
     <button class="tmpl-add-item" type="button" title="Add item" aria-label="Add item">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -149,8 +149,8 @@ function buildItem(group, item) {
   }
 
   row.innerHTML = `
-    <span class="tmpl-item-name">${item.name}</span>
-    <span class="pay-pill" style="font-size:10.5px;padding:3px 8px">${item.paymentMethod}</span>
+    <span class="tmpl-item-name">${escapeHtml(item.name)}</span>
+    <span class="pay-pill" style="font-size:10.5px;padding:3px 8px">${escapeHtml(item.paymentMethod)}</span>
     ${rightEl}
     <svg class="muted-ic" style="flex-shrink:0;color:var(--ink-3)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 

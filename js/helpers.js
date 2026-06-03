@@ -74,6 +74,33 @@ export const DEFAULT_CATEGORIES    = ['Food', 'Transport', 'Shopping', 'Health',
 export const DEFAULT_PAYMENTS      = ['Cash', 'Bank', 'Credit Card', 'E-Wallet'];
 export const DEFAULT_PAYMENT_TYPES = { 'Cash':'ewallet', 'Bank':'bank', 'Credit Card':'card', 'E-Wallet':'ewallet' };
 
+// ── Security helpers ──────────────────────────────────────────────────────────
+
+export function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function sanitiseText(val, maxLen = 200) {
+  if (val == null) return '';
+  return String(val).trim().slice(0, maxLen);
+}
+
+export function sanitiseAmount(val) {
+  const n = typeof val === 'number' ? val : parseFloat(val);
+  if (!isFinite(n) || n <= 0 || n >= 1000000) throw new Error('Invalid amount');
+  return Math.round(n * 100) / 100;
+}
+
+export function sanitiseDate(val) {
+  if (typeof val !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(val)) throw new Error('Invalid date');
+  return val;
+}
+
 let toastTimer;
 export function showToast(msg) {
   const t = document.getElementById('toast');

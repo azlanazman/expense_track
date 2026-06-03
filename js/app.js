@@ -3,14 +3,21 @@ import { signInWithPopup, onAuthStateChanged, signOut }
 
 import { auth, provider } from './firebase.js';
 import { currentUser, setCurrentUser, setUserSettings } from './state.js';
-import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS } from './helpers.js';
+import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, showToast } from './helpers.js';
 import { fetchUserSettings, persistUserSettings } from './db.js';
 import { initAdd } from './add.js';
-import { initLog, showLogTransfers } from './log.js';
-import { initReport } from './report.js';
+import { initLog, showLogTransfers, clearLogState } from './log.js';
+import { initReport, clearReportState } from './report.js';
 import { renderSettings } from './settings.js';
-import { initBudget } from './budget.js';
+import { initBudget, clearBudgetState } from './budget.js';
+import { clearAccountsState } from './accounts.js';
+import { clearSavingsState } from './savings.js';
 import { initOnboarding } from './onboarding.js';
+
+// ── Production: silence console output ──────────────────────────────────────
+if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  console.log = console.info = console.debug = () => {};
+}
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -32,10 +39,7 @@ document.getElementById('nav-settings').addEventListener('click', () => { render
 // Intercept phone back button — close any open sub-page instead of leaving the app
 window.addEventListener('popstate', () => {
   const openSubPage = document.querySelector('.sub-page.active');
-  if (openSubPage) {
-    openSubPage.classList.remove('active');
-    // Don't pushState here — popping already consumed the entry
-  }
+  if (openSubPage) openSubPage.classList.remove('active');
 });
 
 document.addEventListener('nav:show-log-transfers', () => {
@@ -48,11 +52,52 @@ document.addEventListener('nav:go-add', () => {
   showScreen('add');
 });
 
-// ── Auth ────────────────────────────────────────────────────────────────────
+// ── 15-minute idle session timeout (C2) ─────────────────────────────────────
+
+const IDLE_MS = 15 * 60 * 1000;
+const WARN_MS = IDLE_MS - 60_000;
+let idleTimer, warnTimer;
+
+function resetIdleTimer() {
+  clearTimeout(idleTimer);
+  clearTimeout(warnTimer);
+  if (!currentUser) return;
+  warnTimer = setTimeout(() => showToast('Session expiring in 60 s — tap to stay'), WARN_MS);
+  idleTimer = setTimeout(() => { if (currentUser) signOut(auth); }, IDLE_MS);
+}
+
+['mousemove', 'keydown', 'touchstart', 'click'].forEach(evt =>
+  document.addEventListener(evt, resetIdleTimer, { passive: true }));
+
+// ── Clear financial state from memory ────────────────────────────────────────
+
+function clearAllFinancialState() {
+  clearLogState();
+  clearBudgetState();
+  clearReportState();
+  clearAccountsState();
+  clearSavingsState();
+}
+
+// ── visibilitychange: clear state when tab hidden (M1) ───────────────────────
+
+document.addEventListener('visibilitychange', () => {
+  if (!currentUser) return;
+  if (document.hidden) {
+    clearAllFinancialState();
+  } else {
+    const screen = sessionStorage.getItem('activeScreen') || 'add';
+    if      (screen === 'log')    initLog();
+    else if (screen === 'report') initReport();
+    else if (screen === 'budget') initBudget();
+  }
+});
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 document.getElementById('btn-google-signin').addEventListener('click', async () => {
   try { await signInWithPopup(auth, provider); }
-  catch (e) { console.error(e); alert('Sign-in failed: ' + e.message); }
+  catch (e) { console.error(e); showToast('Sign-in failed — please try again'); }
 });
 
 document.getElementById('btn-signout').addEventListener('click', () => signOut(auth));
@@ -60,6 +105,7 @@ document.getElementById('btn-signout').addEventListener('click', () => signOut(a
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     setCurrentUser(user);
+    resetIdleTimer();
     document.getElementById('screen-login').style.display = 'none';
     document.getElementById('app').style.display = '';
     const settings = await loadUserSettings();
@@ -76,12 +122,16 @@ onAuthStateChanged(auth, async (user) => {
     }
   } else {
     setCurrentUser(null);
+    clearTimeout(idleTimer);
+    clearTimeout(warnTimer);
+    clearAllFinancialState();
+    sessionStorage.removeItem('activeScreen');
     document.getElementById('screen-login').style.display = '';
     document.getElementById('app').style.display = 'none';
   }
 });
 
-// ── User settings ───────────────────────────────────────────────────────────
+// ── User settings ────────────────────────────────────────────────────────────
 
 async function loadUserSettings() {
   let settings = await fetchUserSettings(currentUser.uid);

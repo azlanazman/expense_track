@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, displayDate, monthLabel, catColor, showToast, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
+import { fmt, displayDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
 import { fetchExpenses, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const PAGE_SIZE   = 10;
@@ -18,6 +18,12 @@ let logState = {
   filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
   showTransfers: false, page: 1,
 };
+
+export function clearLogState() {
+  logState.entries = [];
+  logState.transfers = [];
+  logState.accounts = [];
+}
 
 export async function initLog() {
   const { year, month } = salaryPeriodMonth(userSettings.salaryDay);
@@ -182,8 +188,8 @@ function buildTransferLogRow(tf) {
       ${TRANSFER_SVG}
     </div>
     <div class="log-main">
-      <div class="log-cat" style="color:var(--accent-ink)">${fromName} → ${toName}</div>
-      <div class="log-meta">${tf.date ? displayDate(tf.date) : ''}${tf.notes ? ' · ' + tf.notes : ''} <span class="pay-pill xs">transfer</span></div>
+      <div class="log-cat" style="color:var(--accent-ink)">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
+      <div class="log-meta">${tf.date ? displayDate(tf.date) : ''}${tf.notes ? ' · ' + escapeHtml(tf.notes) : ''} <span class="pay-pill xs">transfer</span></div>
     </div>
     <div class="log-right">
       <div class="log-amt" style="color:var(--accent-ink)">RM ${fmt(tf.amount)}</div>
@@ -197,12 +203,12 @@ function buildLogRow(entry) {
   btn.innerHTML = `
     <span class="log-dot" style="background:${catColor(entry.category, userSettings.categories)}"></span>
     <div class="log-main">
-      <div class="log-cat">${entry.category}</div>
-      <div class="log-meta">${displayDate(entry.date)} <span class="pay-pill xs">${entry.paymentMethod}</span></div>
+      <div class="log-cat">${escapeHtml(entry.category)}</div>
+      <div class="log-meta">${displayDate(entry.date)} <span class="pay-pill xs">${escapeHtml(entry.paymentMethod)}</span></div>
     </div>
     <div class="log-right">
       <div class="log-amt">RM ${fmt(entry.amount)}</div>
-      ${entry.notes ? `<div class="log-note">${entry.notes}</div>` : ''}
+      ${entry.notes ? `<div class="log-note">${escapeHtml(entry.notes)}</div>` : ''}
     </div>`;
   btn.addEventListener('click', () => { logState.openId = entry.id; renderLog(); });
   return btn;
@@ -229,7 +235,7 @@ function buildEditForm(entry) {
       <label class="field-label">Category</label>
       <button class="input-row select" id="ec-btn-${id}" type="button">
         <span class="sel-val" id="ec-disp-${id}">
-          <span class="chip-dot" style="background:${catColor(entry.category, userSettings.categories)}"></span>${entry.category}
+          <span class="chip-dot" style="background:${catColor(entry.category, userSettings.categories)}"></span>${escapeHtml(entry.category)}
         </span>
         <span class="muted-ic"><svg class="chev" id="ec-chev-${id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </button>
@@ -238,14 +244,14 @@ function buildEditForm(entry) {
     <div class="field" id="ep-field-${id}">
       <label class="field-label">Account</label>
       <button class="input-row select" id="ep-btn-${id}" type="button">
-        <span class="sel-val" id="ep-disp-${id}"><span class="pay-pill sm">${entry.paymentMethod}</span></span>
+        <span class="sel-val" id="ep-disp-${id}"><span class="pay-pill sm">${escapeHtml(entry.paymentMethod)}</span></span>
         <span class="muted-ic"><svg class="chev" id="ep-chev-${id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </button>
       <div class="dropdown" id="ep-dd-${id}" style="display:none"></div>
     </div>
     <div class="field">
       <label class="field-label">Notes</label>
-      <input class="input-row note" type="text" id="en-${id}" value="${entry.notes || ''}" placeholder="optional…" autocomplete="off" />
+      <input class="input-row note" type="text" id="en-${id}" value="${escapeHtml(entry.notes || '')}" placeholder="optional…" autocomplete="off" />
     </div>
     <div class="log-edit-actions">
       <button class="btn-update" id="es-${id}" type="button">
@@ -281,14 +287,14 @@ function buildEditForm(entry) {
   function openCatDd() {
     closePayDd(); catOpen = true; cChev.classList.add('open'); cDd.style.display = '';
     cDd.innerHTML = userSettings.categories.map(c => `
-      <button class="dd-item${c === editCat ? ' on' : ''}" data-cat="${c}" type="button">
-        <span class="chip-dot" style="background:${catColor(c, userSettings.categories)}"></span>${c}
+      <button class="dd-item${c === editCat ? ' on' : ''}" data-cat="${escapeHtml(c)}" type="button">
+        <span class="chip-dot" style="background:${catColor(c, userSettings.categories)}"></span>${escapeHtml(c)}
         ${c === editCat ? `<span class="dd-check">${CHECK_SVG}</span>` : ''}
       </button>`).join('');
     cDd.querySelectorAll('.dd-item').forEach(b => b.addEventListener('click', () => {
       editCat = b.dataset.cat;
       wrap.querySelector(`#ec-disp-${id}`).innerHTML =
-        `<span class="chip-dot" style="background:${catColor(editCat, userSettings.categories)}"></span>${editCat}`;
+        `<span class="chip-dot" style="background:${catColor(editCat, userSettings.categories)}"></span>${escapeHtml(editCat)}`;
       closeCatDd();
     }));
   }
@@ -302,13 +308,13 @@ function buildEditForm(entry) {
   function openPayDd() {
     closeCatDd(); payOpen = true; pChev.classList.add('open'); pDd.style.display = '';
     pDd.innerHTML = userSettings.paymentMethods.map(p => `
-      <button class="dd-item${p === editPay ? ' on' : ''}" data-pay="${p}" type="button">
-        <span class="pay-pill sm">${p}</span>
+      <button class="dd-item${p === editPay ? ' on' : ''}" data-pay="${escapeHtml(p)}" type="button">
+        <span class="pay-pill sm">${escapeHtml(p)}</span>
         ${p === editPay ? `<span class="dd-check">${CHECK_SVG}</span>` : ''}
       </button>`).join('');
     pDd.querySelectorAll('.dd-item').forEach(b => b.addEventListener('click', () => {
       editPay = b.dataset.pay;
-      wrap.querySelector(`#ep-disp-${id}`).innerHTML = `<span class="pay-pill sm">${editPay}</span>`;
+      wrap.querySelector(`#ep-disp-${id}`).innerHTML = `<span class="pay-pill sm">${escapeHtml(editPay)}</span>`;
       closePayDd();
     }));
   }
@@ -348,7 +354,10 @@ async function ensureSheetJS() {
   if (window.XLSX) return;
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src     = SHEETJS_URL;
+    s.src         = SHEETJS_URL;
+    s.crossOrigin = 'anonymous';
+    // To enable SRI: compute hash with `curl -s <SHEETJS_URL> | openssl dgst -sha384 -binary | base64`
+    // then set: s.integrity = 'sha384-<computed-hash>';
     s.onload  = resolve;
     s.onerror = () => reject(new Error('Failed to load SheetJS'));
     document.head.appendChild(s);

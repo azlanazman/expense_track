@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast, todayString, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
+import { fmt, monthLabel, showToast, escapeHtml, todayString, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
@@ -30,6 +30,11 @@ let bdgState = {
   chkCollapsed:       new Set(),
   subTab:             'overview',
 };
+
+export function clearBudgetState() {
+  bdgState.monthData        = null;
+  bdgState.variableExpenses = [];
+}
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -207,9 +212,9 @@ function buildIncomeSection(income) {
     row.style.position = 'relative';
     row.innerHTML = `
       <span class="income-dot" style="background:${INCOME_DOTS[entry.id] || 'var(--ink-3)'}"></span>
-      <span class="income-name">${entry.name}</span>
+      <span class="income-name">${escapeHtml(entry.name)}</span>
       <button class="income-acc-pill${hasAcc ? ' set' : ''}" type="button" id="income-acc-${entry.id}">
-        ${entry.account || 'Account'}
+        ${escapeHtml(entry.account || 'Account')}
       </button>
       <span class="income-val" id="income-val-${entry.id}">
         RM ${fmt(entry.amount || 0)}
@@ -237,7 +242,7 @@ function openIncomeAccDropdown(entry, row) {
     const opt = document.createElement('button');
     opt.type = 'button';
     opt.className = `income-acc-opt${(entry.account || '') === acc ? ' on' : ''}`;
-    opt.textContent = acc || '— None';
+    opt.textContent = acc || '— None'; // textContent is safe — no escaping needed
     opt.addEventListener('click', async () => {
       dd.remove();
       const idx = bdgState.monthData.income.findIndex(i => i.id === entry.id);
@@ -396,7 +401,7 @@ function appendGroupRows(groups, payments, container) {
     const row = document.createElement('div');
     row.className = 'fixed-group-row';
     row.innerHTML = `
-      <span class="fixed-group-name">${group.name}</span>
+      <span class="fixed-group-name">${escapeHtml(group.name)}</span>
       <span class="fixed-group-meta">${paidN}/${totalN}</span>
       <span class="fixed-group-amt">${paidAmt > 0 ? 'RM ' + fmt(paidAmt) : '—'}</span>`;
     container.appendChild(row);
@@ -487,7 +492,7 @@ function buildChkGroup(group, payments) {
   const hdr = document.createElement('div');
   hdr.className = `chk-group-hdr${isCollapsed ? '' : ' open'}`;
   hdr.innerHTML = `
-    <span class="chk-group-name">${group.name}</span>
+    <span class="chk-group-name">${escapeHtml(group.name)}</span>
     <span class="chk-group-badge${allPaid ? '' : ' partial'}">${paidN}/${group.items.length}</span>
     <span class="chk-group-chev${isCollapsed ? '' : ' open'}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -540,8 +545,8 @@ function buildChkItem(item, payment) {
       ${checkIcon}
     </button>
     <div class="chk-item-main">
-      <div class="chk-item-name">${item.name}</div>
-      <div class="chk-item-pay">${item.paymentMethod}</div>
+      <div class="chk-item-name">${escapeHtml(item.name)}</div>
+      <div class="chk-item-pay">${escapeHtml(item.paymentMethod)}</div>
     </div>
     <div class="chk-item-right">
       <span class="chk-item-amt">${displayAmt}</span>
@@ -614,19 +619,23 @@ async function markPaid(itemId, amount) {
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   try {
-    const expRef = await addExpense({
-      uid,
-      date:          dateStr,
-      amount,
-      category:      group.name,
-      subCategory:   item.name,
-      paymentMethod: item.paymentMethod,
-      notes:         '',
-      type:          'fixed',
-      budgetItemId:  item.id
-    });
+    let expId = null;
+    if (amount > 0) {
+      const expRef = await addExpense({
+        uid,
+        date:          dateStr,
+        amount,
+        category:      group.name,
+        subCategory:   item.name,
+        paymentMethod: item.paymentMethod,
+        notes:         '',
+        type:          'fixed',
+        budgetItemId:  item.id
+      });
+      expId = expRef.id;
+    }
 
-    const rec  = { itemId, paid: true, amount, paidDate: dateStr, expenseId: expRef.id };
+    const rec  = { itemId, paid: true, amount, paidDate: dateStr, expenseId: expId };
     const pidx = monthData.payments.findIndex(p => p.itemId === itemId);
     if (pidx >= 0) monthData.payments[pidx] = rec;
     else monthData.payments.push(rec);
