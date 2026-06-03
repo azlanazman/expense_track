@@ -3,16 +3,13 @@ import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-app-check.js';
 
-// Values are injected by GitHub Actions (see SECURITY.md).
-// For local development: replace __PLACEHOLDER__ values with your real Firebase config.
-// Never commit a file with real values — the placeholders are intentional.
 const firebaseConfig = {
-  apiKey:            "__FIREBASE_API_KEY__",
-  authDomain:        "__FIREBASE_AUTH_DOMAIN__",
-  projectId:         "__FIREBASE_PROJECT_ID__",
-  storageBucket:     "__FIREBASE_STORAGE_BUCKET__",
-  messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
-  appId:             "__FIREBASE_APP_ID__"
+  apiKey: "AIzaSyCZVMB-jFO3XnqC3fsm8Ue0qoqAGRYJ_7A",
+  authDomain: "expense-track-5b2d3.firebaseapp.com",
+  projectId: "expense-track-5b2d3",
+  storageBucket: "expense-track-5b2d3.firebasestorage.app",
+  messagingSenderId: "21700594656",
+  appId: "1:21700594656:web:cdfd84a4e6d4d07273f985"
 };
 
 const app = initializeApp(firebaseConfig);
