@@ -478,38 +478,37 @@
     .export-btn {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       width: 100%;
       text-align: left;
       cursor: pointer;
       font: inherit;
       background: var(--surface);
-      border: 1.5px solid var(--accent-line);
-      border-radius: var(--radius-lg);
-      padding: 14px 16px;
-      transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      transition: border-color 0.16s, transform 0.16s;
     }
     .export-btn:hover:not(:disabled) {
-      border-color: var(--accent);
-      box-shadow: 0 8px 20px -12px var(--accent-shadow);
+      border-color: var(--accent-line);
       transform: translateY(-1px);
     }
     .export-btn:active:not(:disabled) { transform: translateY(0); }
     .export-btn:disabled { opacity: 0.5; cursor: default; }
     .eb-tile {
-      width: 42px;
-      height: 42px;
+      width: 30px;
+      height: 30px;
       border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: var(--on-accent);
+      background: var(--accent-soft);
+      color: var(--accent-ink);
       display: grid;
       place-items: center;
       flex-shrink: 0;
     }
-    .eb-text { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-    .eb-title { font-size: 16px; font-weight: 700; color: var(--ink); }
-    .eb-sub   { font-size: 12px; font-weight: 500; color: var(--ink-3); }
-    .eb-arrow { color: var(--accent-ink); display: inline-flex; }
+    .eb-text { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .eb-title { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+    .eb-sub   { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+    .eb-arrow { color: var(--ink-3); display: inline-flex; }
 
     /* ── Export bottom sheet ── */
     @keyframes export-fade { from { opacity: 0; } to { opacity: 1; } }
