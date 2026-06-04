@@ -100,6 +100,99 @@ async function seedDemoData(uid) {
     ],
   });
 
+  // ── variable expenses (Jul 2025 – Mar 2026 historical) ───────────────────
+  const historicalExpenses = [
+    // Jul 2025
+    { date:'2025-07-03', amount:30.00,  category:'Food',          paymentMethod:'Touch n Go',  notes:'' },
+    { date:'2025-07-09', amount:88.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-07-14', amount:162.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-07-19', amount:48.00,  category:'Entertainment', paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-07-26', amount:115.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Aug 2025
+    { date:'2025-08-02', amount:34.00,  category:'Food',          paymentMethod:'Maybank',     notes:'' },
+    { date:'2025-08-07', amount:80.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-08-13', amount:198.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-08-21', amount:42.00,  category:'Health',        paymentMethod:'Maybank',     notes:'' },
+    { date:'2025-08-27', amount:110.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Sep 2025
+    { date:'2025-09-05', amount:28.00,  category:'Food',          paymentMethod:'Touch n Go',  notes:'' },
+    { date:'2025-09-10', amount:92.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-09-16', amount:225.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-09-22', amount:58.00,  category:'Entertainment', paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-09-27', amount:118.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Oct 2025
+    { date:'2025-10-03', amount:36.00,  category:'Food',          paymentMethod:'Maybank',     notes:'' },
+    { date:'2025-10-08', amount:82.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-10-13', amount:290.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'Sale season' },
+    { date:'2025-10-19', amount:65.00,  category:'Entertainment', paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-10-24', amount:44.00,  category:'Health',        paymentMethod:'Maybank',     notes:'' },
+    { date:'2025-10-29', amount:112.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Nov 2025 (11.11 sale — spike in shopping)
+    { date:'2025-11-04', amount:29.00,  category:'Food',          paymentMethod:'Touch n Go',  notes:'' },
+    { date:'2025-11-09', amount:86.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-11-11', amount:445.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'11.11 sale' },
+    { date:'2025-11-20', amount:68.00,  category:'Entertainment', paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-11-27', amount:120.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Dec 2025 (year-end)
+    { date:'2025-12-04', amount:72.00,  category:'Food',          paymentMethod:'Maybank',     notes:'' },
+    { date:'2025-12-10', amount:85.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2025-12-16', amount:198.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2025-12-22', amount:125.00, category:'Entertainment', paymentMethod:'Credit Card', notes:'Year-end' },
+    { date:'2025-12-27', amount:88.00,  category:'Food',          paymentMethod:'Maybank',     notes:'Holiday meals' },
+    // Jan 2026 (new year, reduced spending)
+    { date:'2026-01-04', amount:24.00,  category:'Food',          paymentMethod:'Touch n Go',  notes:'' },
+    { date:'2026-01-10', amount:78.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2026-01-16', amount:128.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2026-01-27', amount:108.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Feb 2026 (CNY)
+    { date:'2026-02-05', amount:32.00,  category:'Food',          paymentMethod:'Maybank',     notes:'' },
+    { date:'2026-02-11', amount:84.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2026-02-14', amount:168.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'CNY' },
+    { date:'2026-02-20', amount:58.00,  category:'Entertainment', paymentMethod:'Credit Card', notes:'' },
+    { date:'2026-02-26', amount:114.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+    // Mar 2026
+    { date:'2026-03-06', amount:33.00,  category:'Food',          paymentMethod:'Touch n Go',  notes:'' },
+    { date:'2026-03-12', amount:90.00,  category:'Transport',     paymentMethod:'Touch n Go',  notes:'Petrol' },
+    { date:'2026-03-18', amount:182.00, category:'Shopping',      paymentMethod:'Credit Card', notes:'' },
+    { date:'2026-03-23', amount:50.00,  category:'Health',        paymentMethod:'Maybank',     notes:'' },
+    { date:'2026-03-28', amount:116.00, category:'Bills',         paymentMethod:'Maybank',     notes:'' },
+  ];
+
+  for (const e of historicalExpenses) {
+    await addDoc(collection(db, 'expenses'), {
+      uid, type:'variable', isIncome:false, ...e,
+      createdAt: e.date + 'T10:00:00.000Z',
+    });
+  }
+
+  // ── Income expenses for computeAccBalance (net worth chart) ──────────────
+  // One per month on salary day 25 — Jul 2025 through May 2026 (11 months)
+  const incomeMonths = [
+    '2025-07','2025-08','2025-09','2025-10','2025-11','2025-12',
+    '2026-01','2026-02','2026-03','2026-04','2026-05',
+  ];
+  for (const m of incomeMonths) {
+    await addDoc(collection(db, 'expenses'), {
+      uid, type:'income', isIncome:true,
+      date: `${m}-25`, amount:5500,
+      category:'Income', subCategory:'Salary',
+      paymentMethod:'Maybank', notes:'',
+      createdAt: `${m}-25T07:00:00.000Z`,
+    });
+  }
+
+  // ── budgetMonths income for Jul 2025 – Mar 2026 (trend chart bars) ────────
+  const histMonths = [
+    '2025-07','2025-08','2025-09','2025-10','2025-11','2025-12',
+    '2026-01','2026-02','2026-03',
+  ];
+  for (const m of histMonths) {
+    await setDoc(doc(db, 'budgetMonths', `${uid}_${m}`), {
+      income:   [{ id:'salary', name:'Salary', amount:5500, account:'Maybank' }],
+      payments: [],
+    });
+  }
+
   // ── variable expenses (April – June 2026) ─────────────────────────────────
   const varExpenses = [
     // April

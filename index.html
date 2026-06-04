@@ -2050,13 +2050,13 @@
     .heatmap-cell    { height:22px; border-radius:3px; }
     .heatmap-cell.wkend { outline:1px solid oklch(0.84 0.18 86 / 0.25); outline-offset:-1px; }
 
-    /* Savings pot cards */
+    /* Savings pot cards (insights dashboard only — scoped to avoid conflict with savings.js .pot-card) */
     .pot-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
     }
-    .pot-card {
+    .pot-grid .pot-card {
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -2067,13 +2067,13 @@
       gap: 3px;
       text-align: center;
     }
-    .pot-gauge  { line-height: 0; margin-bottom: 2px; }
-    .pot-name   { font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.2; }
-    .pot-bal    { font-size: 10.5px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-    .pot-eta    { font-size: 11px; font-weight: 600; color: var(--ink-2); }
-    .pot-eta.done  { color: var(--positive); }
-    .pot-eta.muted { color: var(--ink-3); font-weight: 500; }
-    .pot-alert  { font-size: 10px; font-weight: 600; color: var(--amber-ink); margin-top: 2px; }
+    .pot-grid .pot-gauge  { line-height: 0; margin-bottom: 2px; }
+    .pot-grid .pot-name   { font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+    .pot-grid .pot-bal    { font-size: 10.5px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .pot-grid .pot-eta    { font-size: 11px; font-weight: 600; color: var(--ink-2); }
+    .pot-grid .pot-eta.done  { color: var(--positive); }
+    .pot-grid .pot-eta.muted { color: var(--ink-3); font-weight: 500; }
+    .pot-grid .pot-alert  { font-size: 10px; font-weight: 600; color: var(--amber-ink); margin-top: 2px; }
 
     /* Payment flow table */
     .flow-table {
