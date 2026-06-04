@@ -74,15 +74,19 @@ async function loadData(uid) {
   const now = new Date();
   const sd  = userSettings.salaryDay ?? 25;
 
-  const monthRefs = [];
+  // Build 12 salary periods ending at current period
+  const sp = salaryPeriodMonth(sd);
+  const periodRefs = [];
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthRefs.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+    let year = sp.year, month = sp.month - i;
+    while (month <= 0) { month += 12; year--; }
+    const start = salaryStartForMonth(sd, year, month);
+    const end   = salaryEndForMonth(sd, year, month);
+    periodRefs.push({ year, month, start, end });
   }
 
-  const oldest    = monthRefs[0];
-  const startDate = `${oldest.year}-${String(oldest.month).padStart(2,'0')}-01`;
-  const endDate   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-31`;
+  const startDate = periodRefs[0].start;
+  const endDate   = periodRefs[11].end;
 
   const [expenses, template, accounts, pots, transfers, potTxns, ...budgetMonths] = await Promise.all([
     fetchExpenses(uid, startDate, endDate),
@@ -91,33 +95,29 @@ async function loadData(uid) {
     fetchSavingsPots(uid).then(r => r || []),
     fetchAllTransfers(uid),
     fetchPotTransactions(uid),
-    ...monthRefs.map(({ year, month }) => fetchBudgetMonth(uid, year, month)),
+    ...periodRefs.map(({ year, month }) => fetchBudgetMonth(uid, year, month)),
   ]);
 
-  const monthly = monthRefs.map(({ year, month }, i) => {
-    const prefix = `${year}-${String(month).padStart(2,'0')}`;
-    const me  = expenses.filter(e => e.date?.startsWith(prefix));
-    const bm  = budgetMonths[i];
+  const monthly = periodRefs.map(({ year, month, start, end }, i) => {
+    const bm = budgetMonths[i];
+    const pe = expenses.filter(e => e.date >= start && e.date <= end);
     const income   = (bm?.income   || []).reduce((s, x) => s + (x.amount || 0), 0);
-    const fixed    = me.filter(e => e.type === 'fixed').reduce((s, e) => s + e.amount, 0);
-    const variable = me.filter(e => !e.type || e.type === 'variable').reduce((s, e) => s + e.amount, 0);
-    return { year, month, income, fixed, variable, net: income - fixed - variable };
+    const fixed    = pe.filter(e => e.type === 'fixed').reduce((s, e) => s + e.amount, 0);
+    const variable = pe.filter(e => !e.type || e.type === 'variable').reduce((s, e) => s + e.amount, 0);
+    return { year, month, start, end, income, fixed, variable, net: income - fixed - variable };
   });
 
-  const sp      = salaryPeriodMonth(sd);
-  const spStart = salaryStartForMonth(sd, sp.year, sp.month);
-  const spEnd   = salaryEndForMonth(sd, sp.year, sp.month);
-  const spExp   = expenses.filter(e => e.date >= spStart && e.date <= spEnd);
-
-  const bmIdx = monthRefs.findIndex(r => r.year === sp.year && r.month === sp.month);
-  const curBM = bmIdx >= 0 ? budgetMonths[bmIdx] : null;
+  // Current period is always the last in periodRefs
+  const curPeriod = periodRefs[11];
+  const spExp     = expenses.filter(e => e.date >= curPeriod.start && e.date <= curPeriod.end);
+  const curBM     = budgetMonths[11];
 
   const incomeTotal   = (curBM?.income || []).reduce((s, x) => s + (x.amount || 0), 0);
   const fixedTotal    = spExp.filter(e => e.type === 'fixed').reduce((s, e) => s + e.amount, 0);
   const variableTotal = spExp.filter(e => !e.type || e.type === 'variable').reduce((s, e) => s + e.amount, 0);
   const netBalance    = incomeTotal - fixedTotal - variableTotal;
 
-  const spStartDt   = new Date(spStart + 'T00:00:00');
+  const spStartDt   = new Date(curPeriod.start + 'T00:00:00');
   const daysElapsed = Math.max(1, Math.round((now - spStartDt) / 86_400_000) + 1);
 
   const templateItemIds = new Set(template?.groups?.flatMap(g => g.items.map(i => i.id)) || []);
@@ -129,7 +129,7 @@ async function loadData(uid) {
   const netDelta = prevM ? netBalance - prevM.net : null;
 
   _cache = {
-    expenses, monthRefs, monthly,
+    expenses, periodRefs, monthly,
     accounts, pots, transfers, potTxns,
     kpi: {
       netBalance, netDelta,
@@ -207,7 +207,7 @@ function renderKPIs(body, { kpi }) {
 
 function renderTrendChart(body, { monthly }) {
   const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Income vs Spending · 12 months</span>';
+  section.innerHTML = '<span class="block-label">Income vs Spending · 12 periods</span>';
   const wrap = document.createElement('div');
   wrap.className = 'insights-chart-wrap';
   const canvas = document.createElement('canvas');
@@ -259,17 +259,15 @@ function renderTrendChart(body, { monthly }) {
 
 // ── Section 3: Category deep dive ─────────────────────────────────────────────
 
-function renderCategorySection(body, { expenses, monthRefs }) {
+function renderCategorySection(body, { expenses, periodRefs }) {
   const varExp = expenses.filter(e => !e.type || e.type === 'variable');
 
-  const curRef  = monthRefs[monthRefs.length - 1];
-  const prevRef = monthRefs[monthRefs.length - 2];
-  const curPfx  = `${curRef.year}-${String(curRef.month).padStart(2,'0')}`;
-  const prevPfx = `${prevRef.year}-${String(prevRef.month).padStart(2,'0')}`;
+  const curPeriod  = periodRefs[periodRefs.length - 1];
+  const prevPeriod = periodRefs[periodRefs.length - 2];
 
-  const curCats  = groupByCategory(varExp.filter(e => e.date?.startsWith(curPfx)));
-  const prevCats = groupByCategory(varExp.filter(e => e.date?.startsWith(prevPfx)));
-  const avg12    = compute12mCatAvg(varExp, monthRefs);
+  const curCats  = groupByCategory(varExp.filter(e => e.date >= curPeriod.start  && e.date <= curPeriod.end));
+  const prevCats = groupByCategory(varExp.filter(e => e.date >= prevPeriod.start && e.date <= prevPeriod.end));
+  const avg12    = compute12mCatAvg(varExp, periodRefs);
   const limits   = userSettings.categoryLimits || {};
 
   const catData = [...new Set([...Object.keys(curCats), ...Object.keys(prevCats)])]
@@ -288,7 +286,7 @@ function renderCategorySection(body, { expenses, monthRefs }) {
   if (!catData.length) return;
 
   const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Category breakdown · this month</span>';
+  section.innerHTML = '<span class="block-label">Category breakdown · this period</span>';
   body.appendChild(section);
 
   renderTreemap(section, catData);
@@ -433,32 +431,33 @@ function renderTopCategoryBars(section, catData) {
 
 // ── Section 4: Habit patterns ─────────────────────────────────────────────────
 
-function renderHabitsSection(body, { expenses, monthRefs }) {
+function renderHabitsSection(body, { expenses, periodRefs }) {
   const varExp = expenses.filter(e => !e.type || e.type === 'variable');
-  renderDayOfWeekHeatmap(body, varExp, monthRefs);
-  renderCategoryLines(body, varExp, monthRefs);
-  renderPaymentFlow(body, expenses, monthRefs);
+  renderDayOfWeekHeatmap(body, varExp, periodRefs);
+  renderCategoryLines(body, varExp, periodRefs);
+  renderPaymentFlow(body, expenses, periodRefs);
 }
 
 // ── 4a: Day-of-week heatmap ────────────────────────────────────────────────────
 
-function renderDayOfWeekHeatmap(body, varExp, monthRefs) {
+function renderDayOfWeekHeatmap(body, varExp, periodRefs) {
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-  // For each month × weekday: avg daily spend (total / count of that weekday in month)
-  const grid = monthRefs.map(({ year, month }) => {
-    const prefix = `${year}-${String(month).padStart(2,'0')}`;
-    const daysInMonth = new Date(year, month, 0).getDate();
+  // For each period × weekday: avg daily spend (total / count of that weekday in period)
+  const grid = periodRefs.map(({ year, month, start, end }) => {
     const dayCounts = Array(7).fill(0);
     const dayTotals = Array(7).fill(0);
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      dayCounts[(new Date(year, month - 1, d).getDay() + 6) % 7]++;
+    // Iterate day-by-day within the salary period
+    const cur = new Date(start + 'T00:00:00');
+    const fin = new Date(end   + 'T00:00:00');
+    while (cur <= fin) {
+      dayCounts[(cur.getDay() + 6) % 7]++;
+      cur.setDate(cur.getDate() + 1);
     }
-    varExp.filter(e => e.date?.startsWith(prefix)).forEach(e => {
-      const dd = parseInt(e.date.slice(8), 10);
-      const di = (new Date(year, month - 1, dd).getDay() + 6) % 7;
-      dayTotals[di] += e.amount;
+    varExp.filter(e => e.date >= start && e.date <= end).forEach(e => {
+      const [y, m, d] = e.date.split('-').map(Number);
+      dayTotals[(new Date(y, m - 1, d).getDay() + 6) % 7] += e.amount;
     });
 
     return {
@@ -472,10 +471,13 @@ function renderDayOfWeekHeatmap(body, varExp, monthRefs) {
 
   // Weekend vs weekday insight
   let wkdayTotal = 0, wkendTotal = 0, wkdayCnt = 0, wkendCnt = 0;
-  monthRefs.forEach(({ year, month }) => {
-    for (let d = 1; d <= new Date(year, month, 0).getDate(); d++) {
-      const di = (new Date(year, month - 1, d).getDay() + 6) % 7;
+  periodRefs.forEach(({ start, end }) => {
+    const cur = new Date(start + 'T00:00:00');
+    const fin = new Date(end   + 'T00:00:00');
+    while (cur <= fin) {
+      const di = (cur.getDay() + 6) % 7;
       if (di < 5) wkdayCnt++; else wkendCnt++;
+      cur.setDate(cur.getDate() + 1);
     }
   });
   varExp.forEach(e => {
@@ -558,7 +560,7 @@ function renderDayOfWeekHeatmap(body, varExp, monthRefs) {
 
 // ── 4b: 12-month per-category lines ───────────────────────────────────────────
 
-function renderCategoryLines(body, varExp, monthRefs) {
+function renderCategoryLines(body, varExp, periodRefs) {
   // Top 6 categories by total 12-month spend
   const catTotals = groupByCategory(varExp);
   const top6 = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c);
@@ -568,12 +570,11 @@ function renderCategoryLines(body, varExp, monthRefs) {
   // Monthly totals per category
   const catMonthly = {};
   top6.forEach(cat => {
-    catMonthly[cat] = monthRefs.map(({ year, month }) => {
-      const prefix = `${year}-${String(month).padStart(2,'0')}`;
-      return varExp
-        .filter(e => (e.category || 'Other') === cat && e.date?.startsWith(prefix))
-        .reduce((s, e) => s + e.amount, 0);
-    });
+    catMonthly[cat] = periodRefs.map(({ start, end }) =>
+      varExp
+        .filter(e => (e.category || 'Other') === cat && e.date >= start && e.date <= end)
+        .reduce((s, e) => s + e.amount, 0)
+    );
   });
 
   // Creeping: last-3-months avg > first-3-months avg by >20%
@@ -585,7 +586,7 @@ function renderCategoryLines(body, varExp, monthRefs) {
   };
 
   const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Category trends · 12 months</span>';
+  section.innerHTML = '<span class="block-label">Category trends · 12 periods</span>';
   const wrap   = document.createElement('div');
   wrap.className = 'insights-chart-wrap';
   wrap.style.height = '260px';
@@ -597,7 +598,7 @@ function renderCategoryLines(body, varExp, monthRefs) {
   _charts.push(new window.Chart(canvas, {
     type: 'line',
     data: {
-      labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]),
+      labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]),
       datasets: top6.map(cat => {
         const data     = catMonthly[cat];
         const base     = catColor(cat, userSettings.categories);
@@ -645,10 +646,9 @@ function renderCategoryLines(body, varExp, monthRefs) {
 
 // ── 4c: Payment method flow table ─────────────────────────────────────────────
 
-function renderPaymentFlow(body, expenses, monthRefs) {
-  const curRef = monthRefs[monthRefs.length - 1];
-  const curPfx = `${curRef.year}-${String(curRef.month).padStart(2,'0')}`;
-  const curExp = expenses.filter(e => e.date?.startsWith(curPfx) && e.type !== 'income');
+function renderPaymentFlow(body, expenses, periodRefs) {
+  const curPeriod = periodRefs[periodRefs.length - 1];
+  const curExp = expenses.filter(e => e.date >= curPeriod.start && e.date <= curPeriod.end && e.type !== 'income');
 
   if (!curExp.length) return;
 
@@ -671,7 +671,7 @@ function renderPaymentFlow(body, expenses, monthRefs) {
   });
 
   const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Where each account spent · this month</span>';
+  section.innerHTML = '<span class="block-label">Where each account spent · this period</span>';
 
   const scroll = document.createElement('div');
   scroll.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;';
@@ -749,16 +749,16 @@ function renderPaymentFlow(body, expenses, monthRefs) {
 
 // ── Section 5: Savings trajectory ─────────────────────────────────────────────
 
-function renderSavingsSection(body, { pots, potTxns, accounts, expenses, transfers, monthRefs }) {
+function renderSavingsSection(body, { pots, potTxns, accounts, expenses, transfers, periodRefs }) {
   if (!pots?.length && !accounts?.length) return;
-  if (pots?.length)    renderPotCards(body, pots, potTxns, monthRefs);
-  if (pots?.length)    renderContributionChart(body, pots, potTxns, monthRefs);
-  if (accounts?.length) renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, monthRefs });
+  if (pots?.length)    renderPotCards(body, pots, potTxns, periodRefs);
+  if (pots?.length)    renderContributionChart(body, pots, potTxns, periodRefs);
+  if (accounts?.length) renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, periodRefs });
 }
 
 // ── 5a: Pot progress cards ─────────────────────────────────────────────────────
 
-function renderPotCards(body, pots, potTxns, monthRefs) {
+function renderPotCards(body, pots, potTxns, periodRefs) {
   const section = document.createElement('section');
   section.innerHTML = '<span class="block-label">Savings goals</span>';
 
@@ -767,7 +767,7 @@ function renderPotCards(body, pots, potTxns, monthRefs) {
 
   pots.forEach(pot => {
     const pct  = pot.targetAmount > 0 ? Math.min((pot.currentBalance || 0) / pot.targetAmount, 1) : 0;
-    const proj = projectCompletion(pot, potTxns);
+    const proj = projectCompletion(pot, potTxns, periodRefs);
     const card = document.createElement('div');
     card.className = 'pot-card';
 
@@ -834,24 +834,20 @@ function buildGaugeSVG(pct, color) {
   </svg>`;
 }
 
-function projectCompletion(pot, potTxns) {
+function projectCompletion(pot, potTxns, periodRefs) {
   const remaining = (pot.targetAmount || 0) - (pot.currentBalance || 0);
   if (remaining <= 0) return { done: true };
 
-  const now     = new Date();
   const contribs = (potTxns || []).filter(t => t.potId === pot.id && t.type === 'contribute');
 
-  // Avg monthly contribution over last 3 months
-  let total3 = 0;
-  for (let i = 0; i < 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const pfx = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`;
-    total3 += contribs.filter(t => t.date?.startsWith(pfx)).reduce((s, t) => s + t.amount, 0);
-  }
+  // Avg contribution over last 3 salary periods
+  const last3   = periodRefs.slice(-3);
+  const total3  = last3.reduce((sum, { start, end }) =>
+    sum + contribs.filter(t => t.date >= start && t.date <= end).reduce((s, t) => s + t.amount, 0), 0);
   const avgMonthly = total3 / 3;
 
-  const curPfx    = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
-  const noContrib = !contribs.some(t => t.date?.startsWith(curPfx));
+  const curPeriod = periodRefs[periodRefs.length - 1];
+  const noContrib = !contribs.some(t => t.date >= curPeriod.start && t.date <= curPeriod.end);
 
   if (avgMonthly <= 0) return { done: false, noRecent: true, noContrib };
 
@@ -860,7 +856,7 @@ function projectCompletion(pot, potTxns) {
 
 // ── 5b: Contribution history chart ────────────────────────────────────────────
 
-function renderContributionChart(body, pots, potTxns, monthRefs) {
+function renderContributionChart(body, pots, potTxns, periodRefs) {
   const section = document.createElement('section');
   section.innerHTML = '<span class="block-label">Monthly contributions · 12 months</span>';
   const wrap = document.createElement('div');
@@ -874,15 +870,14 @@ function renderContributionChart(body, pots, potTxns, monthRefs) {
   _charts.push(new window.Chart(canvas, {
     type: 'bar',
     data: {
-      labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]),
+      labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]),
       datasets: pots.map(pot => ({
         label: abbrev(pot.name),
-        data: monthRefs.map(({ year, month }) => {
-          const pfx = `${year}-${String(month).padStart(2,'0')}`;
-          return (potTxns || [])
-            .filter(t => t.potId === pot.id && t.date?.startsWith(pfx))
-            .reduce((s, t) => t.type === 'contribute' ? s + t.amount : s - t.amount, 0);
-        }),
+        data: periodRefs.map(({ start, end }) =>
+          (potTxns || [])
+            .filter(t => t.potId === pot.id && t.date >= start && t.date <= end)
+            .reduce((s, t) => t.type === 'contribute' ? s + t.amount : s - t.amount, 0)
+        ),
         backgroundColor: pot.colour || C.AMBER,
         borderRadius: 2,
         stack: 'pots',
@@ -908,23 +903,21 @@ function renderContributionChart(body, pots, potTxns, monthRefs) {
 
 // ── 5c: Net worth trajectory ───────────────────────────────────────────────────
 
-function renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, monthRefs }) {
+function renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, periodRefs }) {
   const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Net worth · 12 months</span>';
+  section.innerHTML = '<span class="block-label">Net worth · 12 periods</span>';
 
-  const monthEnds = monthRefs.map(({ year, month }) => {
-    const last = new Date(year, month, 0).getDate();
-    return `${year}-${String(month).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
-  });
+  // Use period end dates for balance snapshots
+  const periodEndDates = periodRefs.map(r => r.end);
 
-  // Balance per account per month-end
+  // Balance per account per period-end
   const accHistory = (accounts || []).map(acc => ({
     acc,
-    data: monthEnds.map(d => computeAccBalance(acc, expenses, transfers, potTxns, d)),
+    data: periodEndDates.map(d => computeAccBalance(acc, expenses, transfers, potTxns, d)),
   }));
 
   // Savings pots total — reconstruct backwards from currentBalance
-  const potsHistory = monthEnds.map(endDate =>
+  const potsHistory = periodEndDates.map(endDate =>
     (pots || []).reduce((total, pot) => {
       let bal = pot.currentBalance || 0;
       (potTxns || [])
@@ -981,7 +974,7 @@ function renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pot
 
   _charts.push(new window.Chart(canvas, {
     type: 'line',
-    data: { labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]), datasets },
+    data: { labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]), datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -1105,11 +1098,10 @@ function groupByCategory(exps) {
   return out;
 }
 
-function compute12mCatAvg(varExp, monthRefs) {
+function compute12mCatAvg(varExp, periodRefs) {
   const totals = {};
-  monthRefs.forEach(({ year, month }) => {
-    const prefix = `${year}-${String(month).padStart(2,'0')}`;
-    Object.entries(groupByCategory(varExp.filter(e => e.date?.startsWith(prefix))))
+  periodRefs.forEach(({ start, end }) => {
+    Object.entries(groupByCategory(varExp.filter(e => e.date >= start && e.date <= end)))
       .forEach(([cat, amt]) => { totals[cat] = (totals[cat]||0)+amt; });
   });
   const avg = {};
