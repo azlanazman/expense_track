@@ -1901,6 +1901,112 @@
       .ob-step { animation: none; }
       .ob-dot, .ob-prog-fill, .ob-day, .ob-chip { transition: none; }
     }
+
+    /* ── Insights sub-page ── */
+    .insights-loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 180px; font-size: 14px; font-weight: 600; color: var(--ink-3);
+    }
+
+    /* KPI grid: 3 columns, featured card spans 2 */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kpi-featured {
+      grid-column: span 2;
+      background: var(--accent-soft);
+      border-color: var(--accent-line);
+    }
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--ink-3);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .kpi-val {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.15;
+    }
+    .kpi-featured .kpi-val { font-size: 22px; }
+    .kpi-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--ink-3);
+    }
+    .kpi-delta {
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .kpi-delta.up { color: var(--positive); }
+    .kpi-delta.dn { color: var(--danger); }
+
+    /* Bills paid progress strip */
+    .kpi-bills {
+      margin-top: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .kpi-bills.all-paid {
+      background: var(--positive-soft);
+      border-color: oklch(0.80 0.08 145);
+    }
+    .kpi-bills-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .kpi-bills-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-2);
+    }
+    .kpi-bills-count {
+      font-size: 13px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+    .kpi-bills.all-paid .kpi-bills-count { color: var(--positive); }
+    .kpi-bills-track {
+      height: 6px;
+      background: var(--line-2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .kpi-bills-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.4s ease;
+    }
+    .kpi-bills.all-paid .kpi-bills-fill { background: var(--positive); }
+
+    /* Trend chart canvas wrapper */
+    .insights-chart-wrap {
+      height: 240px;
+      position: relative;
+      margin-top: 4px;
+    }
   </style>
 </head>
 
@@ -2264,6 +2370,20 @@
         <div style="width:40px;flex-shrink:0"></div>
       </div>
       <div id="budget-checklist-body" style="padding:0 24px 40px"></div>
+    </div>
+
+    <!-- Budget Insights sub-page -->
+    <div class="sub-page" id="budget-insights-page">
+      <div class="sub-page-hdr">
+        <button class="back-btn" id="budget-insights-back" type="button" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <span class="sub-page-title">Insights</span>
+      </div>
+      <div class="screen-body" id="budget-insights-body" style="padding-bottom:48px"></div>
     </div>
 
     <!-- Budget templates sub-page (slides in from right, Task 9 will fill content) -->
