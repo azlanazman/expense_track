@@ -4,20 +4,24 @@ import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSetting
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
-let _cache = null;
-let _chart = null;
-let _catChart = null;
+let _cache  = null;
+let _charts = [];          // all Chart.js instances — destroyed together on clear
+
+function destroyCharts() {
+  _charts.forEach(c => { try { c.destroy(); } catch (_) {} });
+  _charts.length = 0;
+}
 
 export function clearInsightsState() {
   _cache = null;
-  if (_chart)    { _chart.destroy();    _chart    = null; }
-  if (_catChart) { _catChart.destroy(); _catChart = null; }
+  destroyCharts();
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
 export async function initInsights() {
   const body = document.getElementById('budget-insights-body');
+  destroyCharts();
   body.innerHTML = '<div class="insights-loading">Loading insights…</div>';
   try {
     await ensureChartJS();
@@ -27,6 +31,7 @@ export async function initInsights() {
     renderKPIs(body, data);
     renderTrendChart(body, data);
     renderCategorySection(body, data);
+    renderHabitsSection(body, data);
   } catch (e) {
     console.error(e);
     body.innerHTML = '<div class="list-hint" style="padding:40px 0">Failed to load — please try again</div>';
@@ -67,7 +72,6 @@ async function loadData(uid) {
   const now = new Date();
   const sd  = userSettings.salaryDay ?? 25;
 
-  // Last 12 calendar months, oldest first
   const monthRefs = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -84,7 +88,6 @@ async function loadData(uid) {
     ...monthRefs.map(({ year, month }) => fetchBudgetMonth(uid, year, month)),
   ]);
 
-  // Monthly chart aggregates
   const monthly = monthRefs.map(({ year, month }, i) => {
     const prefix = `${year}-${String(month).padStart(2,'0')}`;
     const me  = expenses.filter(e => e.date?.startsWith(prefix));
@@ -95,7 +98,6 @@ async function loadData(uid) {
     return { year, month, income, fixed, variable, net: income - fixed - variable };
   });
 
-  // KPI: current salary period
   const sp      = salaryPeriodMonth(sd);
   const spStart = salaryStartForMonth(sd, sp.year, sp.month);
   const spEnd   = salaryEndForMonth(sd, sp.year, sp.month);
@@ -121,9 +123,7 @@ async function loadData(uid) {
   const netDelta = prevM ? netBalance - prevM.net : null;
 
   _cache = {
-    expenses,
-    monthRefs,
-    monthly,
+    expenses, monthRefs, monthly,
     kpi: {
       netBalance, netDelta,
       savingsRate: incomeTotal > 0 ? (netBalance    / incomeTotal) * 100 : 0,
@@ -201,8 +201,7 @@ function renderKPIs(body, { kpi }) {
 function renderTrendChart(body, { monthly }) {
   const section = document.createElement('section');
   section.innerHTML = '<span class="block-label">Income vs Spending · 12 months</span>';
-
-  const wrap   = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.className = 'insights-chart-wrap';
   const canvas = document.createElement('canvas');
   wrap.appendChild(canvas);
@@ -215,15 +214,13 @@ function renderTrendChart(body, { monthly }) {
   const variableData = monthly.map(m => m.variable);
   const netData      = monthly.map(m => m.net);
 
-  // Spike: variable > 120% of prior 5-month rolling avg → coral
   const varBg = variableData.map((v, i) => {
     if (i < 5) return C.AMBER;
     const avg = variableData.slice(i - 5, i).reduce((s, x) => s + x, 0) / 5;
     return avg > 0 && v > avg * 1.2 ? C.SPIKE : C.AMBER;
   });
 
-  if (_chart) _chart.destroy();
-  _chart = new window.Chart(canvas, {
+  _charts.push(new window.Chart(canvas, {
     data: {
       labels,
       datasets: [
@@ -231,32 +228,26 @@ function renderTrendChart(body, { monthly }) {
         { type:'bar',  label:'Fixed',    data:fixedData,    backgroundColor:C.FIXED,  stack:'spend',  borderRadius:0, order:2 },
         { type:'bar',  label:'Variable', data:variableData, backgroundColor:varBg,    stack:'spend',
           borderRadius:{ topLeft:3, topRight:3, bottomLeft:0, bottomRight:0 }, borderSkipped:'bottom', order:2 },
-        { type:'line', label:'Net',      data:netData,      borderColor:C.NET, backgroundColor:'transparent',
+        { type:'line', label:'Net', data:netData, borderColor:C.NET, backgroundColor:'transparent',
           borderWidth:2, pointRadius:3, pointBackgroundColor:netData.map(n => n >= 0 ? C.NET : C.SPIKE),
           tension:0.3, order:1, segment:{ borderColor: ctx => ctx.p1.parsed.y < 0 ? C.SPIKE : C.NET } },
       ],
     },
     options: {
-      responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
+      responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       plugins:{
         legend:{ display:true, position:'top', align:'start',
-          labels:{ boxWidth:10, boxHeight:10, padding:12,
-            font:{ family:"'Plus Jakarta Sans', sans-serif", size:11, weight:'600' }, color:'#8888a0' } },
-        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)',
-          titleFont:{ family:"'Plus Jakarta Sans', sans-serif", size:12, weight:'700' },
-          bodyFont: { family:"'Plus Jakarta Sans', sans-serif", size:12 }, padding:10,
+          labels:{ boxWidth:10, boxHeight:10, padding:12, font:FONT(11,'600'), color:'#8888a0' } },
+        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
           callbacks:{ label: ctx => { const v=ctx.parsed.y; return ` ${ctx.dataset.label}: ${v<0?'−':''}RM ${fmt(Math.abs(v))}`; } } },
       },
       scales:{
-        x:{ grid:{display:false}, border:{display:false},
-          ticks:{ font:{family:"'Plus Jakarta Sans', sans-serif", size:10, weight:'600'}, color:'#9898b0' } },
+        x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
         y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
-          ticks:{ font:{family:"'Plus Jakarta Sans', sans-serif", size:10}, color:'#9898b0',
-            callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
+          ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
       },
     },
-  });
+  }));
 }
 
 // ── Section 3: Category deep dive ─────────────────────────────────────────────
@@ -272,11 +263,9 @@ function renderCategorySection(body, { expenses, monthRefs }) {
   const curCats  = groupByCategory(varExp.filter(e => e.date?.startsWith(curPfx)));
   const prevCats = groupByCategory(varExp.filter(e => e.date?.startsWith(prevPfx)));
   const avg12    = compute12mCatAvg(varExp, monthRefs);
+  const limits   = userSettings.categoryLimits || {};
 
-  const allKeys = [...new Set([...Object.keys(curCats), ...Object.keys(prevCats)])];
-  const limits  = userSettings.categoryLimits || {};
-
-  const catData = allKeys
+  const catData = [...new Set([...Object.keys(curCats), ...Object.keys(prevCats)])]
     .map(cat => ({
       cat,
       cur:     curCats[cat]  || 0,
@@ -299,54 +288,41 @@ function renderCategorySection(body, { expenses, monthRefs }) {
   renderTopCategoryBars(section, catData);
 }
 
-// ── Treemap ────────────────────────────────────────────────────────────────────
-
 function renderTreemap(section, catData) {
-  const wrap   = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.className = 'insights-treemap-wrap';
   const canvas = document.createElement('canvas');
   wrap.appendChild(canvas);
   section.appendChild(wrap);
 
   const tree = catData.filter(d => d.cur > 0).map(d => ({
-    category: d.cat,
-    v:        d.cur,
-    momPct:   d.momPct,
-    above12m: d.above12m,
+    category: d.cat, v: d.cur, momPct: d.momPct, above12m: d.above12m,
   }));
 
-  new window.Chart(canvas, {
+  _charts.push(new window.Chart(canvas, {
     type: 'treemap',
     data: {
       datasets: [{
-        tree,
-        key:    'v',
-        groups: ['category'],
-        spacing: 1.5,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
+        tree, key:'v', groups:['category'], spacing:1.5,
+        borderWidth:1, borderColor:'rgba(255,255,255,0.5)',
         backgroundColor(ctx) {
           if (ctx.type !== 'data') return 'transparent';
           const cat  = ctx.raw.g;
           const item = catData.find(d => d.cat === cat);
           const base = catColor(cat, userSettings.categories);
           if (!item || item.momPct === null) return base;
-          // Darker if spend grew, lighter if it shrank
-          const deltaL = -Math.min(Math.max(item.momPct * 0.14, -0.11), 0.11);
-          return tintOklch(base, deltaL);
+          return tintOklch(base, -Math.min(Math.max(item.momPct * 0.14, -0.11), 0.11));
         },
         labels: {
-          display: true,
-          overflow: 'fit',
+          display:true, overflow:'fit',
           formatter(ctx) {
             if (ctx.type !== 'data') return '';
             const cat  = ctx.raw.g;
             const item = catData.find(d => d.cat === cat);
-            const flag = item?.above12m ? ' ↑' : '';
-            return [abbrev(cat) + flag, 'RM ' + fmt0(ctx.raw.v)];
+            return [abbrev(cat) + (item?.above12m ? ' ↑' : ''), 'RM ' + fmt0(ctx.raw.v)];
           },
-          color: ['rgba(255,255,255,0.96)', 'rgba(255,255,255,0.72)'],
-          font: [
+          color:['rgba(255,255,255,0.96)','rgba(255,255,255,0.72)'],
+          font:[
             { family:"'Plus Jakarta Sans', sans-serif", size:11, weight:'700' },
             { family:"'Plus Jakarta Sans', sans-serif", size:10, weight:'500' },
           ],
@@ -354,24 +330,19 @@ function renderTreemap(section, catData) {
       }],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(18,18,28,0.90)',
-          titleFont: { family:"'Plus Jakarta Sans', sans-serif", size:12, weight:'700' },
-          bodyFont:  { family:"'Plus Jakarta Sans', sans-serif", size:12 },
-          padding: 10,
-          callbacks: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
+          callbacks:{
             title: items => items[0]?.raw?.g || '',
             label(ctx) {
               const cat  = ctx.raw.g;
               const item = catData.find(d => d.cat === cat);
               const lines = [`RM ${fmt(ctx.raw.v)}`];
               if (item?.momPct !== null && item?.momPct !== undefined) {
-                const sign = item.momPct >= 0 ? '+' : '−';
-                lines.push(`${sign}${Math.abs(item.momPct * 100).toFixed(0)}% vs last month`);
+                const s = item.momPct >= 0 ? '+' : '−';
+                lines.push(`${s}${Math.abs(item.momPct * 100).toFixed(0)}% vs last month`);
               }
               if (item?.above12m) lines.push('↑ >20% above 12-month avg');
               return lines;
@@ -380,116 +351,393 @@ function renderTreemap(section, catData) {
         },
       },
     },
-  });
+  }));
 }
-
-// ── Top categories horizontal bar ─────────────────────────────────────────────
 
 function renderTopCategoryBars(section, catData) {
   const top = catData.slice(0, Math.min(8, catData.length));
   if (!top.length) return;
 
-  // Hint label
   const hint = document.createElement('div');
   hint.className = 'insights-bar-hint';
-  hint.textContent = 'Tap bar to set spending limit';
+  hint.textContent = 'Tap a bar to set a spending limit';
   section.appendChild(hint);
 
-  const wrap   = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.className = 'insights-bar-wrap';
   wrap.style.height = `${top.length * 44 + 48}px`;
   const canvas = document.createElement('canvas');
   wrap.appendChild(canvas);
   section.appendChild(wrap);
 
-  const cats     = userSettings.categories;
-  const labels   = top.map(d => abbrev(d.cat));
-  const catBgs   = top.map(d => catColor(d.cat, cats));
-
-  // Split current bar into within-limit + overspend
+  const cats      = userSettings.categories;
   const withinData = top.map(d => d.limit > 0 ? Math.min(d.cur, d.limit) : d.cur);
   const overData   = top.map(d => d.limit > 0 ? Math.max(0, d.cur - d.limit) : 0);
   const prevData   = top.map(d => d.prev);
 
-  const FONT = { family:"'Plus Jakarta Sans', sans-serif" };
-
-  if (_catChart) _catChart.destroy();
-  _catChart = new window.Chart(canvas, {
+  _charts.push(new window.Chart(canvas, {
     type: 'bar',
     data: {
-      labels,
+      labels: top.map(d => abbrev(d.cat)),
       datasets: [
-        {
-          label:           'This month',
-          data:            withinData,
-          backgroundColor: catBgs,
-          borderRadius:    { topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 },
-          borderSkipped:   'left',
-          stack:           'cur',
-        },
-        {
-          label:           'Over limit',
-          data:            overData,
-          backgroundColor: C.SPIKE,
-          borderRadius:    { topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 },
-          borderSkipped:   'left',
-          stack:           'cur',
-        },
-        {
-          label:           'Last month',
-          data:            prevData,
-          backgroundColor: C.PREV,
-          borderRadius:    3,
-          stack:           'prev',
-        },
+        { label:'This month', data:withinData, backgroundColor:top.map(d => catColor(d.cat, cats)),
+          borderRadius:{ topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 }, borderSkipped:'left', stack:'cur' },
+        { label:'Over limit', data:overData, backgroundColor:C.SPIKE,
+          borderRadius:{ topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 }, borderSkipped:'left', stack:'cur' },
+        { label:'Last month', data:prevData, backgroundColor:C.PREV, borderRadius:3, stack:'prev' },
       ],
     },
     options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode:'index', intersect:false },
-      onClick(e, elements) {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      onClick(_, elements) {
         if (!elements.length) return;
-        const idx = elements[0].index;
-        openCategoryLimitSheet(top[idx].cat);
+        openCategoryLimitSheet(top[elements[0].index].cat);
       },
-      plugins: {
-        legend: { display:true, position:'top', align:'start',
-          labels: { boxWidth:10, boxHeight:10, padding:10,
-            font:{ ...FONT, size:11, weight:'600' }, color:'#8888a0',
-            filter: item => item.text !== 'Over limit' || overData.some(v => v > 0),
-          },
-        },
-        tooltip: {
-          backgroundColor: 'rgba(18,18,28,0.90)',
-          titleFont: { ...FONT, size:12, weight:'700' },
-          bodyFont:  { ...FONT, size:12 }, padding:10,
-          callbacks: {
+      plugins:{
+        legend:{ display:true, position:'top', align:'start',
+          labels:{ boxWidth:10, boxHeight:10, padding:10, font:FONT(11,'600'), color:'#8888a0',
+            filter: item => item.text !== 'Over limit' || overData.some(v => v > 0) } },
+        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
+          callbacks:{
             label(ctx) {
               const d = top[ctx.dataIndex];
               if (ctx.dataset.label === 'Over limit' && ctx.parsed.x === 0) return null;
-              const v = ctx.parsed.x;
-              let line = ` ${ctx.dataset.label}: RM ${fmt(v)}`;
-              if (ctx.dataset.label === 'This month' && d.limit > 0)
-                line += `  (limit RM ${fmt0(d.limit)})`;
+              let line = ` ${ctx.dataset.label}: RM ${fmt(ctx.parsed.x)}`;
+              if (ctx.dataset.label === 'This month' && d.limit > 0) line += `  (limit RM ${fmt0(d.limit)})`;
               if (ctx.dataset.label === 'Last month' && d.momPct !== null) {
-                const sign = d.momPct >= 0 ? '+' : '−';
-                line += `  ${sign}${Math.abs(d.momPct * 100).toFixed(0)}%`;
+                const s = d.momPct >= 0 ? '+' : '−';
+                line += `  ${s}${Math.abs(d.momPct * 100).toFixed(0)}%`;
               }
               return line;
             },
           },
         },
       },
-      scales: {
-        x: { stacked:true, beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
-          ticks:{ font:{...FONT, size:10}, color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:4 } },
-        y: { stacked:true, grid:{display:false}, border:{display:false},
-          ticks:{ font:{...FONT, size:11, weight:'600'}, color:'#4a4a60' } },
+      scales:{
+        x:{ stacked:true, beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+          ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:4 } },
+        y:{ stacked:true, grid:{display:false}, border:{display:false},
+          ticks:{ font:FONT(11,'600'), color:'#4a4a60' } },
       },
     },
+  }));
+}
+
+// ── Section 4: Habit patterns ─────────────────────────────────────────────────
+
+function renderHabitsSection(body, { expenses, monthRefs }) {
+  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
+  renderDayOfWeekHeatmap(body, varExp, monthRefs);
+  renderCategoryLines(body, varExp, monthRefs);
+  renderPaymentFlow(body, expenses, monthRefs);
+}
+
+// ── 4a: Day-of-week heatmap ────────────────────────────────────────────────────
+
+function renderDayOfWeekHeatmap(body, varExp, monthRefs) {
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // For each month × weekday: avg daily spend (total / count of that weekday in month)
+  const grid = monthRefs.map(({ year, month }) => {
+    const prefix = `${year}-${String(month).padStart(2,'0')}`;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dayCounts = Array(7).fill(0);
+    const dayTotals = Array(7).fill(0);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      dayCounts[(new Date(year, month - 1, d).getDay() + 6) % 7]++;
+    }
+    varExp.filter(e => e.date?.startsWith(prefix)).forEach(e => {
+      const dd = parseInt(e.date.slice(8), 10);
+      const di = (new Date(year, month - 1, dd).getDay() + 6) % 7;
+      dayTotals[di] += e.amount;
+    });
+
+    return {
+      label: MONTH_SHORT[month - 1],
+      days:  dayCounts.map((cnt, i) => cnt > 0 ? dayTotals[i] / cnt : 0),
+    };
   });
+
+  const allValues = grid.flatMap(r => r.days);
+  const maxVal    = Math.max(...allValues, 1);
+
+  // Weekend vs weekday insight
+  let wkdayTotal = 0, wkendTotal = 0, wkdayCnt = 0, wkendCnt = 0;
+  monthRefs.forEach(({ year, month }) => {
+    for (let d = 1; d <= new Date(year, month, 0).getDate(); d++) {
+      const di = (new Date(year, month - 1, d).getDay() + 6) % 7;
+      if (di < 5) wkdayCnt++; else wkendCnt++;
+    }
+  });
+  varExp.forEach(e => {
+    if (!e.date) return;
+    const [y, m, d] = e.date.split('-').map(Number);
+    const di = (new Date(y, m - 1, d).getDay() + 6) % 7;
+    if (di < 5) wkdayTotal += e.amount; else wkendTotal += e.amount;
+  });
+  const wkdayAvg = wkdayCnt > 0 ? wkdayTotal / wkdayCnt : 0;
+  const wkendAvg = wkendCnt > 0 ? wkendTotal / wkendCnt : 0;
+  const ratio    = wkdayAvg > 0 ? wkendAvg / wkdayAvg : 0;
+
+  // Accent colour components for inline opacity tinting
+  const { L: aL, C: aC, H: aH } = ACCENT_OKLCH;
+
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Spending by day of week</span>';
+
+  // Insight callout
+  if (wkdayAvg > 0 || wkendAvg > 0) {
+    const ins = document.createElement('div');
+    ins.className = 'heatmap-insight';
+    if (ratio >= 1.1) {
+      ins.textContent = `You spend ${ratio.toFixed(1)}× more per day on weekends than weekdays`;
+    } else if (ratio < 0.9 && ratio > 0) {
+      ins.textContent = `Weekdays drive most of your spending — weekends are ${(1/ratio).toFixed(1)}× lower`;
+    } else {
+      ins.textContent = `Your spending is fairly even across the week`;
+    }
+    section.appendChild(ins);
+  }
+
+  // Grid
+  const gridWrap = document.createElement('div');
+  gridWrap.className = 'heatmap-wrap';
+
+  // Header row
+  const hdr = document.createElement('div');
+  hdr.className = 'heatmap-row heatmap-header';
+  const emptyLbl = document.createElement('div');
+  emptyLbl.className = 'heatmap-ml';
+  hdr.appendChild(emptyLbl);
+  DAY_LABELS.forEach((d, di) => {
+    const dh = document.createElement('div');
+    dh.className = 'heatmap-dh' + (di >= 5 ? ' wkend' : '');
+    dh.textContent = d;
+    hdr.appendChild(dh);
+  });
+  gridWrap.appendChild(hdr);
+
+  // Data rows
+  grid.forEach(({ label, days }) => {
+    const row = document.createElement('div');
+    row.className = 'heatmap-row';
+
+    const ml = document.createElement('div');
+    ml.className = 'heatmap-ml';
+    ml.textContent = label;
+    row.appendChild(ml);
+
+    days.forEach((val, di) => {
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell' + (di >= 5 ? ' wkend' : '');
+      const opacity = val > 0 ? Math.max(0.08, val / maxVal) : 0;
+      // weekend cells use slightly deeper shade
+      const cellL = di >= 5 ? aL * 0.86 : aL;
+      cell.style.backgroundColor = opacity > 0
+        ? `oklch(${cellL.toFixed(3)} ${aC} ${aH} / ${opacity.toFixed(3)})`
+        : 'transparent';
+      if (val > 0) cell.setAttribute('title', `RM ${fmt0(val)}/day avg`);
+      row.appendChild(cell);
+    });
+
+    gridWrap.appendChild(row);
+  });
+
+  section.appendChild(gridWrap);
+  body.appendChild(section);
+}
+
+// ── 4b: 12-month per-category lines ───────────────────────────────────────────
+
+function renderCategoryLines(body, varExp, monthRefs) {
+  // Top 6 categories by total 12-month spend
+  const catTotals = groupByCategory(varExp);
+  const top6 = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c);
+
+  if (!top6.length) return;
+
+  // Monthly totals per category
+  const catMonthly = {};
+  top6.forEach(cat => {
+    catMonthly[cat] = monthRefs.map(({ year, month }) => {
+      const prefix = `${year}-${String(month).padStart(2,'0')}`;
+      return varExp
+        .filter(e => (e.category || 'Other') === cat && e.date?.startsWith(prefix))
+        .reduce((s, e) => s + e.amount, 0);
+    });
+  });
+
+  // Creeping: last-3-months avg > first-3-months avg by >20%
+  const isTrending = cat => {
+    const d = catMonthly[cat];
+    const f3 = d.slice(0, 3).reduce((s, v) => s + v, 0) / 3;
+    const l3 = d.slice(-3).reduce((s, v) => s + v, 0) / 3;
+    return f3 > 0 && l3 > f3 * 1.2;
+  };
+
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Category trends · 12 months</span>';
+  const wrap   = document.createElement('div');
+  wrap.className = 'insights-chart-wrap';
+  wrap.style.height = '260px';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  section.appendChild(wrap);
+  body.appendChild(section);
+
+  _charts.push(new window.Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]),
+      datasets: top6.map(cat => {
+        const data     = catMonthly[cat];
+        const base     = catColor(cat, userSettings.categories);
+        const trending = isTrending(cat);
+
+        // Larger point + spike colour where value > 150% of prior 3-month avg
+        const pointR = data.map((v, i) => {
+          if (i < 3) return 2;
+          const avg3 = data.slice(i - 3, i).reduce((s, x) => s + x, 0) / 3;
+          return avg3 > 0 && v > avg3 * 1.5 ? 6 : 2;
+        });
+        const pointBg = data.map((v, i) => {
+          if (i < 3) return base;
+          const avg3 = data.slice(i - 3, i).reduce((s, x) => s + x, 0) / 3;
+          return avg3 > 0 && v > avg3 * 1.5 ? C.SPIKE : base;
+        });
+
+        return {
+          label: abbrev(cat) + (trending ? ' ↑' : ''),
+          data, borderColor:base, backgroundColor:'transparent',
+          borderWidth:2, pointRadius:pointR, pointBackgroundColor:pointBg, tension:0.3,
+        };
+      }),
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:true, position:'top', align:'start',
+          labels:{ boxWidth:20, boxHeight:2, padding:10, font:FONT(11,'600'), color:'#4a4a60' } },
+        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
+          callbacks:{
+            label: ctx => ` ${ctx.dataset.label.replace(' ↑','')}: RM ${fmt(ctx.parsed.y)}`,
+          },
+        },
+      },
+      scales:{
+        x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
+        y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+          ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
+      },
+    },
+  }));
+}
+
+// ── 4c: Payment method flow table ─────────────────────────────────────────────
+
+function renderPaymentFlow(body, expenses, monthRefs) {
+  const curRef = monthRefs[monthRefs.length - 1];
+  const curPfx = `${curRef.year}-${String(curRef.month).padStart(2,'0')}`;
+  const curExp = expenses.filter(e => e.date?.startsWith(curPfx) && e.type !== 'income');
+
+  if (!curExp.length) return;
+
+  const methods = [...new Set(curExp.map(e => e.paymentMethod).filter(Boolean))];
+  if (!methods.length) return;
+
+  // Top 4 categories by spend
+  const catTotals = {};
+  curExp.forEach(e => { const c = e.category||'Other'; catTotals[c] = (catTotals[c]||0)+e.amount; });
+  const top4 = Object.entries(catTotals).sort((a,b) => b[1]-a[1]).slice(0,4).map(([c]) => c);
+
+  // Build matrix
+  const matrix = {};
+  methods.forEach(m => {
+    const mExp = curExp.filter(e => e.paymentMethod === m);
+    matrix[m] = { _total: mExp.reduce((s,e) => s+e.amount, 0) };
+    top4.forEach(cat => {
+      matrix[m][cat] = mExp.filter(e=>(e.category||'Other')===cat).reduce((s,e)=>s+e.amount,0);
+    });
+  });
+
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Where each account spent · this month</span>';
+
+  const scroll = document.createElement('div');
+  scroll.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;';
+
+  const table = document.createElement('table');
+  table.className = 'flow-table';
+
+  // Header
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  ['Account', ...top4.map(c => abbrev(c)), 'Total'].forEach((h, i) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.textAlign = i === 0 ? 'left' : 'right';
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement('tbody');
+  methods.forEach(m => {
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = abbrev(m, 13);
+    nameTd.style.fontWeight = '600';
+    nameTd.style.color = 'var(--ink)';
+    tr.appendChild(nameTd);
+
+    top4.forEach(cat => {
+      const td  = document.createElement('td');
+      const val = matrix[m][cat] || 0;
+      td.textContent = val > 0 ? `RM ${fmt0(val)}` : '—';
+      td.style.textAlign = 'right';
+      td.style.color = val > 0 ? 'var(--ink)' : 'var(--ink-3)';
+      tr.appendChild(td);
+    });
+
+    const totTd = document.createElement('td');
+    totTd.textContent = `RM ${fmt0(matrix[m]._total)}`;
+    totTd.style.cssText = 'text-align:right;font-weight:700;color:var(--ink)';
+    tr.appendChild(totTd);
+
+    tbody.appendChild(tr);
+  });
+
+  // Totals row
+  const totTr = document.createElement('tr');
+  totTr.className = 'flow-total-row';
+  const lbl = document.createElement('td');
+  lbl.textContent = 'Total';
+  lbl.style.fontWeight = '700';
+  totTr.appendChild(lbl);
+
+  top4.forEach(cat => {
+    const td  = document.createElement('td');
+    const val = methods.reduce((s, m) => s + (matrix[m][cat]||0), 0);
+    td.textContent = `RM ${fmt0(val)}`;
+    td.style.cssText = 'text-align:right;font-weight:700;';
+    totTr.appendChild(td);
+  });
+
+  const grand = document.createElement('td');
+  grand.textContent = `RM ${fmt0(methods.reduce((s,m) => s+matrix[m]._total, 0))}`;
+  grand.style.cssText = 'text-align:right;font-weight:800;color:var(--accent-ink);';
+  totTr.appendChild(grand);
+
+  tbody.appendChild(totTr);
+  table.appendChild(tbody);
+  scroll.appendChild(table);
+  section.appendChild(scroll);
+  body.appendChild(section);
 }
 
 // ── Category limit sheet ───────────────────────────────────────────────────────
@@ -501,7 +749,7 @@ function openCategoryLimitSheet(cat) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.48);z-index:200;display:flex;flex-direction:column;justify-content:flex-end;';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = `background:var(--surface);border-radius:20px 20px 0 0;padding:16px 24px calc(28px + env(safe-area-inset-bottom,0px));`;
+  sheet.style.cssText = 'background:var(--surface);border-radius:20px 20px 0 0;padding:16px 24px calc(28px + env(safe-area-inset-bottom,0px));';
 
   const grabber = document.createElement('div');
   grabber.className = 'export-grabber';
@@ -519,32 +767,25 @@ function openCategoryLimitSheet(cat) {
   pfx.textContent = 'RM';
 
   const inp = document.createElement('input');
-  inp.type = 'text';
-  inp.inputMode = 'decimal';
-  inp.placeholder = '0.00';
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00';
   inp.style.fontVariantNumeric = 'tabular-nums';
   if (existing > 0) inp.value = String(existing);
-  field.appendChild(pfx);
-  field.appendChild(inp);
+  field.appendChild(pfx); field.appendChild(inp);
 
   const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'cta-btn';
-  saveBtn.style.marginTop = '16px';
-  saveBtn.textContent = 'Set limit';
+  saveBtn.type = 'button'; saveBtn.className = 'cta-btn';
+  saveBtn.style.marginTop = '16px'; saveBtn.textContent = 'Set limit';
 
-  sheet.appendChild(grabber);
-  sheet.appendChild(titleEl);
-  sheet.appendChild(field);
-  sheet.appendChild(saveBtn);
+  sheet.appendChild(grabber); sheet.appendChild(titleEl);
+  sheet.appendChild(field);  sheet.appendChild(saveBtn);
 
   if (existing > 0) {
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.style.cssText = 'width:100%;text-align:center;padding:12px;font:inherit;font-size:14px;font-weight:600;color:var(--danger);background:none;border:none;cursor:pointer;margin-top:4px;';
-    removeBtn.textContent = 'Remove limit';
-    removeBtn.addEventListener('click', () => persistLimit(0));
-    sheet.appendChild(removeBtn);
+    const rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.style.cssText = 'width:100%;text-align:center;padding:12px;font:inherit;font-size:14px;font-weight:600;color:var(--danger);background:none;border:none;cursor:pointer;margin-top:4px;';
+    rmBtn.textContent = 'Remove limit';
+    rmBtn.addEventListener('click', () => persistLimit(0));
+    sheet.appendChild(rmBtn);
   }
 
   overlay.appendChild(sheet);
@@ -571,14 +812,11 @@ function openCategoryLimitSheet(cat) {
   }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Shared helpers ─────────────────────────────────────────────────────────────
 
 function groupByCategory(exps) {
   const out = {};
-  exps.forEach(e => {
-    const cat = e.category || 'Other';
-    out[cat] = (out[cat] || 0) + e.amount;
-  });
+  exps.forEach(e => { const c = e.category||'Other'; out[c] = (out[c]||0)+e.amount; });
   return out;
 }
 
@@ -586,12 +824,11 @@ function compute12mCatAvg(varExp, monthRefs) {
   const totals = {};
   monthRefs.forEach(({ year, month }) => {
     const prefix = `${year}-${String(month).padStart(2,'0')}`;
-    Object.entries(groupByCategory(varExp.filter(e => e.date?.startsWith(prefix)))).forEach(([cat, amt]) => {
-      totals[cat] = (totals[cat] || 0) + amt;
-    });
+    Object.entries(groupByCategory(varExp.filter(e => e.date?.startsWith(prefix))))
+      .forEach(([cat, amt]) => { totals[cat] = (totals[cat]||0)+amt; });
   });
   const avg = {};
-  Object.keys(totals).forEach(cat => { avg[cat] = totals[cat] / 12; });
+  Object.keys(totals).forEach(c => { avg[c] = totals[c] / 12; });
   return avg;
 }
 
@@ -602,9 +839,11 @@ function tintOklch(colorStr, deltaL) {
   return `oklch(${L.toFixed(3)} ${m[2]} ${m[3]})`;
 }
 
-const abbrev = s => s.length > 10 ? s.slice(0, 9) + '.' : s;
+const abbrev = (s, max = 10) => s.length > max ? s.slice(0, max - 1) + '.' : s;
 
-// ── Chart colour palette ───────────────────────────────────────────────────────
+// ── Chart helpers & palette ────────────────────────────────────────────────────
+
+const FONT = (size, weight = '500') => ({ family:"'Plus Jakarta Sans', sans-serif", size, weight });
 
 const C = (() => {
   const s = getComputedStyle(document.documentElement);
@@ -618,4 +857,11 @@ const C = (() => {
     NET:    v('--positive'),
     PREV:   a(v('--ink-3'),    0.30),
   };
+})();
+
+const ACCENT_OKLCH = (() => {
+  const m = getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent').trim()
+    .match(/oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/);
+  return m ? { L:parseFloat(m[1]), C:parseFloat(m[2]), H:parseFloat(m[3]) } : { L:0.84, C:0.18, H:86 };
 })();
