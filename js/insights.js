@@ -1,6 +1,7 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
 import { fmt, fmt0, catColor, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
-import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSettings } from './db.js';
+import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSettings,
+  fetchSavingsPots, fetchPotTransactions, fetchAccounts, fetchAllTransfers } from './db.js';
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ export async function initInsights() {
     renderTrendChart(body, data);
     renderCategorySection(body, data);
     renderHabitsSection(body, data);
+    renderSavingsSection(body, data);
   } catch (e) {
     console.error(e);
     body.innerHTML = '<div class="list-hint" style="padding:40px 0">Failed to load — please try again</div>';
@@ -82,9 +84,13 @@ async function loadData(uid) {
   const startDate = `${oldest.year}-${String(oldest.month).padStart(2,'0')}-01`;
   const endDate   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-31`;
 
-  const [expenses, template, ...budgetMonths] = await Promise.all([
+  const [expenses, template, accounts, pots, transfers, potTxns, ...budgetMonths] = await Promise.all([
     fetchExpenses(uid, startDate, endDate),
     fetchBudgetTemplate(uid),
+    fetchAccounts(uid).then(r => r || []),
+    fetchSavingsPots(uid).then(r => r || []),
+    fetchAllTransfers(uid),
+    fetchPotTransactions(uid),
     ...monthRefs.map(({ year, month }) => fetchBudgetMonth(uid, year, month)),
   ]);
 
@@ -124,6 +130,7 @@ async function loadData(uid) {
 
   _cache = {
     expenses, monthRefs, monthly,
+    accounts, pots, transfers, potTxns,
     kpi: {
       netBalance, netDelta,
       savingsRate: incomeTotal > 0 ? (netBalance    / incomeTotal) * 100 : 0,
@@ -740,6 +747,284 @@ function renderPaymentFlow(body, expenses, monthRefs) {
   body.appendChild(section);
 }
 
+// ── Section 5: Savings trajectory ─────────────────────────────────────────────
+
+function renderSavingsSection(body, { pots, potTxns, accounts, expenses, transfers, monthRefs }) {
+  if (!pots?.length && !accounts?.length) return;
+  if (pots?.length)    renderPotCards(body, pots, potTxns, monthRefs);
+  if (pots?.length)    renderContributionChart(body, pots, potTxns, monthRefs);
+  if (accounts?.length) renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, monthRefs });
+}
+
+// ── 5a: Pot progress cards ─────────────────────────────────────────────────────
+
+function renderPotCards(body, pots, potTxns, monthRefs) {
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Savings goals</span>';
+
+  const grid = document.createElement('div');
+  grid.className = 'pot-grid';
+
+  pots.forEach(pot => {
+    const pct  = pot.targetAmount > 0 ? Math.min((pot.currentBalance || 0) / pot.targetAmount, 1) : 0;
+    const proj = projectCompletion(pot, potTxns);
+    const card = document.createElement('div');
+    card.className = 'pot-card';
+
+    const gaugeWrap = document.createElement('div');
+    gaugeWrap.className = 'pot-gauge';
+    gaugeWrap.innerHTML = buildGaugeSVG(pct, pot.colour || 'var(--accent)');
+    card.appendChild(gaugeWrap);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'pot-name';
+    nameEl.textContent = pot.name;
+    card.appendChild(nameEl);
+
+    const balEl = document.createElement('div');
+    balEl.className = 'pot-bal';
+    balEl.textContent = `RM ${fmt0(pot.currentBalance || 0)} / ${fmt0(pot.targetAmount || 0)}`;
+    card.appendChild(balEl);
+
+    if (proj.done) {
+      const doneEl = document.createElement('div');
+      doneEl.className = 'pot-eta done';
+      doneEl.textContent = '✓ Goal reached';
+      card.appendChild(doneEl);
+    } else if (proj.noRecent) {
+      const etaEl = document.createElement('div');
+      etaEl.className = 'pot-eta muted';
+      etaEl.textContent = 'No recent contributions';
+      card.appendChild(etaEl);
+    } else {
+      const etaEl = document.createElement('div');
+      etaEl.className = 'pot-eta';
+      etaEl.textContent = `~${proj.monthsLeft} mo. to goal`;
+      card.appendChild(etaEl);
+    }
+
+    if (!proj.done && proj.noContrib) {
+      const alertEl = document.createElement('div');
+      alertEl.className = 'pot-alert';
+      alertEl.textContent = '⚠ Nothing added this month';
+      card.appendChild(alertEl);
+    }
+
+    grid.appendChild(card);
+  });
+
+  section.appendChild(grid);
+  body.appendChild(section);
+}
+
+function buildGaugeSVG(pct, color) {
+  const r = 36, cx = 50, cy = 52;
+  const arc  = Math.PI * r;
+  const fill = pct * arc;
+  const lbl  = Math.round(pct * 100);
+  return `<svg viewBox="0 0 100 56" width="90" height="50" aria-hidden="true">
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}"
+      fill="none" stroke="var(--line-2)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}"
+      fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"
+      stroke-dasharray="${fill.toFixed(1)} ${arc.toFixed(1)}"/>
+    <text x="${cx}" y="${cy - 6}" text-anchor="middle"
+      font-size="14" font-weight="800" fill="var(--ink)"
+      font-family="'Plus Jakarta Sans', sans-serif">${lbl}%</text>
+  </svg>`;
+}
+
+function projectCompletion(pot, potTxns) {
+  const remaining = (pot.targetAmount || 0) - (pot.currentBalance || 0);
+  if (remaining <= 0) return { done: true };
+
+  const now     = new Date();
+  const contribs = (potTxns || []).filter(t => t.potId === pot.id && t.type === 'contribute');
+
+  // Avg monthly contribution over last 3 months
+  let total3 = 0;
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const pfx = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`;
+    total3 += contribs.filter(t => t.date?.startsWith(pfx)).reduce((s, t) => s + t.amount, 0);
+  }
+  const avgMonthly = total3 / 3;
+
+  const curPfx    = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
+  const noContrib = !contribs.some(t => t.date?.startsWith(curPfx));
+
+  if (avgMonthly <= 0) return { done: false, noRecent: true, noContrib };
+
+  return { done: false, monthsLeft: Math.ceil(remaining / avgMonthly), noContrib };
+}
+
+// ── 5b: Contribution history chart ────────────────────────────────────────────
+
+function renderContributionChart(body, pots, potTxns, monthRefs) {
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Monthly contributions · 12 months</span>';
+  const wrap = document.createElement('div');
+  wrap.className = 'insights-chart-wrap';
+  wrap.style.height = '160px';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  section.appendChild(wrap);
+  body.appendChild(section);
+
+  _charts.push(new window.Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]),
+      datasets: pots.map(pot => ({
+        label: abbrev(pot.name),
+        data: monthRefs.map(({ year, month }) => {
+          const pfx = `${year}-${String(month).padStart(2,'0')}`;
+          return (potTxns || [])
+            .filter(t => t.potId === pot.id && t.date?.startsWith(pfx))
+            .reduce((s, t) => t.type === 'contribute' ? s + t.amount : s - t.amount, 0);
+        }),
+        backgroundColor: pot.colour || C.AMBER,
+        borderRadius: 2,
+        stack: 'pots',
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: pots.length > 1, position: 'top', align: 'start',
+          labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
+        tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '' : '−'}RM ${fmt(Math.abs(ctx.parsed.y))}` } },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, border: { display: false },
+          ticks: { font: FONT(10,'600'), color: '#9898b0' } },
+        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+          ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 4 } },
+      },
+    },
+  }));
+}
+
+// ── 5c: Net worth trajectory ───────────────────────────────────────────────────
+
+function renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, monthRefs }) {
+  const section = document.createElement('section');
+  section.innerHTML = '<span class="block-label">Net worth · 12 months</span>';
+
+  const monthEnds = monthRefs.map(({ year, month }) => {
+    const last = new Date(year, month, 0).getDate();
+    return `${year}-${String(month).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+  });
+
+  // Balance per account per month-end
+  const accHistory = (accounts || []).map(acc => ({
+    acc,
+    data: monthEnds.map(d => computeAccBalance(acc, expenses, transfers, potTxns, d)),
+  }));
+
+  // Savings pots total — reconstruct backwards from currentBalance
+  const potsHistory = monthEnds.map(endDate =>
+    (pots || []).reduce((total, pot) => {
+      let bal = pot.currentBalance || 0;
+      (potTxns || [])
+        .filter(t => t.potId === pot.id && t.date > endDate)
+        .forEach(t => { bal += t.type === 'contribute' ? -t.amount : t.amount; });
+      return total + Math.max(0, bal);
+    }, 0)
+  );
+
+  // Trend annotation
+  const sumFirst = accHistory.reduce((s, a) => s + a.data[0], 0) + potsHistory[0];
+  const sumLast  = accHistory.reduce((s, a) => s + a.data[11], 0) + potsHistory[11];
+  const growth   = sumLast - sumFirst;
+  if (growth !== 0 && sumFirst !== 0) {
+    const growthPct = Math.abs(growth / sumFirst * 100);
+    const trend = document.createElement('div');
+    trend.className = 'heatmap-insight';
+    const sign = growth >= 0 ? '+' : '−';
+    trend.textContent = `Net worth ${growth >= 0 ? 'grew' : 'declined'} ${sign}RM ${fmt0(Math.abs(growth))} over 12 months (${sign}${growthPct.toFixed(0)}%)`;
+    section.appendChild(trend);
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'insights-chart-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  section.appendChild(wrap);
+  body.appendChild(section);
+
+  const datasets = [
+    ...accHistory.map((a, i) => ({
+      label: abbrev(a.acc.name),
+      data: a.data,
+      backgroundColor: AREA_FILLS[i % AREA_FILLS.length],
+      borderColor:     AREA_BORDERS[i % AREA_BORDERS.length],
+      borderWidth: 1.5,
+      fill: true,
+      stack: 'accounts',
+      tension: 0.3,
+      pointRadius: 2,
+    })),
+    ...(pots?.length ? [{
+      label: 'Savings pots',
+      data: potsHistory,
+      borderColor: C.NET,
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: [4, 3],
+      fill: false,
+      tension: 0.3,
+      pointRadius: 2,
+    }] : []),
+  ];
+
+  _charts.push(new window.Chart(canvas, {
+    type: 'line',
+    data: { labels: monthRefs.map(r => MONTH_SHORT[r.month - 1]), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', align: 'start',
+          labels: { boxWidth: 12, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
+        tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: RM ${fmt(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: false },
+          ticks: { font: FONT(10,'600'), color: '#9898b0' } },
+        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+          ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 5 } },
+      },
+    },
+  }));
+}
+
+function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
+  let bal = account.openingBalance || 0;
+  const name = account.name;
+  const id   = account.id;
+
+  (expenses || []).forEach(e => {
+    if (e.date > upToDate) return;
+    if (e.isIncome && e.paymentMethod === name)                                   bal += e.amount;
+    else if ((!e.type || e.type === 'variable' || e.type === 'fixed') && e.paymentMethod === name) bal -= e.amount;
+  });
+  (transfers || []).forEach(t => {
+    if (t.date > upToDate) return;
+    if (t.toAccountId   === id) bal += t.amount;
+    if (t.fromAccountId === id) bal -= t.amount;
+  });
+  (potTxns || []).forEach(p => {
+    if (p.date > upToDate || p.linkedAccountId !== id) return;
+    if (p.type === 'contribute') bal -= p.amount;
+    else                         bal += p.amount;
+  });
+
+  return bal;
+}
+
 // ── Category limit sheet ───────────────────────────────────────────────────────
 
 function openCategoryLimitSheet(cat) {
@@ -858,6 +1143,19 @@ const C = (() => {
     PREV:   a(v('--ink-3'),    0.30),
   };
 })();
+
+const AREA_FILLS   = [
+  'oklch(0.58 0.13 145 / 0.22)',
+  'oklch(0.84 0.18 86  / 0.22)',
+  'oklch(0.72 0.14 55  / 0.22)',
+  'oklch(0.55 0.16 25  / 0.18)',
+];
+const AREA_BORDERS = [
+  'oklch(0.58 0.13 145)',
+  'oklch(0.84 0.18 86)',
+  'oklch(0.72 0.14 55)',
+  'oklch(0.55 0.16 25)',
+];
 
 const ACCENT_OKLCH = (() => {
   const m = getComputedStyle(document.documentElement)
