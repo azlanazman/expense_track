@@ -12,6 +12,7 @@ import { renderSettings } from './settings.js';
 import { initBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
 import { clearSavingsState } from './savings.js';
+import { clearInsightsState } from './insights.js';
 import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 
@@ -78,6 +79,7 @@ function clearAllFinancialState() {
   clearReportState();
   clearAccountsState();
   clearSavingsState();
+  clearInsightsState();
 }
 
 // ── visibilitychange: clear state when tab hidden (M1) ───────────────────────

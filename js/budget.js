@@ -3,6 +3,7 @@ import { fmt, monthLabel, showToast, escapeHtml, todayString, salaryPeriodMonth,
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
+import { initInsights } from './insights.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ function renderBudget() {
       <span style="font-size:15px;font-weight:600">No budget template set up</span>
       <span style="font-size:13px">Go to Settings → Budget templates to get started</span>`;
     body.appendChild(notice);
+    body.appendChild(buildInsightsRow());
     return;
   }
 
@@ -175,6 +177,7 @@ function renderBudget() {
   body.appendChild(buildHero(netBalance, incomeTotal, fixedPaidActive, variableTotal, progressPct, paidCount, totalItems));
   body.appendChild(buildIncomeSection(monthData.income));
   body.appendChild(buildFixedSummary(template, activePayments, paidCount, totalItems));
+  body.appendChild(buildInsightsRow());
 }
 
 // ── Hero card ─────────────────────────────────────────────────────────────────
@@ -689,4 +692,36 @@ document.getElementById('budget-next-month').addEventListener('click', async () 
   if (bdgState.month > 12) { bdgState.month = 1; bdgState.year++; }
   await loadData();
   renderBudget();
+});
+
+// ── Insights entry row ────────────────────────────────────────────────────────
+
+function buildInsightsRow() {
+  const section = document.createElement('section');
+  const btn = document.createElement('button');
+  btn.type      = 'button';
+  btn.className = 'row-card';
+  btn.innerHTML = `
+    <div class="rc-ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    </div>
+    <div class="rc-main">
+      <div class="rc-title">Insights</div>
+      <div class="rc-sub">Trends, habits &amp; financial health</div>
+    </div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>`;
+  btn.addEventListener('click', () => {
+    document.getElementById('budget-insights-page').classList.add('active');
+    history.pushState(null, '');
+    initInsights();
+  });
+  section.appendChild(btn);
+  return section;
+}
+
+document.getElementById('budget-insights-back').addEventListener('click', () => {
+  document.getElementById('budget-insights-page').classList.remove('active');
 });
