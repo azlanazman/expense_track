@@ -4,7 +4,7 @@
 
 Mobile-first personal expense tracker. Google Sign-In (Firebase Auth), Firestore database, GitHub Pages hosting. No build step — plain HTML/CSS/vanilla JS with ES modules. `index.html` = HTML skeleton + ALL CSS; logic split into `js/` modules.
 
-Design: **colour blocking, bold, pop-up feel** — solid fills, strong coloured shadows, elevated cards. Accent = teal (`--accent`), complement = black/coral (`--comp`).
+Design: **colour blocking, bold, pop-up feel** — solid fills, strong coloured shadows, elevated cards. Accent = yellow (`--accent`, `oklch(0.84 0.18 86)`), complement = dark/navy (`--comp`). Text on yellow fills always uses dark ink (`--on-accent: oklch(0.28 0.05 86)`) — never white.
 
 ---
 
@@ -30,6 +30,7 @@ js/
   budget-templates.js   # Budget templates sub-page (Settings)
   accounts.js           # Budget → Accounts sub-tab + Transfer flow
   savings.js            # Budget → Savings sub-tab
+  insights.js           # Budget → Insights sub-page (3-lens dashboard)
 firestore.rules
 ```
 
@@ -61,7 +62,7 @@ sanitiseDate(val)            // throws if not "YYYY-MM-DD" format
 ### Session & state
 
 - **15-minute idle timeout** in `app.js` — resets on mouse/key/touch/click. Warns at 14 min via toast, signs out at 15 min.
-- **On signOut / tab hide:** `clearLogState()`, `clearBudgetState()`, `clearReportState()`, `clearAccountsState()`, `clearSavingsState()` wipe financial data from memory. Each module exports its own `clear*State()` function.
+- **On signOut / tab hide:** `clearLogState()`, `clearBudgetState()`, `clearReportState()`, `clearAccountsState()`, `clearSavingsState()`, `clearInsightsState()` wipe financial data from memory. Each module exports its own `clear*State()` function.
 - **visibilitychange** in `app.js`: clears state on tab hide, re-initialises active screen on tab show.
 - `sessionStorage` stores only the active screen name — never financial data.
 
@@ -93,7 +94,9 @@ If a checklist item is marked paid with amount = 0, no `expenses` doc is created
 
 **Global form element reset** in `index.html`: `button, input, select, textarea { font: inherit; }` — ensures all form elements use Plus Jakarta Sans.
 
-**CSS variables** in `index.html :root`: `--ink`/`--ink-2`/`--ink-3` (text), `--line`/`--line-2` (borders), `--surface`/`--screen-bg` (fills), `--accent`/`--accent-soft`/`--accent-line`/`--accent-ink`/`--accent-shadow`/`--on-accent` (teal), `--comp`/`--comp-soft` (black/coral), `--amber`/`--on-amber` (needs-entry), `--positive`/`--on-positive` (green), `--danger`, `--radius`/`--radius-sm`/`--radius-lg`, `--sp` (spacing multiplier).
+**CSS variables** in `index.html :root`: `--ink`/`--ink-2`/`--ink-3` (text), `--line`/`--line-2` (borders), `--surface`/`--screen-bg` (fills), `--accent`/`--accent-soft`/`--accent-line`/`--accent-ink`/`--accent-shadow`/`--on-accent` (yellow — `on-accent` is dark ink, not white), `--comp`/`--comp-soft`/`--comp-line`/`--comp-ink` (dark navy), `--amber`/`--amber-soft`/`--amber-ink`/`--on-amber` (needs-entry), `--positive`/`--positive-soft`/`--positive-ink`/`--on-positive` (green), `--danger`/`--danger-soft`/`--danger-ink`, `--radius`/`--radius-sm`/`--radius-lg`, `--sp` (spacing multiplier).
+
+**Scoped radius override:** `#budget-insights-body` sets `--radius: 20px`, `--radius-sm: 12px`, `--radius-lg: 26px` — all child elements in Insights inherit these larger radii. Do not change the global `--radius` (12px) for Insights work.
 
 ### Typography scale
 
@@ -176,6 +179,7 @@ isIncome    true for entries synced from budgetMonths via syncIncomeExpense()
 categories          string[]   ordered variable category names
 paymentMethods      string[]   ordered payment method names
 salaryDay           number     default 25
+categoryLimits      object     { [categoryName]: number } — per-category spending limits (Insights)
 onboardingComplete  boolean
 onboardingDate      string     ISO timestamp
 consentGiven        boolean    set on tour slide 2 CTA
@@ -241,7 +245,7 @@ Write-only — Firestore rules block all reads, updates, deletes. Never queried 
 | Add      | 1      |
 | Log      | 2      |
 | Report   | 3      |
-| Budget   | 5 (sub-tabs: Overview · Accounts · Savings) |
+| Budget   | 5 (sub-tabs: Overview · Accounts · Savings; Overview has an Insights sub-page) |
 | Settings | 4      |
 
 Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state.
@@ -279,6 +283,16 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 **Settings → Budget Templates:** Slide transition ≤ 220ms via `translateX`. Delete group via trash button in section header.
 
 **Export to Sheets (`export.js`):** 4 sheets — Variable, Fixed, Combined, Income. Income sheet fetches `budgetMonths` for every calendar month overlapping the export range.
+
+**Budget Insights (`insights.js`):** Sub-page inside Budget → Overview. Opened via an "Insights" button in the overview header; renders into `#budget-insights-body`.
+
+- **Time model:** All 12 buckets are **salary periods**, not calendar months. `periodRefs` = array of `{ year, month, start, end }` where `start`/`end` are `"YYYY-MM-DD"`. Current period is always `periodRefs[11]`. All date filters use `e.date >= start && e.date <= end` — never `startsWith`.
+- **Data loading:** `loadData()` fetches expenses, template, accounts, pots, transfers, potTxns, and 12 `budgetMonths` docs in one `Promise.all`. Result cached in `_cache`; nulled when a category limit changes.
+- **Hero block:** net balance (38px, green/coral), verdict pill (`On track` ≥20% / `Watch` ≥10% / `Over` <10% savings rate), one-line narrative, 4-KPI strip (saved % · fixed % · variable % · RM/day), bills-paid progress bar.
+- **Lens switcher:** sticky segmented control (Spending · Habits · Savings). Active lens persisted to `localStorage` under key `'insights-lens'`. Switching calls `destroyCharts()` then re-renders.
+- **Details expanders:** treemap, payment-flow table, contribution chart are inside collapsible `.details` elements. Content is **lazy-rendered** — Chart.js instances created only when the expander opens (Chart.js needs a visible DOM to compute dimensions). The `makeDetailsExpander(label)` helper exposes `.setContent(fn)` to register the render callback.
+- **Limit bars:** CSS-based horizontal bars (not Chart.js). Each row is a `<button>` — clicking opens `openCategoryLimitSheet(cat)` which saves to `userSettings.categoryLimits` via `updateUserSettings` and nulls `_cache` before re-running `initInsights()`.
+- **`.ins-block`** is the Insights card class (white surface, border, `border-radius: var(--radius-lg)`). Do not confuse with the global `.block-label` (which is reused inside `.ins-block`).
 
 ---
 
@@ -322,6 +336,11 @@ location.reload();
 - **ES module listeners:** buttons in dynamically injected HTML must use `addEventListener` after injection — module functions are not on `window`.
 - **Transfer From ≠ To:** enforced with toast on confirm (not a disabled button).
 - **Monthly recurring toggle** on pots = reminder label only; contributions always manual.
+- **Insights chart lazy-render:** never render Chart.js charts into hidden containers. Expander charts (treemap, payment flow, contributions) must be rendered inside `.setContent(fn)` callbacks — they only fire when the expander opens and the canvas is visible.
+- **Insights `_cache` invalidation:** set `_cache = null` before calling `initInsights()` whenever data that affects the dashboard changes (currently: only `categoryLimits`). Do not bust the cache on every navigation — it's intentionally persistent across lens switches.
+- **`.ins-block` vs `.block`:** Insights block cards use `.ins-block` (not `.block`) to avoid CSS conflicts with other screens. Always use `.ins-block` for new card containers in `insights.js`.
+- **Insights salary-period dates:** `periodRefs[11]` is always the current period. Do not use `findIndex` to locate it. Do not use `startsWith` for date filtering — use `>=`/`<=` string comparison on `"YYYY-MM-DD"`.
+- **`pot-eta` variants in Insights:** `.ok` (yellow — in progress), `.done` (green — goal reached), `.warn` (coral — no recent contributions). The global savings screen uses different class names for its pot cards — do not share these styles.
 
 ---
 
