@@ -1,12 +1,13 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
-import { fmt, fmt0, catColor, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fmt, fmt0, catColor, escapeHtml,
+  salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSettings,
   fetchSavingsPots, fetchPotTransactions, fetchAccounts, fetchAllTransfers } from './db.js';
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
 let _cache  = null;
-let _charts = [];          // all Chart.js instances — destroyed together on clear
+let _charts = [];
 
 function destroyCharts() {
   _charts.forEach(c => { try { c.destroy(); } catch (_) {} });
@@ -29,11 +30,8 @@ export async function initInsights() {
     await ensureTreemapPlugin();
     const data = await loadData(currentUser.uid);
     body.innerHTML = '';
-    renderKPIs(body, data);
-    renderTrendChart(body, data);
-    renderCategorySection(body, data);
-    renderHabitsSection(body, data);
-    renderSavingsSection(body, data);
+    renderHero(body, data);
+    renderLensSwitcher(body, data);
   } catch (e) {
     console.error(e);
     body.innerHTML = '<div class="list-hint" style="padding:40px 0">Failed to load — please try again</div>';
@@ -74,7 +72,6 @@ async function loadData(uid) {
   const now = new Date();
   const sd  = userSettings.salaryDay ?? 25;
 
-  // Build 12 salary periods ending at current period
   const sp = salaryPeriodMonth(sd);
   const periodRefs = [];
   for (let i = 11; i >= 0; i--) {
@@ -107,7 +104,6 @@ async function loadData(uid) {
     return { year, month, start, end, income, fixed, variable, net: income - fixed - variable };
   });
 
-  // Current period is always the last in periodRefs
   const curPeriod = periodRefs[11];
   const spExp     = expenses.filter(e => e.date >= curPeriod.start && e.date <= curPeriod.end);
   const curBM     = budgetMonths[11];
@@ -128,6 +124,12 @@ async function loadData(uid) {
   const prevM    = monthly[monthly.length - 2];
   const netDelta = prevM ? netBalance - prevM.net : null;
 
+  const p      = curPeriod;
+  const sDt    = new Date(p.start + 'T00:00:00');
+  const eDt    = new Date(p.end   + 'T00:00:00');
+  const fmtDt  = d => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+  const periodLabel = `${fmtDt(sDt)} – ${fmtDt(eDt)}`;
+
   _cache = {
     expenses, periodRefs, monthly,
     accounts, pots, transfers, potTxns,
@@ -138,82 +140,466 @@ async function loadData(uid) {
       varRatio:    incomeTotal > 0 ? (variableTotal / incomeTotal) * 100 : 0,
       dailyAvg:    variableTotal / daysElapsed,
       paidCount,   totalItems,
+      periodLabel,
     },
   };
   return _cache;
 }
 
-// ── Section 1: KPI Cards ───────────────────────────────────────────────────────
+// ── Layout helpers ─────────────────────────────────────────────────────────────
 
-function renderKPIs(body, { kpi }) {
-  const { netBalance, netDelta, savingsRate, fixedRatio, varRatio, dailyAvg, paidCount, totalItems } = kpi;
-
-  const isNegNet = netBalance < 0;
-  const netClr   = isNegNet ? 'var(--danger)' : 'var(--accent-ink)';
-  const savClr   = savingsRate >= 20 ? 'var(--positive)' : savingsRate >= 10 ? 'var(--accent-ink)' : 'var(--danger)';
-
-  let deltaHtml = '';
-  if (netDelta !== null) {
-    const up = netDelta >= 0;
-    deltaHtml = `<span class="kpi-delta ${up ? 'up' : 'dn'}">${up ? '↑' : '↓'} vs last month</span>`;
+function makeBlock(label) {
+  const block = document.createElement('div');
+  block.className = 'ins-block';
+  if (label) {
+    const lbl = document.createElement('span');
+    lbl.className = 'block-label';
+    lbl.textContent = label;
+    block.appendChild(lbl);
   }
+  return block;
+}
 
+function summaryPill(tone, innerHTML) {
+  const div = document.createElement('div');
+  div.className = `summary ${tone}`;
+  const spark = document.createElement('span');
+  spark.className = 'sum-spark';
+  const text = document.createElement('span');
+  text.className = 'sum-text';
+  text.innerHTML = innerHTML;
+  div.appendChild(spark);
+  div.appendChild(text);
+  return div;
+}
+
+function makeDetailsExpander(label) {
+  const wrap = document.createElement('div');
+  wrap.className = 'details';
+
+  const hdr = document.createElement('button');
+  hdr.type = 'button';
+  hdr.className = 'details-h';
+  hdr.innerHTML = `<span>${escapeHtml(label)}</span><span class="details-chev">⌄</span>`;
+
+  const body = document.createElement('div');
+  body.className = 'details-body';
+  body.style.display = 'none';
+
+  let renderFn = null;
+  let rendered = false;
+
+  hdr.addEventListener('click', () => {
+    const open = !wrap.classList.contains('open');
+    wrap.classList.toggle('open', open);
+    body.style.display = open ? '' : 'none';
+    if (open && !rendered && renderFn) {
+      rendered = true;
+      renderFn(body);
+    }
+  });
+
+  wrap.appendChild(hdr);
+  wrap.appendChild(body);
+  wrap.setContent = fn => { renderFn = fn; };
+  return wrap;
+}
+
+// ── Narrative copy ─────────────────────────────────────────────────────────────
+
+function heroVerdict(kpi) {
+  const sr = kpi.savingsRate;
+  if (sr >= 20) return { pill: 'On track', tone: 'good', line: `Saving ${Math.round(sr)}% of income — comfortably above your 20% goal.` };
+  if (sr >= 10) return { pill: 'Watch',    tone: 'warn', line: `Saving ${Math.round(sr)}% — okay, but variable spend is creeping up.` };
+  return           { pill: 'Over',     tone: 'bad',  line: `Only ${Math.round(sr)}% saved this period — spending is running hot.` };
+}
+
+function buildSpendingSummary({ expenses, periodRefs, monthly }) {
+  const curM   = monthly[11];
+  const varAvg = monthly.reduce((s, m) => s + m.variable, 0) / 12;
+  const varVsAvg = varAvg > 0 ? (curM.variable - varAvg) / varAvg : 0;
+  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
+  const { start, end } = periodRefs[11];
+  const curCats = groupByCategory(varExp.filter(e => e.date >= start && e.date <= end));
+  const topCats = Object.entries(curCats).sort((a, b) => b[1] - a[1]);
+  const pctStr  = (varVsAvg >= 0 ? '+' : '') + Math.round(varVsAvg * 100) + '%';
+  let html = `Variable spend <b>RM ${fmt0(curM.variable)}</b> — ${pctStr} vs your 12-period average.`;
+  if (varVsAvg > 0.05 && topCats.length >= 2) {
+    html += ` <b>${escapeHtml(topCats[0][0])}</b> and <b>${escapeHtml(topCats[1][0])}</b> drove the rise.`;
+  }
+  return html;
+}
+
+function buildHabitsSummary(wkdayAvg, wkendAvg) {
+  if (wkdayAvg === 0 && wkendAvg === 0) return 'No spending data for habit analysis yet.';
+  const ratio = wkdayAvg > 0 ? wkendAvg / wkdayAvg : 0;
+  if (ratio >= 1.1) return `You spend <b>${Math.round((ratio - 1) * 100)}% more on weekends</b> than weekdays. Friday–Sunday is where the variable budget goes.`;
+  if (ratio < 0.9 && ratio > 0) return `Weekdays drive most of your spending — weekends are <b>${Math.round((1 / ratio - 1) * 100)}% lower</b>.`;
+  return 'Your spending is <b>fairly even</b> across the week.';
+}
+
+function buildSavingsSummary({ pots, potTxns, accounts, expenses, transfers, periodRefs }) {
+  const dates    = periodRefs.map(r => r.end);
+  const accFirst = (accounts || []).reduce((s, a) => s + computeAccBalance(a, expenses, transfers, potTxns, dates[0]),  0);
+  const accLast  = (accounts || []).reduce((s, a) => s + computeAccBalance(a, expenses, transfers, potTxns, dates[11]), 0);
+  const potsFirst = (pots || []).reduce((total, pot) => {
+    let bal = pot.currentBalance || 0;
+    (potTxns || []).filter(t => t.potId === pot.id && t.date > dates[0])
+      .forEach(t => { bal += t.type === 'contribute' ? -t.amount : t.amount; });
+    return total + Math.max(0, bal);
+  }, 0);
+  const potsLast = (pots || []).reduce((s, p) => s + Math.max(0, p.currentBalance || 0), 0);
+  const growth   = (accLast + potsLast) - (accFirst + potsFirst);
+  const base     = accFirst + potsFirst;
+  const growthPct = base > 0 ? Math.abs(growth / base * 100) : 0;
+  const needAttention = (pots || []).filter(p => {
+    const proj = projectCompletion(p, potTxns, periodRefs);
+    return !proj.done && proj.noContrib;
+  }).length;
+  const sign = growth >= 0 ? '+' : '−';
+  let html = `Net worth <b>${sign}RM ${fmt0(Math.abs(growth))}</b> (${sign}${growthPct.toFixed(0)}%) over 12 periods.`;
+  if (needAttention > 0) html += ` ${needAttention} pot${needAttention > 1 ? 's' : ''} need${needAttention > 1 ? '' : 's'} attention.`;
+  return html;
+}
+
+// ── Hero block ─────────────────────────────────────────────────────────────────
+
+function renderHero(body, { kpi }) {
+  const { netBalance, netDelta, savingsRate, fixedRatio, varRatio, dailyAvg, paidCount, totalItems, periodLabel } = kpi;
+  const verdict  = heroVerdict(kpi);
+  const isNeg    = netBalance < 0;
+  const netClr   = isNeg ? 'var(--danger-ink)' : 'var(--positive-ink)';
   const billsPct = totalItems > 0 ? (paidCount / totalItems) * 100 : 0;
   const allPaid  = totalItems > 0 && paidCount === totalItems;
 
-  const section = document.createElement('section');
-  section.innerHTML = `
-    <span class="block-label">This period</span>
-    <div class="kpi-grid">
-      <div class="kpi-card kpi-featured">
-        <div class="kpi-label">Net balance</div>
-        <div class="kpi-val" style="color:${netClr}">${isNegNet ? '−' : ''}RM ${fmt(Math.abs(netBalance))}</div>
-        ${deltaHtml}
+  let deltaHtml = '';
+  if (netDelta !== null) {
+    const up   = netDelta >= 0;
+    const good = !isNeg && up;
+    deltaHtml = `<span class="delta ${good ? 'good' : 'bad'}">${up ? '↑' : '↓'} RM ${fmt0(Math.abs(netDelta))}</span>`;
+  }
+
+  const hero = document.createElement('div');
+  hero.className = 'hero';
+  hero.innerHTML = `
+    <div class="hero-top">
+      <div>
+        <span class="hero-eyebrow">This period · ${escapeHtml(periodLabel)}</span>
+        <div class="hero-net" style="color:${netClr}">${isNeg ? '−' : ''}RM ${fmt0(Math.abs(netBalance))}</div>
+        <div class="hero-netlabel">net balance ${deltaHtml}</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Savings rate</div>
-        <div class="kpi-val" style="color:${savClr}">${savingsRate.toFixed(1)}%</div>
-        <div class="kpi-sub">of income</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Fixed</div>
-        <div class="kpi-val">${fixedRatio.toFixed(0)}%</div>
-        <div class="kpi-sub">of income</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Variable</div>
-        <div class="kpi-val">${varRatio.toFixed(0)}%</div>
-        <div class="kpi-sub">of income</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Daily avg</div>
-        <div class="kpi-val">RM ${fmt0(dailyAvg)}</div>
-        <div class="kpi-sub">variable only</div>
-      </div>
+      <span class="verdict ${verdict.tone}">${verdict.pill}</span>
     </div>
-    <div class="kpi-bills${allPaid ? ' all-paid' : ''}">
-      <div class="kpi-bills-row">
-        <span class="kpi-bills-label">Bills paid this period</span>
-        <span class="kpi-bills-count">${paidCount} / ${totalItems}</span>
-      </div>
-      <div class="kpi-bills-track">
-        <div class="kpi-bills-fill" style="width:${billsPct.toFixed(1)}%"></div>
-      </div>
+    <p class="hero-line">${verdict.line}</p>
+    <div class="kpi-strip">
+      <div class="kpi"><span class="kpi-v" style="color:var(--positive-ink)">${Math.round(savingsRate)}%</span><span class="kpi-l">saved</span></div>
+      <div class="kpi"><span class="kpi-v">${Math.round(fixedRatio)}%</span><span class="kpi-l">fixed</span></div>
+      <div class="kpi"><span class="kpi-v">${Math.round(varRatio)}%</span><span class="kpi-l">variable</span></div>
+      <div class="kpi"><span class="kpi-v">RM ${fmt0(dailyAvg)}</span><span class="kpi-l">/ day</span></div>
+    </div>
+    <div class="bills${allPaid ? ' done' : ''}">
+      <div class="bills-row"><span>Bills paid</span><span>${paidCount} / ${totalItems}</span></div>
+      <div class="bills-track"><div class="bills-fill" style="width:${billsPct.toFixed(1)}%"></div></div>
     </div>`;
-  body.appendChild(section);
+
+  body.appendChild(hero);
 }
 
-// ── Section 2: Trend Chart ─────────────────────────────────────────────────────
+// ── Lens switcher ──────────────────────────────────────────────────────────────
 
-function renderTrendChart(body, { monthly }) {
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Income vs Spending · 12 periods</span>';
+const LENS_KEY = 'insights-lens';
+
+function renderLensSwitcher(body, data) {
+  const LENSES = ['Spending', 'Habits', 'Savings'];
+  let active = (() => {
+    try { const s = localStorage.getItem(LENS_KEY); return LENSES.includes(s) ? s : 'Spending'; }
+    catch (_) { return 'Spending'; }
+  })();
+
+  const seg = document.createElement('div');
+  seg.className = 'seg';
+
+  const lensWrap = document.createElement('div');
+  lensWrap.className = 'lens';
+
+  LENSES.forEach(name => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'seg-btn' + (name === active ? ' on' : '');
+    btn.textContent = name;
+    btn.addEventListener('click', () => {
+      if (name === active) return;
+      active = name;
+      try { localStorage.setItem(LENS_KEY, active); } catch (_) {}
+      seg.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('on', b.textContent === active));
+      destroyCharts();
+      lensWrap.innerHTML = '';
+      mountLens(lensWrap, active, data);
+    });
+    seg.appendChild(btn);
+  });
+
+  body.appendChild(seg);
+  body.appendChild(lensWrap);
+  mountLens(lensWrap, active, data);
+}
+
+function mountLens(container, name, data) {
+  if      (name === 'Spending') renderSpendingLens(container, data);
+  else if (name === 'Habits')   renderHabitsLens(container, data);
+  else                          renderSavingsLens(container, data);
+}
+
+// ── Spending lens ──────────────────────────────────────────────────────────────
+
+function renderSpendingLens(container, data) {
+  const { expenses, periodRefs } = data;
+  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
+
+  // Compute catData once — used by both limit bars and treemap
+  const curPeriod  = periodRefs[11];
+  const prevPeriod = periodRefs[10];
+  const curCats  = groupByCategory(varExp.filter(e => e.date >= curPeriod.start  && e.date <= curPeriod.end));
+  const prevCats = groupByCategory(varExp.filter(e => e.date >= prevPeriod.start && e.date <= prevPeriod.end));
+  const avg12    = compute12mCatAvg(varExp, periodRefs);
+  const limits   = userSettings.categoryLimits || {};
+  const catData  = [...new Set([...Object.keys(curCats), ...Object.keys(prevCats)])]
+    .map(cat => ({
+      cat,
+      cur:     curCats[cat]  || 0,
+      prev:    prevCats[cat] || 0,
+      avg12:   avg12[cat]    || 0,
+      limit:   limits[cat]   || 0,
+      momPct:  prevCats[cat] > 0 ? ((curCats[cat] || 0) - prevCats[cat]) / prevCats[cat] : null,
+      above12m: (avg12[cat] || 0) > 0 && (curCats[cat] || 0) > (avg12[cat] || 0) * 1.2,
+    }))
+    .filter(d => d.cur > 0 || d.prev > 0)
+    .sort((a, b) => b.cur - a.cur);
+
+  container.appendChild(summaryPill('accent', buildSpendingSummary(data)));
+
+  // Trend chart
+  const trendBlock = makeBlock('Income vs spending · 12 periods');
+  renderTrendChart(trendBlock, data);
+  const legend = document.createElement('div');
+  legend.className = 'trend-legend';
+  legend.innerHTML = `
+    <span><i class="sw" style="background:var(--positive-soft)"></i>income</span>
+    <span><i class="sw" style="background:var(--comp);opacity:0.85"></i>fixed</span>
+    <span><i class="sw" style="background:var(--accent)"></i>variable</span>
+    <span><i class="sw line" style="background:var(--positive)"></i>net</span>`;
+  trendBlock.appendChild(legend);
+  container.appendChild(trendBlock);
+
+  // Limit bars (primary)
+  if (catData.length) {
+    const barsBlock = makeBlock('Against your limits');
+    renderLimitBars(barsBlock, catData);
+    container.appendChild(barsBlock);
+  }
+
+  // Treemap in expander
+  const treemapData = catData.filter(d => d.cur > 0);
+  if (treemapData.length) {
+    const exp = makeDetailsExpander('Spending share · treemap');
+    exp.setContent(body => {
+      const wrap = document.createElement('div');
+      wrap.className = 'insights-treemap-wrap';
+      const canvas = document.createElement('canvas');
+      wrap.appendChild(canvas);
+      body.appendChild(wrap);
+      _charts.push(new window.Chart(canvas, {
+        type: 'treemap',
+        data: {
+          datasets: [{
+            tree: treemapData.map(d => ({ category: d.cat, v: d.cur, momPct: d.momPct, above12m: d.above12m })),
+            key:'v', groups:['category'], spacing:1.5,
+            borderWidth:1, borderColor:'rgba(255,255,255,0.5)',
+            backgroundColor(ctx) {
+              if (ctx.type !== 'data') return 'transparent';
+              const cat  = ctx.raw.g;
+              const item = catData.find(d => d.cat === cat);
+              const base = catColor(cat, userSettings.categories);
+              if (!item || item.momPct === null) return base;
+              return tintOklch(base, -Math.min(Math.max(item.momPct * 0.14, -0.11), 0.11));
+            },
+            labels: {
+              display:true, overflow:'fit',
+              formatter(ctx) {
+                if (ctx.type !== 'data') return '';
+                const cat  = ctx.raw.g;
+                const item = catData.find(d => d.cat === cat);
+                return [abbrev(cat) + (item?.above12m ? ' ↑' : ''), 'RM ' + fmt0(ctx.raw.v)];
+              },
+              color:['rgba(255,255,255,0.96)','rgba(255,255,255,0.72)'],
+              font:[
+                { family:"'Plus Jakarta Sans', sans-serif", size:11, weight:'700' },
+                { family:"'Plus Jakarta Sans', sans-serif", size:10, weight:'500' },
+              ],
+            },
+          }],
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{
+            legend:{ display:false },
+            tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
+              callbacks:{
+                title: items => items[0]?.raw?.g || '',
+                label(ctx) {
+                  const cat  = ctx.raw.g;
+                  const item = catData.find(d => d.cat === cat);
+                  const lines = [`RM ${fmt(ctx.raw.v)}`];
+                  if (item?.momPct !== null && item?.momPct !== undefined) {
+                    const s = item.momPct >= 0 ? '+' : '−';
+                    lines.push(`${s}${Math.abs(item.momPct * 100).toFixed(0)}% vs last period`);
+                  }
+                  if (item?.above12m) lines.push('↑ >20% above 12-period avg');
+                  return lines;
+                },
+              },
+            },
+          },
+        },
+      }));
+    });
+    container.appendChild(exp);
+  }
+}
+
+// ── Habits lens ────────────────────────────────────────────────────────────────
+
+function renderHabitsLens(container, data) {
+  const { expenses, periodRefs } = data;
+  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
+
+  // Compute wkday/wkend for summary
+  let wkdayTotal = 0, wkendTotal = 0, wkdayCnt = 0, wkendCnt = 0;
+  periodRefs.forEach(({ start, end }) => {
+    const cur = new Date(start + 'T00:00:00');
+    const fin = new Date(end   + 'T00:00:00');
+    while (cur <= fin) {
+      const di = (cur.getDay() + 6) % 7;
+      if (di < 5) wkdayCnt++; else wkendCnt++;
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  varExp.forEach(e => {
+    if (!e.date) return;
+    const [y, m, d] = e.date.split('-').map(Number);
+    const di = (new Date(y, m - 1, d).getDay() + 6) % 7;
+    if (di < 5) wkdayTotal += e.amount; else wkendTotal += e.amount;
+  });
+  const wkdayAvg = wkdayCnt > 0 ? wkdayTotal / wkdayCnt : 0;
+  const wkendAvg = wkendCnt > 0 ? wkendTotal / wkendCnt : 0;
+
+  container.appendChild(summaryPill('comp', buildHabitsSummary(wkdayAvg, wkendAvg)));
+
+  // Heatmap
+  const hmBlock = makeBlock('When you spend · avg / weekday');
+  renderDayOfWeekHeatmap(hmBlock, varExp, periodRefs);
+  container.appendChild(hmBlock);
+
+  // Category trend lines
+  const clBlock = makeBlock('Category trends · 12 periods');
+  renderCategoryLines(clBlock, varExp, periodRefs);
+  const cap = document.createElement('span');
+  cap.className = 'cap muted';
+  cap.textContent = '↑ = creeping up over the last quarter · coral dot = spike';
+  clBlock.appendChild(cap);
+  container.appendChild(clBlock);
+
+  // Payment flow in expander
+  const flowExp = makeDetailsExpander('Payment flow · this period');
+  flowExp.setContent(body => renderPaymentFlow(body, expenses, periodRefs));
+  container.appendChild(flowExp);
+}
+
+// ── Savings lens ───────────────────────────────────────────────────────────────
+
+function renderSavingsLens(container, data) {
+  const { pots, potTxns, accounts, periodRefs } = data;
+
+  if (!pots?.length && !accounts?.length) {
+    const empty = document.createElement('div');
+    empty.className = 'list-hint';
+    empty.style.padding = '40px 0';
+    empty.textContent = 'Add accounts or savings pots to see your savings trajectory';
+    container.appendChild(empty);
+    return;
+  }
+
+  container.appendChild(summaryPill('good', buildSavingsSummary(data)));
+
+  // Pot gauge cards
+  if (pots?.length) {
+    const potsBlock = makeBlock('Savings pots');
+    renderPotCards(potsBlock, pots, potTxns, periodRefs);
+    container.appendChild(potsBlock);
+  }
+
+  // Net worth chart
+  if (accounts?.length) {
+    const nwBlock = makeBlock('Net worth · 12 periods');
+    renderNetWorthChart(nwBlock, data);
+    container.appendChild(nwBlock);
+  }
+
+  // Contributions in expander
+  if (pots?.length) {
+    const contribExp = makeDetailsExpander('Contribution history · 12 periods');
+    contribExp.setContent(body => {
+      const wrap = document.createElement('div');
+      wrap.className = 'insights-chart-wrap';
+      wrap.style.height = '160px';
+      const canvas = document.createElement('canvas');
+      wrap.appendChild(canvas);
+      body.appendChild(wrap);
+      _charts.push(new window.Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]),
+          datasets: pots.map(pot => ({
+            label: abbrev(pot.name),
+            data: periodRefs.map(({ start, end }) =>
+              (potTxns || [])
+                .filter(t => t.potId === pot.id && t.date >= start && t.date <= end)
+                .reduce((s, t) => t.type === 'contribute' ? s + t.amount : s - t.amount, 0)
+            ),
+            backgroundColor: pot.colour || C.AMBER,
+            borderRadius: 2,
+            stack: 'pots',
+          })),
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: pots.length > 1, position: 'top', align: 'start',
+              labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
+            tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
+              callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '' : '−'}RM ${fmt(Math.abs(ctx.parsed.y))}` } },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, border: { display: false },
+              ticks: { font: FONT(10,'600'), color: '#9898b0' } },
+            y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+              ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 4 } },
+          },
+        },
+      }));
+    });
+    container.appendChild(contribExp);
+  }
+}
+
+// ── Trend chart ────────────────────────────────────────────────────────────────
+
+function renderTrendChart(container, { monthly }) {
   const wrap = document.createElement('div');
   wrap.className = 'insights-chart-wrap';
   const canvas = document.createElement('canvas');
   wrap.appendChild(canvas);
-  section.appendChild(wrap);
-  body.appendChild(section);
+  container.appendChild(wrap);
 
   const labels       = monthly.map(m => MONTH_SHORT[m.month - 1]);
   const incomeData   = monthly.map(m => m.income);
@@ -243,8 +629,7 @@ function renderTrendChart(body, { monthly }) {
     options: {
       responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false },
       plugins:{
-        legend:{ display:true, position:'top', align:'start',
-          labels:{ boxWidth:10, boxHeight:10, padding:12, font:FONT(11,'600'), color:'#8888a0' } },
+        legend:{ display:false },
         tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
           callbacks:{ label: ctx => { const v=ctx.parsed.y; return ` ${ctx.dataset.label}: ${v<0?'−':''}RM ${fmt(Math.abs(v))}`; } } },
       },
@@ -257,198 +642,53 @@ function renderTrendChart(body, { monthly }) {
   }));
 }
 
-// ── Section 3: Category deep dive ─────────────────────────────────────────────
+// ── Limit bars (CSS-based) ─────────────────────────────────────────────────────
 
-function renderCategorySection(body, { expenses, periodRefs }) {
-  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
-
-  const curPeriod  = periodRefs[periodRefs.length - 1];
-  const prevPeriod = periodRefs[periodRefs.length - 2];
-
-  const curCats  = groupByCategory(varExp.filter(e => e.date >= curPeriod.start  && e.date <= curPeriod.end));
-  const prevCats = groupByCategory(varExp.filter(e => e.date >= prevPeriod.start && e.date <= prevPeriod.end));
-  const avg12    = compute12mCatAvg(varExp, periodRefs);
-  const limits   = userSettings.categoryLimits || {};
-
-  const catData = [...new Set([...Object.keys(curCats), ...Object.keys(prevCats)])]
-    .map(cat => ({
-      cat,
-      cur:     curCats[cat]  || 0,
-      prev:    prevCats[cat] || 0,
-      avg12:   avg12[cat]    || 0,
-      limit:   limits[cat]   || 0,
-      momPct:  prevCats[cat] > 0 ? ((curCats[cat] || 0) - prevCats[cat]) / prevCats[cat] : null,
-      above12m: (avg12[cat] || 0) > 0 && (curCats[cat] || 0) > (avg12[cat] || 0) * 1.2,
-    }))
-    .filter(d => d.cur > 0 || d.prev > 0)
-    .sort((a, b) => b.cur - a.cur);
-
-  if (!catData.length) return;
-
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Category breakdown · this period</span>';
-  body.appendChild(section);
-
-  renderTreemap(section, catData);
-  renderTopCategoryBars(section, catData);
-}
-
-function renderTreemap(section, catData) {
-  const wrap = document.createElement('div');
-  wrap.className = 'insights-treemap-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  section.appendChild(wrap);
-
-  const tree = catData.filter(d => d.cur > 0).map(d => ({
-    category: d.cat, v: d.cur, momPct: d.momPct, above12m: d.above12m,
-  }));
-
-  _charts.push(new window.Chart(canvas, {
-    type: 'treemap',
-    data: {
-      datasets: [{
-        tree, key:'v', groups:['category'], spacing:1.5,
-        borderWidth:1, borderColor:'rgba(255,255,255,0.5)',
-        backgroundColor(ctx) {
-          if (ctx.type !== 'data') return 'transparent';
-          const cat  = ctx.raw.g;
-          const item = catData.find(d => d.cat === cat);
-          const base = catColor(cat, userSettings.categories);
-          if (!item || item.momPct === null) return base;
-          return tintOklch(base, -Math.min(Math.max(item.momPct * 0.14, -0.11), 0.11));
-        },
-        labels: {
-          display:true, overflow:'fit',
-          formatter(ctx) {
-            if (ctx.type !== 'data') return '';
-            const cat  = ctx.raw.g;
-            const item = catData.find(d => d.cat === cat);
-            return [abbrev(cat) + (item?.above12m ? ' ↑' : ''), 'RM ' + fmt0(ctx.raw.v)];
-          },
-          color:['rgba(255,255,255,0.96)','rgba(255,255,255,0.72)'],
-          font:[
-            { family:"'Plus Jakarta Sans', sans-serif", size:11, weight:'700' },
-            { family:"'Plus Jakarta Sans', sans-serif", size:10, weight:'500' },
-          ],
-        },
-      }],
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{ display:false },
-        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
-          callbacks:{
-            title: items => items[0]?.raw?.g || '',
-            label(ctx) {
-              const cat  = ctx.raw.g;
-              const item = catData.find(d => d.cat === cat);
-              const lines = [`RM ${fmt(ctx.raw.v)}`];
-              if (item?.momPct !== null && item?.momPct !== undefined) {
-                const s = item.momPct >= 0 ? '+' : '−';
-                lines.push(`${s}${Math.abs(item.momPct * 100).toFixed(0)}% vs last month`);
-              }
-              if (item?.above12m) lines.push('↑ >20% above 12-month avg');
-              return lines;
-            },
-          },
-        },
-      },
-    },
-  }));
-}
-
-function renderTopCategoryBars(section, catData) {
-  const top = catData.slice(0, Math.min(8, catData.length));
-  if (!top.length) return;
-
-  const hint = document.createElement('div');
-  hint.className = 'insights-bar-hint';
-  hint.textContent = 'Tap a bar to set a spending limit';
-  section.appendChild(hint);
+function renderLimitBars(container, catData) {
+  const top = catData.slice(0, 8);
+  const max = Math.max(...top.map(d => Math.max(d.cur, d.prev, d.limit || 0)), 1);
 
   const wrap = document.createElement('div');
-  wrap.className = 'insights-bar-wrap';
-  wrap.style.height = `${top.length * 44 + 48}px`;
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  section.appendChild(wrap);
+  wrap.className = 'limitbars';
 
-  const cats      = userSettings.categories;
-  const withinData = top.map(d => d.limit > 0 ? Math.min(d.cur, d.limit) : d.cur);
-  const overData   = top.map(d => d.limit > 0 ? Math.max(0, d.cur - d.limit) : 0);
-  const prevData   = top.map(d => d.prev);
+  top.forEach(d => {
+    const over    = d.limit > 0 && d.cur > d.limit;
+    const curW    = (d.cur  / max * 100).toFixed(1);
+    const prevW   = (d.prev / max * 100).toFixed(1);
+    const limW    = d.limit > 0 ? (d.limit / max * 100).toFixed(1) : null;
+    const col     = catColor(d.cat, userSettings.categories);
+    const fillCol = over ? 'var(--danger)' : col;
 
-  _charts.push(new window.Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: top.map(d => abbrev(d.cat)),
-      datasets: [
-        { label:'This month', data:withinData, backgroundColor:top.map(d => catColor(d.cat, cats)),
-          borderRadius:{ topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 }, borderSkipped:'left', stack:'cur' },
-        { label:'Over limit', data:overData, backgroundColor:C.SPIKE,
-          borderRadius:{ topLeft:0, topRight:3, bottomLeft:0, bottomRight:3 }, borderSkipped:'left', stack:'cur' },
-        { label:'Last month', data:prevData, backgroundColor:C.PREV, borderRadius:3, stack:'prev' },
-      ],
-    },
-    options: {
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      onClick(_, elements) {
-        if (!elements.length) return;
-        openCategoryLimitSheet(top[elements[0].index].cat);
-      },
-      plugins:{
-        legend:{ display:true, position:'top', align:'start',
-          labels:{ boxWidth:10, boxHeight:10, padding:10, font:FONT(11,'600'), color:'#8888a0',
-            filter: item => item.text !== 'Over limit' || overData.some(v => v > 0) } },
-        tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
-          callbacks:{
-            label(ctx) {
-              const d = top[ctx.dataIndex];
-              if (ctx.dataset.label === 'Over limit' && ctx.parsed.x === 0) return null;
-              let line = ` ${ctx.dataset.label}: RM ${fmt(ctx.parsed.x)}`;
-              if (ctx.dataset.label === 'This month' && d.limit > 0) line += `  (limit RM ${fmt0(d.limit)})`;
-              if (ctx.dataset.label === 'Last month' && d.momPct !== null) {
-                const s = d.momPct >= 0 ? '+' : '−';
-                line += `  ${s}${Math.abs(d.momPct * 100).toFixed(0)}%`;
-              }
-              return line;
-            },
-          },
-        },
-      },
-      scales:{
-        x:{ stacked:true, beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
-          ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:4 } },
-        y:{ stacked:true, grid:{display:false}, border:{display:false},
-          ticks:{ font:FONT(11,'600'), color:'#4a4a60' } },
-      },
-    },
-  }));
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'lb-row';
+    row.innerHTML = `
+      <span class="lb-name"><span class="chip-dot" style="background:${col}"></span>${escapeHtml(abbrev(d.cat, 10))}</span>
+      <span class="lb-track">
+        <span class="lb-prev" style="width:${prevW}%"></span>
+        <span class="lb-fill" style="width:${curW}%;background:${fillCol}"></span>
+        ${limW !== null ? `<span class="lb-limit" style="left:${limW}%"></span>` : ''}
+      </span>
+      <span class="lb-amt${over ? ' over' : ''}">RM ${fmt0(d.cur)}</span>`;
+    row.addEventListener('click', () => openCategoryLimitSheet(d.cat));
+    wrap.appendChild(row);
+  });
+
+  const legend = document.createElement('div');
+  legend.className = 'lb-legend';
+  legend.innerHTML = `<span><i class="dot-prev"></i> last period</span><span><i class="dot-lim"></i> limit</span><span class="muted">tap a bar to set a limit</span>`;
+  wrap.appendChild(legend);
+  container.appendChild(wrap);
 }
 
-// ── Section 4: Habit patterns ─────────────────────────────────────────────────
+// ── Day-of-week heatmap ────────────────────────────────────────────────────────
 
-function renderHabitsSection(body, { expenses, periodRefs }) {
-  const varExp = expenses.filter(e => !e.type || e.type === 'variable');
-  renderDayOfWeekHeatmap(body, varExp, periodRefs);
-  renderCategoryLines(body, varExp, periodRefs);
-  renderPaymentFlow(body, expenses, periodRefs);
-}
-
-// ── 4a: Day-of-week heatmap ────────────────────────────────────────────────────
-
-function renderDayOfWeekHeatmap(body, varExp, periodRefs) {
+function renderDayOfWeekHeatmap(container, varExp, periodRefs) {
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-  // For each period × weekday: avg daily spend (total / count of that weekday in period)
-  const grid = periodRefs.map(({ year, month, start, end }) => {
+  const grid = periodRefs.map(({ month, start, end }) => {
     const dayCounts = Array(7).fill(0);
     const dayTotals = Array(7).fill(0);
-
-    // Iterate day-by-day within the salary period
     const cur = new Date(start + 'T00:00:00');
     const fin = new Date(end   + 'T00:00:00');
     while (cur <= fin) {
@@ -459,125 +699,64 @@ function renderDayOfWeekHeatmap(body, varExp, periodRefs) {
       const [y, m, d] = e.date.split('-').map(Number);
       dayTotals[(new Date(y, m - 1, d).getDay() + 6) % 7] += e.amount;
     });
-
-    return {
-      label: MONTH_SHORT[month - 1],
-      days:  dayCounts.map((cnt, i) => cnt > 0 ? dayTotals[i] / cnt : 0),
-    };
+    return { label: MONTH_SHORT[month - 1], days: dayCounts.map((cnt, i) => cnt > 0 ? dayTotals[i] / cnt : 0) };
   });
 
   const allValues = grid.flatMap(r => r.days);
   const maxVal    = Math.max(...allValues, 1);
-
-  // Weekend vs weekday insight
-  let wkdayTotal = 0, wkendTotal = 0, wkdayCnt = 0, wkendCnt = 0;
-  periodRefs.forEach(({ start, end }) => {
-    const cur = new Date(start + 'T00:00:00');
-    const fin = new Date(end   + 'T00:00:00');
-    while (cur <= fin) {
-      const di = (cur.getDay() + 6) % 7;
-      if (di < 5) wkdayCnt++; else wkendCnt++;
-      cur.setDate(cur.getDate() + 1);
-    }
-  });
-  varExp.forEach(e => {
-    if (!e.date) return;
-    const [y, m, d] = e.date.split('-').map(Number);
-    const di = (new Date(y, m - 1, d).getDay() + 6) % 7;
-    if (di < 5) wkdayTotal += e.amount; else wkendTotal += e.amount;
-  });
-  const wkdayAvg = wkdayCnt > 0 ? wkdayTotal / wkdayCnt : 0;
-  const wkendAvg = wkendCnt > 0 ? wkendTotal / wkendCnt : 0;
-  const ratio    = wkdayAvg > 0 ? wkendAvg / wkdayAvg : 0;
-
-  // Accent colour components for inline opacity tinting
   const { L: aL, C: aC, H: aH } = ACCENT_OKLCH;
 
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Spending by day of week</span>';
-
-  // Insight callout
-  if (wkdayAvg > 0 || wkendAvg > 0) {
-    const ins = document.createElement('div');
-    ins.className = 'heatmap-insight';
-    if (ratio >= 1.1) {
-      ins.textContent = `You spend ${ratio.toFixed(1)}× more per day on weekends than weekdays`;
-    } else if (ratio < 0.9 && ratio > 0) {
-      ins.textContent = `Weekdays drive most of your spending — weekends are ${(1/ratio).toFixed(1)}× lower`;
-    } else {
-      ins.textContent = `Your spending is fairly even across the week`;
-    }
-    section.appendChild(ins);
-  }
-
-  // Grid
   const gridWrap = document.createElement('div');
-  gridWrap.className = 'heatmap-wrap';
+  gridWrap.className = 'heatmap';
 
   // Header row
   const hdr = document.createElement('div');
-  hdr.className = 'heatmap-row heatmap-header';
-  const emptyLbl = document.createElement('div');
-  emptyLbl.className = 'heatmap-ml';
-  hdr.appendChild(emptyLbl);
+  hdr.className = 'hm-row';
+  hdr.appendChild(Object.assign(document.createElement('div'), { className: 'hm-lab' }));
   DAY_LABELS.forEach((d, di) => {
-    const dh = document.createElement('div');
-    dh.className = 'heatmap-dh' + (di >= 5 ? ' wkend' : '');
-    dh.textContent = d;
-    hdr.appendChild(dh);
+    hdr.appendChild(Object.assign(document.createElement('div'), {
+      className: 'hm-dh' + (di >= 5 ? ' wk' : ''),
+      textContent: d,
+    }));
   });
   gridWrap.appendChild(hdr);
 
-  // Data rows
   grid.forEach(({ label, days }) => {
     const row = document.createElement('div');
-    row.className = 'heatmap-row';
-
-    const ml = document.createElement('div');
-    ml.className = 'heatmap-ml';
-    ml.textContent = label;
-    row.appendChild(ml);
-
+    row.className = 'hm-row';
+    row.appendChild(Object.assign(document.createElement('div'), { className: 'hm-lab', textContent: label }));
     days.forEach((val, di) => {
-      const cell = document.createElement('div');
-      cell.className = 'heatmap-cell' + (di >= 5 ? ' wkend' : '');
+      const cell    = document.createElement('div');
+      cell.className = 'hm-cell' + (di >= 5 ? ' wk' : '');
       const opacity = val > 0 ? Math.max(0.08, val / maxVal) : 0;
-      // weekend cells use slightly deeper shade
-      const cellL = di >= 5 ? aL * 0.86 : aL;
+      const cellL   = di >= 5 ? aL * 0.86 : aL;
       cell.style.backgroundColor = opacity > 0
         ? `oklch(${cellL.toFixed(3)} ${aC} ${aH} / ${opacity.toFixed(3)})`
         : 'transparent';
-      if (val > 0) cell.setAttribute('title', `RM ${fmt0(val)}/day avg`);
+      if (val > 0) cell.title = `RM ${fmt0(val)}/day avg`;
       row.appendChild(cell);
     });
-
     gridWrap.appendChild(row);
   });
 
-  section.appendChild(gridWrap);
-  body.appendChild(section);
+  container.appendChild(gridWrap);
 }
 
-// ── 4b: 12-month per-category lines ───────────────────────────────────────────
+// ── Category trend lines ───────────────────────────────────────────────────────
 
-function renderCategoryLines(body, varExp, periodRefs) {
-  // Top 6 categories by total 12-month spend
+function renderCategoryLines(container, varExp, periodRefs) {
   const catTotals = groupByCategory(varExp);
   const top6 = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c);
-
   if (!top6.length) return;
 
-  // Monthly totals per category
   const catMonthly = {};
   top6.forEach(cat => {
     catMonthly[cat] = periodRefs.map(({ start, end }) =>
-      varExp
-        .filter(e => (e.category || 'Other') === cat && e.date >= start && e.date <= end)
-        .reduce((s, e) => s + e.amount, 0)
+      varExp.filter(e => (e.category || 'Other') === cat && e.date >= start && e.date <= end)
+            .reduce((s, e) => s + e.amount, 0)
     );
   });
 
-  // Creeping: last-3-months avg > first-3-months avg by >20%
   const isTrending = cat => {
     const d = catMonthly[cat];
     const f3 = d.slice(0, 3).reduce((s, v) => s + v, 0) / 3;
@@ -585,15 +764,12 @@ function renderCategoryLines(body, varExp, periodRefs) {
     return f3 > 0 && l3 > f3 * 1.2;
   };
 
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Category trends · 12 periods</span>';
-  const wrap   = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.className = 'insights-chart-wrap';
-  wrap.style.height = '260px';
+  wrap.style.height = '200px';
   const canvas = document.createElement('canvas');
   wrap.appendChild(canvas);
-  section.appendChild(wrap);
-  body.appendChild(section);
+  container.appendChild(wrap);
 
   _charts.push(new window.Chart(canvas, {
     type: 'line',
@@ -603,8 +779,6 @@ function renderCategoryLines(body, varExp, periodRefs) {
         const data     = catMonthly[cat];
         const base     = catColor(cat, userSettings.categories);
         const trending = isTrending(cat);
-
-        // Larger point + spike colour where value > 150% of prior 3-month avg
         const pointR = data.map((v, i) => {
           if (i < 3) return 2;
           const avg3 = data.slice(i - 3, i).reduce((s, x) => s + x, 0) / 3;
@@ -615,7 +789,6 @@ function renderCategoryLines(body, varExp, periodRefs) {
           const avg3 = data.slice(i - 3, i).reduce((s, x) => s + x, 0) / 3;
           return avg3 > 0 && v > avg3 * 1.5 ? C.SPIKE : base;
         });
-
         return {
           label: abbrev(cat) + (trending ? ' ↑' : ''),
           data, borderColor:base, backgroundColor:'transparent',
@@ -630,10 +803,7 @@ function renderCategoryLines(body, varExp, periodRefs) {
         legend:{ display:true, position:'top', align:'start',
           labels:{ boxWidth:20, boxHeight:2, padding:10, font:FONT(11,'600'), color:'#4a4a60' } },
         tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
-          callbacks:{
-            label: ctx => ` ${ctx.dataset.label.replace(' ↑','')}: RM ${fmt(ctx.parsed.y)}`,
-          },
-        },
+          callbacks:{ label: ctx => ` ${ctx.dataset.label.replace(' ↑','')}: RM ${fmt(ctx.parsed.y)}` } },
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
@@ -644,124 +814,94 @@ function renderCategoryLines(body, varExp, periodRefs) {
   }));
 }
 
-// ── 4c: Payment method flow table ─────────────────────────────────────────────
+// ── Payment flow table ─────────────────────────────────────────────────────────
 
-function renderPaymentFlow(body, expenses, periodRefs) {
+function renderPaymentFlow(container, expenses, periodRefs) {
   const curPeriod = periodRefs[periodRefs.length - 1];
   const curExp = expenses.filter(e => e.date >= curPeriod.start && e.date <= curPeriod.end && e.type !== 'income');
-
   if (!curExp.length) return;
 
   const methods = [...new Set(curExp.map(e => e.paymentMethod).filter(Boolean))];
   if (!methods.length) return;
 
-  // Top 4 categories by spend
   const catTotals = {};
   curExp.forEach(e => { const c = e.category||'Other'; catTotals[c] = (catTotals[c]||0)+e.amount; });
   const top4 = Object.entries(catTotals).sort((a,b) => b[1]-a[1]).slice(0,4).map(([c]) => c);
 
-  // Build matrix
   const matrix = {};
   methods.forEach(m => {
     const mExp = curExp.filter(e => e.paymentMethod === m);
     matrix[m] = { _total: mExp.reduce((s,e) => s+e.amount, 0) };
-    top4.forEach(cat => {
-      matrix[m][cat] = mExp.filter(e=>(e.category||'Other')===cat).reduce((s,e)=>s+e.amount,0);
-    });
+    top4.forEach(cat => { matrix[m][cat] = mExp.filter(e=>(e.category||'Other')===cat).reduce((s,e)=>s+e.amount,0); });
   });
 
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Where each account spent · this period</span>';
-
   const scroll = document.createElement('div');
-  scroll.style.cssText = 'overflow-x:auto;-webkit-overflow-scrolling:touch;';
+  scroll.className = 'flow-scroll';
 
   const table = document.createElement('table');
   table.className = 'flow-table';
 
-  // Header
+  // thead
   const thead = document.createElement('thead');
   const hr = document.createElement('tr');
   ['Account', ...top4.map(c => abbrev(c)), 'Total'].forEach((h, i) => {
     const th = document.createElement('th');
+    if (i === 0) th.className = 'fsticky';
     th.textContent = h;
-    th.style.textAlign = i === 0 ? 'left' : 'right';
     hr.appendChild(th);
   });
   thead.appendChild(hr);
   table.appendChild(thead);
 
-  // Body
+  // tbody
   const tbody = document.createElement('tbody');
   methods.forEach(m => {
     const tr = document.createElement('tr');
-
     const nameTd = document.createElement('td');
     nameTd.textContent = abbrev(m, 13);
-    nameTd.style.fontWeight = '600';
-    nameTd.style.color = 'var(--ink)';
+    nameTd.className = 'fsticky';
     tr.appendChild(nameTd);
-
     top4.forEach(cat => {
       const td  = document.createElement('td');
       const val = matrix[m][cat] || 0;
       td.textContent = val > 0 ? `RM ${fmt0(val)}` : '—';
-      td.style.textAlign = 'right';
-      td.style.color = val > 0 ? 'var(--ink)' : 'var(--ink-3)';
+      td.className   = val > 0 ? '' : 'z';
       tr.appendChild(td);
     });
-
     const totTd = document.createElement('td');
     totTd.textContent = `RM ${fmt0(matrix[m]._total)}`;
-    totTd.style.cssText = 'text-align:right;font-weight:700;color:var(--ink)';
+    totTd.className = 'ftot';
     tr.appendChild(totTd);
-
     tbody.appendChild(tr);
   });
+  table.appendChild(tbody);
 
-  // Totals row
+  // tfoot totals row
+  const tfoot = document.createElement('tfoot');
   const totTr = document.createElement('tr');
-  totTr.className = 'flow-total-row';
   const lbl = document.createElement('td');
   lbl.textContent = 'Total';
-  lbl.style.fontWeight = '700';
+  lbl.className = 'fsticky';
   totTr.appendChild(lbl);
-
   top4.forEach(cat => {
     const td  = document.createElement('td');
     const val = methods.reduce((s, m) => s + (matrix[m][cat]||0), 0);
     td.textContent = `RM ${fmt0(val)}`;
-    td.style.cssText = 'text-align:right;font-weight:700;';
     totTr.appendChild(td);
   });
-
   const grand = document.createElement('td');
   grand.textContent = `RM ${fmt0(methods.reduce((s,m) => s+matrix[m]._total, 0))}`;
-  grand.style.cssText = 'text-align:right;font-weight:800;color:var(--accent-ink);';
   totTr.appendChild(grand);
+  tfoot.appendChild(totTr);
+  table.appendChild(tfoot);
 
-  tbody.appendChild(totTr);
-  table.appendChild(tbody);
   scroll.appendChild(table);
-  section.appendChild(scroll);
-  body.appendChild(section);
+  container.appendChild(scroll);
 }
 
-// ── Section 5: Savings trajectory ─────────────────────────────────────────────
+// ── Pot gauge cards ────────────────────────────────────────────────────────────
 
-function renderSavingsSection(body, { pots, potTxns, accounts, expenses, transfers, periodRefs }) {
-  if (!pots?.length && !accounts?.length) return;
-  if (pots?.length)    renderPotCards(body, pots, potTxns, periodRefs);
-  if (pots?.length)    renderContributionChart(body, pots, potTxns, periodRefs);
-  if (accounts?.length) renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, periodRefs });
-}
-
-// ── 5a: Pot progress cards ─────────────────────────────────────────────────────
-
-function renderPotCards(body, pots, potTxns, periodRefs) {
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Savings goals</span>';
-
+function renderPotCards(container, pots, potTxns, periodRefs) {
   const grid = document.createElement('div');
   grid.className = 'pot-grid';
 
@@ -776,46 +916,96 @@ function renderPotCards(body, pots, potTxns, periodRefs) {
     gaugeWrap.innerHTML = buildGaugeSVG(pct, pot.colour || 'var(--accent)');
     card.appendChild(gaugeWrap);
 
-    const nameEl = document.createElement('div');
-    nameEl.className = 'pot-name';
-    nameEl.textContent = pot.name;
-    card.appendChild(nameEl);
+    card.appendChild(Object.assign(document.createElement('div'), { className: 'pot-name', textContent: pot.name }));
 
     const balEl = document.createElement('div');
     balEl.className = 'pot-bal';
-    balEl.textContent = `RM ${fmt0(pot.currentBalance || 0)} / ${fmt0(pot.targetAmount || 0)}`;
+    balEl.innerHTML = `RM ${fmt0(pot.currentBalance || 0)} <span style="color:var(--ink-3)">/ ${fmt0(pot.targetAmount || 0)}</span>`;
     card.appendChild(balEl);
 
+    const etaEl = document.createElement('div');
     if (proj.done) {
-      const doneEl = document.createElement('div');
-      doneEl.className = 'pot-eta done';
-      doneEl.textContent = '✓ Goal reached';
-      card.appendChild(doneEl);
+      etaEl.className = 'pot-eta done';
+      etaEl.textContent = '✓ Goal reached';
     } else if (proj.noRecent) {
-      const etaEl = document.createElement('div');
-      etaEl.className = 'pot-eta muted';
-      etaEl.textContent = 'No recent contributions';
-      card.appendChild(etaEl);
+      etaEl.className = 'pot-eta warn';
+      etaEl.textContent = '⚠ No recent contributions';
     } else {
-      const etaEl = document.createElement('div');
-      etaEl.className = 'pot-eta';
+      etaEl.className = 'pot-eta ok';
       etaEl.textContent = `~${proj.monthsLeft} mo. to goal`;
-      card.appendChild(etaEl);
     }
-
-    if (!proj.done && proj.noContrib) {
-      const alertEl = document.createElement('div');
-      alertEl.className = 'pot-alert';
-      alertEl.textContent = '⚠ Nothing added this month';
-      card.appendChild(alertEl);
-    }
+    card.appendChild(etaEl);
 
     grid.appendChild(card);
   });
 
-  section.appendChild(grid);
-  body.appendChild(section);
+  container.appendChild(grid);
 }
+
+// ── Net worth chart ────────────────────────────────────────────────────────────
+
+function renderNetWorthChart(container, { accounts, expenses, transfers, potTxns, pots, periodRefs }) {
+  const periodEndDates = periodRefs.map(r => r.end);
+
+  const accHistory = (accounts || []).map(acc => ({
+    acc,
+    data: periodEndDates.map(d => computeAccBalance(acc, expenses, transfers, potTxns, d)),
+  }));
+
+  const potsHistory = periodEndDates.map(endDate =>
+    (pots || []).reduce((total, pot) => {
+      let bal = pot.currentBalance || 0;
+      (potTxns || []).filter(t => t.potId === pot.id && t.date > endDate)
+        .forEach(t => { bal += t.type === 'contribute' ? -t.amount : t.amount; });
+      return total + Math.max(0, bal);
+    }, 0)
+  );
+
+  const wrap = document.createElement('div');
+  wrap.className = 'insights-chart-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  container.appendChild(wrap);
+
+  _charts.push(new window.Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]),
+      datasets: [
+        ...accHistory.map((a, i) => ({
+          label: abbrev(a.acc.name),
+          data: a.data,
+          backgroundColor: AREA_FILLS[i % AREA_FILLS.length],
+          borderColor:     AREA_BORDERS[i % AREA_BORDERS.length],
+          borderWidth: 1.5, fill: true, stack: 'accounts', tension: 0.3, pointRadius: 2,
+        })),
+        ...(pots?.length ? [{
+          label: 'Savings pots', data: potsHistory,
+          borderColor: C.NET, backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [4, 3], fill: false, tension: 0.3, pointRadius: 2,
+        }] : []),
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', align: 'start',
+          labels: { boxWidth: 12, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
+        tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: RM ${fmt(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: false },
+          ticks: { font: FONT(10,'600'), color: '#9898b0' } },
+        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+          ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 5 } },
+      },
+    },
+  }));
+}
+
+// ── Gauge SVG ──────────────────────────────────────────────────────────────────
 
 function buildGaugeSVG(pct, color) {
   const r = 36, cx = 50, cy = 52;
@@ -837,171 +1027,26 @@ function buildGaugeSVG(pct, color) {
 function projectCompletion(pot, potTxns, periodRefs) {
   const remaining = (pot.targetAmount || 0) - (pot.currentBalance || 0);
   if (remaining <= 0) return { done: true };
-
-  const contribs = (potTxns || []).filter(t => t.potId === pot.id && t.type === 'contribute');
-
-  // Avg contribution over last 3 salary periods
-  const last3   = periodRefs.slice(-3);
-  const total3  = last3.reduce((sum, { start, end }) =>
+  const contribs   = (potTxns || []).filter(t => t.potId === pot.id && t.type === 'contribute');
+  const last3      = periodRefs.slice(-3);
+  const total3     = last3.reduce((sum, { start, end }) =>
     sum + contribs.filter(t => t.date >= start && t.date <= end).reduce((s, t) => s + t.amount, 0), 0);
   const avgMonthly = total3 / 3;
-
-  const curPeriod = periodRefs[periodRefs.length - 1];
-  const noContrib = !contribs.some(t => t.date >= curPeriod.start && t.date <= curPeriod.end);
-
+  const curPeriod  = periodRefs[periodRefs.length - 1];
+  const noContrib  = !contribs.some(t => t.date >= curPeriod.start && t.date <= curPeriod.end);
   if (avgMonthly <= 0) return { done: false, noRecent: true, noContrib };
-
   return { done: false, monthsLeft: Math.ceil(remaining / avgMonthly), noContrib };
 }
 
-// ── 5b: Contribution history chart ────────────────────────────────────────────
-
-function renderContributionChart(body, pots, potTxns, periodRefs) {
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Monthly contributions · 12 months</span>';
-  const wrap = document.createElement('div');
-  wrap.className = 'insights-chart-wrap';
-  wrap.style.height = '160px';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  section.appendChild(wrap);
-  body.appendChild(section);
-
-  _charts.push(new window.Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]),
-      datasets: pots.map(pot => ({
-        label: abbrev(pot.name),
-        data: periodRefs.map(({ start, end }) =>
-          (potTxns || [])
-            .filter(t => t.potId === pot.id && t.date >= start && t.date <= end)
-            .reduce((s, t) => t.type === 'contribute' ? s + t.amount : s - t.amount, 0)
-        ),
-        backgroundColor: pot.colour || C.AMBER,
-        borderRadius: 2,
-        stack: 'pots',
-      })),
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: pots.length > 1, position: 'top', align: 'start',
-          labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
-        tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
-          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '' : '−'}RM ${fmt(Math.abs(ctx.parsed.y))}` } },
-      },
-      scales: {
-        x: { stacked: true, grid: { display: false }, border: { display: false },
-          ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
-          ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 4 } },
-      },
-    },
-  }));
-}
-
-// ── 5c: Net worth trajectory ───────────────────────────────────────────────────
-
-function renderNetWorthChart(body, { accounts, expenses, transfers, potTxns, pots, periodRefs }) {
-  const section = document.createElement('section');
-  section.innerHTML = '<span class="block-label">Net worth · 12 periods</span>';
-
-  // Use period end dates for balance snapshots
-  const periodEndDates = periodRefs.map(r => r.end);
-
-  // Balance per account per period-end
-  const accHistory = (accounts || []).map(acc => ({
-    acc,
-    data: periodEndDates.map(d => computeAccBalance(acc, expenses, transfers, potTxns, d)),
-  }));
-
-  // Savings pots total — reconstruct backwards from currentBalance
-  const potsHistory = periodEndDates.map(endDate =>
-    (pots || []).reduce((total, pot) => {
-      let bal = pot.currentBalance || 0;
-      (potTxns || [])
-        .filter(t => t.potId === pot.id && t.date > endDate)
-        .forEach(t => { bal += t.type === 'contribute' ? -t.amount : t.amount; });
-      return total + Math.max(0, bal);
-    }, 0)
-  );
-
-  // Trend annotation
-  const sumFirst = accHistory.reduce((s, a) => s + a.data[0], 0) + potsHistory[0];
-  const sumLast  = accHistory.reduce((s, a) => s + a.data[11], 0) + potsHistory[11];
-  const growth   = sumLast - sumFirst;
-  if (growth !== 0 && sumFirst !== 0) {
-    const growthPct = Math.abs(growth / sumFirst * 100);
-    const trend = document.createElement('div');
-    trend.className = 'heatmap-insight';
-    const sign = growth >= 0 ? '+' : '−';
-    trend.textContent = `Net worth ${growth >= 0 ? 'grew' : 'declined'} ${sign}RM ${fmt0(Math.abs(growth))} over 12 months (${sign}${growthPct.toFixed(0)}%)`;
-    section.appendChild(trend);
-  }
-
-  const wrap = document.createElement('div');
-  wrap.className = 'insights-chart-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  section.appendChild(wrap);
-  body.appendChild(section);
-
-  const datasets = [
-    ...accHistory.map((a, i) => ({
-      label: abbrev(a.acc.name),
-      data: a.data,
-      backgroundColor: AREA_FILLS[i % AREA_FILLS.length],
-      borderColor:     AREA_BORDERS[i % AREA_BORDERS.length],
-      borderWidth: 1.5,
-      fill: true,
-      stack: 'accounts',
-      tension: 0.3,
-      pointRadius: 2,
-    })),
-    ...(pots?.length ? [{
-      label: 'Savings pots',
-      data: potsHistory,
-      borderColor: C.NET,
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      borderDash: [4, 3],
-      fill: false,
-      tension: 0.3,
-      pointRadius: 2,
-    }] : []),
-  ];
-
-  _charts.push(new window.Chart(canvas, {
-    type: 'line',
-    data: { labels: periodRefs.map(r => MONTH_SHORT[r.month - 1]), datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: true, position: 'top', align: 'start',
-          labels: { boxWidth: 12, boxHeight: 10, padding: 10, font: FONT(11,'600'), color: '#8888a0' } },
-        tooltip: { backgroundColor: 'rgba(18,18,28,0.90)', titleFont: FONT(12,'700'), bodyFont: FONT(12), padding: 10,
-          callbacks: { label: ctx => ` ${ctx.dataset.label}: RM ${fmt(ctx.parsed.y)}` } },
-      },
-      scales: {
-        x: { grid: { display: false }, border: { display: false },
-          ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
-          ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 5 } },
-      },
-    },
-  }));
-}
+// ── Account balance ────────────────────────────────────────────────────────────
 
 function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
   let bal = account.openingBalance || 0;
   const name = account.name;
   const id   = account.id;
-
   (expenses || []).forEach(e => {
     if (e.date > upToDate) return;
-    if (e.isIncome && e.paymentMethod === name)                                   bal += e.amount;
+    if (e.isIncome && e.paymentMethod === name)                                    bal += e.amount;
     else if ((!e.type || e.type === 'variable' || e.type === 'fixed') && e.paymentMethod === name) bal -= e.amount;
   });
   (transfers || []).forEach(t => {
@@ -1014,7 +1059,6 @@ function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
     if (p.type === 'contribute') bal -= p.amount;
     else                         bal += p.amount;
   });
-
   return bal;
 }
 
@@ -1034,7 +1078,7 @@ function openCategoryLimitSheet(cat) {
 
   const titleEl = document.createElement('div');
   titleEl.className = 'sheet-title';
-  titleEl.textContent = `${cat} — monthly limit`;
+  titleEl.textContent = `${cat} — spending limit`;
 
   const field = document.createElement('div');
   field.className = 'field';
