@@ -23,7 +23,9 @@
       --surface: oklch(1 0 0);
       --screen-bg: oklch(0.994 0.002 95);
       --page-bg: oklch(0.965 0.004 95);
-      --danger: oklch(0.55 0.16 25);
+      --danger:      oklch(0.55 0.16 25);
+      --danger-soft: oklch(0.95 0.05 25);
+      --danger-ink:  oklch(0.47 0.15 25);
 
       --accent: oklch(0.84 0.18 86);
       --accent-strong: oklch(0.78 0.18 86);
@@ -53,6 +55,7 @@
       --positive:        oklch(0.58 0.13 145);
       --positive-strong: oklch(0.53 0.13 145);
       --positive-soft:   oklch(0.96 0.04 145);
+      --positive-ink:    oklch(0.42 0.11 145);
       --positive-shadow: oklch(0.58 0.13 145 / 0.50);
       --on-positive:     oklch(0.99 0.006 145);
 
@@ -1903,200 +1906,135 @@
     }
 
     /* ── Insights sub-page ── */
+
+    /* Scoped radius: 20px inside insights body */
+    #budget-insights-body {
+      --radius: 20px;
+      --radius-sm: 12px;
+      --radius-lg: 26px;
+    }
+
     .insights-loading {
       display: flex; align-items: center; justify-content: center;
       height: 180px; font-size: 14px; font-weight: 600; color: var(--ink-3);
     }
 
-    /* KPI grid: 3 columns, featured card spans 2 */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    .kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 12px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .kpi-featured {
-      grid-column: span 2;
-      background: var(--accent-soft);
-      border-color: var(--accent-line);
-    }
-    .kpi-label {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--ink-3);
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-    }
-    .kpi-val {
-      font-size: 17px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      font-variant-numeric: tabular-nums;
-      line-height: 1.15;
-    }
-    .kpi-featured .kpi-val { font-size: 22px; }
-    .kpi-sub {
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--ink-3);
-    }
-    .kpi-delta {
-      font-size: 10px;
-      font-weight: 600;
-      margin-top: 2px;
-    }
-    .kpi-delta.up { color: var(--positive); }
-    .kpi-delta.dn { color: var(--danger); }
+    /* ── Hero ── */
+    .hero { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 14px 30px -22px oklch(0.3 0.02 265 / 0.28); }
+    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .hero-top > div:first-child { flex: 1; min-width: 0; }
+    .hero-eyebrow { font-size: 12px; font-weight: 600; color: var(--ink-3); }
+    .hero-net { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .hero-netlabel { font-size: 13px; font-weight: 600; color: var(--ink-3); display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+    .delta { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .delta.good { color: var(--positive-ink); background: var(--positive-soft); }
+    .delta.bad  { color: var(--danger-ink);   background: var(--danger-soft); }
+    .delta.flat { color: var(--ink-3);         background: var(--line-2); }
+    .verdict { font-size: 13px; font-weight: 800; padding: 7px 14px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+    .verdict.good { color: var(--positive-ink); background: var(--positive-soft); }
+    .verdict.warn { color: var(--amber-ink);    background: var(--amber-soft); }
+    .verdict.bad  { color: var(--danger-ink);   background: var(--danger-soft); }
+    .hero-line { font-size: 13.5px; font-weight: 600; color: var(--ink-2); line-height: 1.5; margin-top: -4px; }
+    .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .kpi-strip .kpi { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 4px; border-right: 1px solid var(--line); }
+    .kpi-strip .kpi:last-child { border-right: none; }
+    .kpi-v { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .kpi-l { font-size: 10px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.03em; }
+    .bills { display: flex; flex-direction: column; gap: 7px; }
+    .bills-row { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+    .bills-track { height: 7px; background: var(--line-2); border-radius: 999px; overflow: hidden; }
+    .bills-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.4s ease; }
+    .bills.done .bills-fill { background: var(--positive); }
 
-    /* Bills paid progress strip */
-    .kpi-bills {
-      margin-top: 8px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 12px;
-    }
-    .kpi-bills.all-paid {
-      background: var(--positive-soft);
-      border-color: oklch(0.80 0.08 145);
-    }
-    .kpi-bills-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .kpi-bills-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ink-2);
-    }
-    .kpi-bills-count {
-      font-size: 13px;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      color: var(--ink);
-    }
-    .kpi-bills.all-paid .kpi-bills-count { color: var(--positive); }
-    .kpi-bills-track {
-      height: 6px;
-      background: var(--line-2);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .kpi-bills-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: var(--accent);
-      transition: width 0.4s ease;
-    }
-    .kpi-bills.all-paid .kpi-bills-fill { background: var(--positive); }
+    /* ── Segmented lens switcher ── */
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--line-2); padding: 4px; border-radius: var(--radius); position: sticky; top: 0; z-index: 5; }
+    .seg-btn { font: inherit; font-size: 14px; font-weight: 700; color: var(--ink-3); background: none; border: none; padding: 9px 6px; border-radius: calc(var(--radius) - 4px); cursor: pointer; transition: background 0.14s, color 0.14s; }
+    .seg-btn.on { background: var(--surface); color: var(--accent-ink); box-shadow: 0 2px 6px -2px oklch(0.3 0.02 265 / 0.18); }
 
-    /* Trend chart canvas wrapper */
-    .insights-chart-wrap {
-      height: 240px;
-      position: relative;
-      margin-top: 4px;
-    }
+    /* ── Lens container + block cards ── */
+    .lens { display: flex; flex-direction: column; gap: 12px; }
+    .ins-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .ins-block .block-label { font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }
 
-    /* Treemap canvas wrapper */
-    .insights-treemap-wrap {
-      height: 200px;
-      position: relative;
-      margin-top: 4px;
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
+    /* ── Summary pill ── */
+    .summary { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: var(--ink); padding: 13px 15px; border-radius: var(--radius); border: 1px solid; }
+    .sum-spark { width: 8px; height: 8px; border-radius: 999px; margin-top: 5px; flex-shrink: 0; }
+    .sum-text { flex: 1; min-width: 0; }
+    .summary b { font-weight: 800; }
+    .summary.accent { background: var(--accent-soft); border-color: var(--accent-line); }
+    .summary.accent .sum-spark { background: var(--accent); }
+    .summary.comp { background: var(--comp-soft); border-color: var(--comp-line); }
+    .summary.comp .sum-spark { background: var(--comp-ink); }
+    .summary.good { background: var(--positive-soft); border-color: oklch(0.88 0.06 145); }
+    .summary.good .sum-spark { background: var(--positive); }
 
-    /* Category horizontal bar */
-    .insights-bar-wrap {
-      position: relative;
-      margin-top: 4px;
-    }
-    .insights-bar-hint {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--ink-3);
-      margin-top: 10px;
-      margin-bottom: 2px;
-    }
+    /* ── Details expander ── */
+    .details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+    .details-h { width: 100%; display: flex; align-items: center; justify-content: space-between; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink-2); background: none; border: none; padding: 14px 15px; cursor: pointer; }
+    .details-chev { font-size: 18px; color: var(--ink-3); transition: transform 0.2s; display: inline-block; line-height: 1; }
+    .details.open .details-chev { transform: rotate(180deg); }
+    .details-body { padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px; }
 
-    /* Day-of-week heatmap */
-    .heatmap-insight {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent-ink);
-      padding: 10px 12px;
-      background: var(--accent-soft);
-      border: 1px solid var(--accent-line);
-      border-radius: var(--radius-sm);
-      margin-bottom: 10px;
-      line-height: 1.4;
-    }
-    .heatmap-wrap    { display:flex; flex-direction:column; gap:3px; }
-    .heatmap-row     { display:grid; grid-template-columns:28px repeat(7,1fr); gap:3px; align-items:center; }
-    .heatmap-dh      { font-size:9px; font-weight:700; text-align:center; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.04em; }
-    .heatmap-dh.wkend { color:var(--accent-ink); }
-    .heatmap-ml      { font-size:9.5px; font-weight:600; color:var(--ink-3); }
-    .heatmap-cell    { height:22px; border-radius:3px; }
-    .heatmap-cell.wkend { outline:1px solid oklch(0.84 0.18 86 / 0.25); outline-offset:-1px; }
+    /* Trend legend */
+    .trend-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; font-weight: 600; color: var(--ink-2); }
+    .trend-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+    .sw.line { height: 3px; border-radius: 2px; }
 
-    /* Savings pot cards (insights dashboard only — scoped to avoid conflict with savings.js .pot-card) */
-    .pot-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-    .pot-grid .pot-card {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 14px 10px 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      text-align: center;
-    }
+    /* ── Limit bars (CSS-based) ── */
+    .limitbars { display: flex; flex-direction: column; gap: 12px; }
+    .lb-row { display: grid; grid-template-columns: 80px 1fr auto; align-items: center; gap: 10px; background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-align: left; min-height: 44px; }
+    .lb-row:hover .lb-fill { filter: brightness(0.92); }
+    .lb-name { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+    .chip-dot { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+    .lb-track { position: relative; height: 16px; background: var(--line-2); border-radius: 6px; overflow: visible; }
+    .lb-prev { position: absolute; top: 0; left: 0; height: 100%; background: oklch(0.62 0.012 265 / 0.22); border-radius: 6px; }
+    .lb-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 6px; }
+    .lb-limit { position: absolute; top: -3px; width: 2px; height: 22px; background: var(--ink); border-radius: 2px; opacity: 0.55; }
+    .lb-amt { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 52px; text-align: right; }
+    .lb-amt.over { color: var(--danger-ink); }
+    .lb-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; font-weight: 600; color: var(--ink-3); margin-top: 2px; }
+    .lb-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .lb-legend .muted { margin-left: auto; }
+    .dot-prev { width: 10px; height: 10px; border-radius: 3px; background: oklch(0.62 0.012 265 / 0.3); display: inline-block; }
+    .dot-lim { width: 2px; height: 12px; background: var(--ink); opacity: 0.5; display: inline-block; }
+
+    /* ── Heatmap ── */
+    .heatmap { display: flex; flex-direction: column; gap: 3px; }
+    .hm-row { display: grid; grid-template-columns: 26px repeat(7, 1fr); gap: 3px; align-items: center; }
+    .hm-lab { font-size: 9.5px; font-weight: 600; color: var(--ink-3); text-align: right; padding-right: 2px; }
+    .hm-dh { font-size: 9px; font-weight: 700; color: var(--ink-3); text-align: center; text-transform: uppercase; letter-spacing: 0.03em; }
+    .hm-dh.wk { color: var(--accent-ink); }
+    .hm-cell { height: 16px; border-radius: 3px; background: var(--line-2); }
+    .hm-cell.wk { outline: 1px solid oklch(0.84 0.18 86 / 0.22); outline-offset: -1px; }
+    .cap { font-size: 11.5px; line-height: 1.4; }
+    .cap.muted { color: var(--ink-3); font-weight: 500; }
+
+    /* ── Chart wrappers ── */
+    .insights-chart-wrap { height: 240px; position: relative; margin-top: 2px; }
+    .insights-treemap-wrap { height: 200px; position: relative; border-radius: var(--radius); overflow: hidden; }
+
+    /* ── Savings pot cards (scoped, avoids conflict with savings.js) ── */
+    .pot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .pot-grid .pot-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
     .pot-grid .pot-gauge  { line-height: 0; margin-bottom: 2px; }
-    .pot-grid .pot-name   { font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.2; }
-    .pot-grid .pot-bal    { font-size: 10.5px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-    .pot-grid .pot-eta    { font-size: 11px; font-weight: 600; color: var(--ink-2); }
-    .pot-grid .pot-eta.done  { color: var(--positive); }
-    .pot-grid .pot-eta.muted { color: var(--ink-3); font-weight: 500; }
-    .pot-grid .pot-alert  { font-size: 10px; font-weight: 600; color: var(--amber-ink); margin-top: 2px; }
+    .pot-grid .pot-name   { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+    .pot-grid .pot-bal    { font-size: 11px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .pot-grid .pot-eta    { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-top: 2px; }
+    .pot-grid .pot-eta.ok   { color: var(--accent-ink); background: var(--accent-soft); }
+    .pot-grid .pot-eta.done { color: var(--positive-ink); background: var(--positive-soft); }
+    .pot-grid .pot-eta.warn { color: var(--danger-ink); background: var(--danger-soft); }
 
-    /* Payment flow table */
-    .flow-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-    }
-    .flow-table th {
-      font-size: 10px; font-weight:700; color:var(--ink-3);
-      text-transform:uppercase; letter-spacing:0.05em;
-      padding:8px 8px 8px 0; border-bottom:1.5px solid var(--line);
-      white-space:nowrap;
-    }
-    .flow-table th:first-child { padding-left:0; }
-    .flow-table td {
-      padding:10px 8px 10px 0; border-bottom:1px solid var(--line-2);
-      font-size:12.5px; font-weight:500; color:var(--ink-2);
-      font-variant-numeric:tabular-nums; white-space:nowrap;
-    }
-    .flow-total-row td {
-      border-top:1.5px solid var(--line); border-bottom:none;
-      background:var(--accent-soft); padding-top:10px;
-    }
+    /* ── Payment flow table ── */
+    .flow-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--radius); }
+    .flow-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+    .flow-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: right; }
+    .flow-table td { padding: 9px 10px; font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--line-2); white-space: nowrap; text-align: right; color: var(--ink); }
+    .flow-table tfoot td { font-weight: 800; background: var(--accent-soft); border-top: 1.5px solid var(--accent-line); border-bottom: none; }
+    .flow-table .fsticky { position: sticky; left: 0; background: var(--surface); text-align: left; }
+    .flow-table tfoot .fsticky { background: var(--accent-soft); }
+    .flow-table .ftot { font-weight: 800; color: var(--accent-ink); background: var(--accent-soft); }
+    .flow-table .z { color: oklch(0.82 0.006 265); font-weight: 500; }
   </style>
 </head>
 
