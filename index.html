@@ -3,6 +3,10 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- Content-Security-Policy. A meta tag cannot set frame-ancestors, X-Frame-Options or HSTS (GitHub Pages
+       does not let us set response headers). Any new external host the app talks to must be added here.
+       apis.google.com / *.firebaseapp.com / accounts.google.com are needed for the Google sign-in popup. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com; img-src 'self' data: https://*.googleusercontent.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#ffffff" />
   <meta name="mobile-web-app-capable" content="yes" />

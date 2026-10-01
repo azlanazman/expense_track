@@ -2,16 +2,13 @@ import { fetchBudgetMonth } from './db.js';
 import { currentUser } from './state.js';
 
 const SHARED_CATS  = ['Family', 'Subs', 'Car Maintenance'];
-const SHEETJS_URL  = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const SHEETJS_URL  = 'vendor/xlsx-0.18.5.full.min.js';
 
 async function ensureSheetJS() {
   if (window.XLSX) return;
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src         = SHEETJS_URL;
-    s.crossOrigin = 'anonymous';
-    // To enable SRI: compute hash with `curl -s <SHEETJS_URL> | openssl dgst -sha384 -binary | base64`
-    // then set: s.integrity = 'sha384-<computed-hash>';
     s.onload  = resolve;
     s.onerror = () => reject(new Error('Failed to load SheetJS'));
     document.head.appendChild(s);

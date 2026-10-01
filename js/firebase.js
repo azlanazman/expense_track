@@ -1,7 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-app-check.js';
 
 const PROD_CONFIG = {
   apiKey: "AIzaSyCZVMB-jFO3XnqC3fsm8Ue0qoqAGRYJ_7A",
@@ -35,12 +34,5 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const provider = new GoogleAuthProvider();
 
-// App Check — inject __RECAPTCHA_KEY__ via GitHub Actions secret RECAPTCHA_KEY.
-// See SECURITY.md for setup instructions.
-const _rk = "__RECAPTCHA_KEY__";
-if (_rk !== "__RECAPTCHA_KEY__") {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(_rk),
-    isTokenAutoRefreshEnabled: true,
-  });
-}
+// App Check is not enabled. If it is added later, put the (public) reCAPTCHA site key directly in
+// this file and call initializeAppCheck(app, ...) with it; do not rely on a build-time placeholder.

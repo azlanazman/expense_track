@@ -1,51 +1,34 @@
 # Daily Expense Tracker
 
-A mobile-first personal expense tracker. Google Sign-In, Firestore backend, deployed as a static site on GitHub Pages.
+A mobile-first personal expense tracker. Vanilla HTML/CSS/JS (ES modules, no build step), Firebase Auth + Firestore, hosted on GitHub Pages.
 
-## Setup
+Live: https://azlanazman.github.io/expense_track/ (use "Try Demo" to look around).
 
-### 1. Firebase project
+## Screens
 
-1. Go to [Firebase Console](https://console.firebase.google.com) and create a new project.
-2. Enable **Firestore Database** (start in production mode).
-3. Enable **Authentication → Sign-in method → Google**.
-4. Go to **Project Settings → Your apps → Add web app**, copy the config object.
+Add, Log (browse, filter, edit, export), Report (monthly totals, category breakdown, payment grid, export), Budget (monthly fixed-bill checklist and income), Accounts (balances and transfers), Savings (pots), Insights (spending, habits and savings lenses), Settings (categories, payment methods, salary day, data tools). First sign-in runs onboarding.
 
-### 2. Paste Firebase config
-
-Open `index.html` and find:
-
-```js
-const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  ...
-```
-
-Replace the placeholder values with your real Firebase config.
-
-### 3. Firestore index
-
-On first load, the query may fail with a console link to create a composite index on `(uid ASC, date DESC)`. Click the link and create the index.
-
-### 4. Deploy to GitHub Pages
-
-1. Push this repo to GitHub.
-2. Go to **Settings → Pages → Source: Deploy from branch → main → / (root)**.
-3. Your app will be live at `https://yourusername.github.io/repo-name`.
-4. Add that URL to Firebase **Authentication → Authorised domains**.
-
-### 5. Deploy Firestore rules
+## Run locally
 
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase init firestore   # select your project
-firebase deploy --only firestore:rules
+python3 -m http.server 8000      # then open http://localhost:8000
 ```
 
-## Usage
+ES modules need http, not `file://`. On localhost the app automatically talks to the **test** Firebase project (tab title starts with `[TEST]`); add `?env=prod` to use production deliberately.
 
-- **Add** — enter amount, date, category, payment method, and optional notes.
-- **Log** — browse and filter monthly expenses; tap a row to edit or delete.
-- **Report** — monthly totals, category breakdown, and a full payment × category grid.
-- **Settings** — manage categories and payment methods; sign out.
+## Deploy
+
+GitHub Pages serves the `main` branch (root). Push or merge to `main` and the site updates within a few minutes. Firestore rules are deployed separately (Firebase console → Firestore → Rules, or `firebase deploy --only firestore:rules --project prod`). See `SECURITY.md` before changing rules, and `CLAUDE.md` for architecture and development conventions.
+
+## Setting up a fresh Firebase project
+
+1. Create a Firebase project; enable Firestore, Google sign-in and (for the demo) Email/Password.
+2. Put the web app config in `js/firebase.js` (`PROD_CONFIG` / `TEST_CONFIG`).
+3. Add your Pages domain and `localhost` to Authentication → Authorised domains.
+4. Publish `firestore.rules` and deploy `firestore.indexes.json` (`firebase deploy --only firestore --project <alias>`; aliases are in `.firebaserc`). Edit the owner email allowlist at the top of the rules first.
+
+## Checks before committing
+
+```bash
+node scripts/check-escape.js     # flags user data interpolated into HTML without escapeHtml()
+```
