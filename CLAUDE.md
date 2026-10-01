@@ -225,7 +225,7 @@ payments: [{ itemId, paid, amount, paidDate, expenseId }]
 
 ### `accounts/{uid}`
 ```
-accounts: [{ id, name, openingBalance, type, createdAt }]
+accounts: [{ id, name, openingBalance, type, createdAt, adjustments?: [{ id, date, amount, createdAt }] }]
 // type: "bank" | "ewallet" | "card" | "savings" — icon only
 // createdAt: ISO string (not Firestore timestamp)
 ```
@@ -297,7 +297,7 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 
 **Budget Checklist:** Marking paid writes `expenses` doc (type="fixed", amount > 0) + updates `budgetMonths`. If amount = 0, only `budgetMonths` is updated (no expense doc — Firestore rules require amount > 0). Unchecking deletes the expense doc + sets `paid:false`.
 
-**Budget Accounts:** Balance computed client-side — never stored. Formula: `openingBalance + income − spend − transfersOut + transfersIn − potContributions + potWithdrawals`. All expenses for that `paymentMethod` included (no date floor). Income from `isIncome:true` expense docs.
+**Budget Accounts:** Balance computed client-side — never stored — by the single shared function `computeAccountBalance` in `js/balance.js` (used by Accounts and the Insights net-worth chart; do not copy the formula elsewhere). It also adds `account.adjustments` (dated corrections saved by the "Set today's balances" sheet: the owner types the real balance, the difference becomes an adjustment dated today). Opening balances are not rewritten. Formula: `openingBalance + income − spend − transfersOut + transfersIn − potContributions + potWithdrawals`. All expenses for that `paymentMethod` included (no date floor). Income from `isIncome:true` expense docs.
 
 **Budget Savings:** `currentBalance` is stored, not computed — always written through Add/Withdraw flows. Per-transaction account can differ from pot's `linkedAccountId`; `calcBalance` reads `linkedAccountId` on each `potTransaction`.
 

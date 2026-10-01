@@ -3,6 +3,7 @@ import { fmt, fmt0, catColor, escapeHtml,
   salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSettings,
   fetchSavingsPots, fetchPotTransactions, fetchAccounts, fetchAllTransfers } from './db.js';
+import { computeAccountBalance } from './balance.js';
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
@@ -1041,25 +1042,7 @@ function projectCompletion(pot, potTxns, periodRefs) {
 // ── Account balance ────────────────────────────────────────────────────────────
 
 function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
-  let bal = account.openingBalance || 0;
-  const name = account.name;
-  const id   = account.id;
-  (expenses || []).forEach(e => {
-    if (e.date > upToDate) return;
-    if (e.isIncome && e.paymentMethod === name)                                    bal += e.amount;
-    else if ((!e.type || e.type === 'variable' || e.type === 'fixed') && e.paymentMethod === name) bal -= e.amount;
-  });
-  (transfers || []).forEach(t => {
-    if (t.date > upToDate) return;
-    if (t.toAccountId   === id) bal += t.amount;
-    if (t.fromAccountId === id) bal -= t.amount;
-  });
-  (potTxns || []).forEach(p => {
-    if (p.date > upToDate || p.linkedAccountId !== id) return;
-    if (p.type === 'contribute') bal -= p.amount;
-    else                         bal += p.amount;
-  });
-  return bal;
+  return computeAccountBalance(account, { expenses, transfers, potTxns }, upToDate);
 }
 
 // ── Category limit sheet ───────────────────────────────────────────────────────
