@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, parseLocalDate, monthLabel, catColor, showToast, escapeHtml } from './helpers.js';
+import { fmt, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
 
@@ -13,6 +13,8 @@ let rptState = {
   period:    'monthly',
   year:      new Date().getFullYear(),
   month:     new Date().getMonth() + 1,
+  spYear:    new Date().getFullYear(),   // salary-period anchor: the month the period starts in
+  spMonth:   new Date().getMonth() + 1,
   startDate: '',
   endDate:   '',
   selected:  [],
@@ -33,6 +35,7 @@ export async function initReport() {
   rptState.period   = 'salary';
   rptState.year     = now.getFullYear();
   rptState.month    = now.getMonth() + 1;
+  resetSalaryAnchor();
   rptState.selected = [];
   rptState.tab      = 'variable';
   rptState.expanded = new Set();
@@ -50,54 +53,40 @@ function daysBetween(s, e) {
   return Math.max(1, Math.round((parseLocalDate(e) - parseLocalDate(s)) / 86400000) + 1);
 }
 
+function resetSalaryAnchor() {
+  const { year, month } = salaryPeriodMonth(userSettings.salaryDay);
+  rptState.spYear  = year;
+  rptState.spMonth = month;
+}
+
+function isCurrentSalaryPeriod() {
+  const cur = salaryPeriodMonth(userSettings.salaryDay);
+  return rptState.spYear === cur.year && rptState.spMonth === cur.month;
+}
+
 function computePeriodDates() {
-  const { period, year, month } = rptState;
+  const { period, year, month, spYear, spMonth } = rptState;
   if (period === 'monthly') {
     const y = String(year), m = String(month).padStart(2, '0');
     rptState.startDate = `${y}-${m}-01`;
     rptState.endDate   = `${y}-${m}-31`;
   } else if (period === 'salary') {
     const sd = userSettings.salaryDay ?? 25;
-    rptState.startDate = salaryStart(sd);
-    rptState.endDate   = salaryEnd(sd);
+    rptState.startDate = salaryStartForMonth(sd, spYear, spMonth);
+    rptState.endDate   = salaryEndForMonth(sd, spYear, spMonth);
   }
 }
 
-function salaryStart(sd) {
-  const t = new Date();
-  const today = t.getDate(), y = t.getFullYear(), m = t.getMonth() + 1;
-  if (today >= sd) {
-    // Salary already arrived this month — period started this month
-    const day = Math.min(sd, new Date(y, m, 0).getDate());
-    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  } else {
-    // Before salary day — period started last month
-    const pm = m === 1 ? 12 : m - 1;
-    const py = m === 1 ? y - 1 : y;
-    const day = Math.min(sd, new Date(py, pm, 0).getDate());
-    return `${py}-${String(pm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  }
-}
-
-function salaryEnd(sd) {
-  const t = new Date();
-  const today = t.getDate(), y = t.getFullYear(), m = t.getMonth() + 1;
-  if (sd <= 1) {
-    // Salary on 1st — period runs the full calendar month
-    const last = new Date(y, m, 0).getDate();
-    return `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
-  }
-  if (today >= sd) {
-    // Salary arrived — period ends sd−1 of next month
-    const nm = m === 12 ? 1 : m + 1;
-    const ny = m === 12 ? y + 1 : y;
-    const day = Math.min(sd - 1, new Date(ny, nm, 0).getDate());
-    return `${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  } else {
-    // Before salary day — period ends sd−1 of this month
-    const day = Math.min(sd - 1, new Date(y, m, 0).getDate());
-    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  }
+// "28 Sep – 27 Oct" for the current year; the year is added when the period is not in the current year
+// (or spans two years), so older periods are unambiguous.
+function salaryTitle(startDate, endDate) {
+  const thisYear = new Date().getFullYear();
+  const sy = parseLocalDate(startDate).getFullYear();
+  const ey = parseLocalDate(endDate).getFullYear();
+  const withYear = sy !== thisYear || ey !== thisYear;
+  const f = (d) => parseLocalDate(d).toLocaleDateString(undefined,
+    withYear ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+  return `${f(startDate)} – ${f(endDate)}`;
 }
 
 // ── Data load ─────────────────────────────────────────────────────────────────
@@ -121,11 +110,18 @@ function renderReport() {
     titleEl.textContent = monthLabel(year, month);
     prevBtn.style.visibility = '';
     nextBtn.style.visibility = '';
+  } else if (period === 'salary') {
+    titleEl.textContent = salaryTitle(startDate, endDate);
+    prevBtn.style.visibility = '';
+    nextBtn.style.visibility = isCurrentSalaryPeriod() ? 'hidden' : '';
   } else {
     titleEl.textContent = `${shortDate(startDate)} – ${shortDate(endDate)}`;
     prevBtn.style.visibility = 'hidden';
     nextBtn.style.visibility = 'hidden';
   }
+  const navNoun = period === 'salary' ? 'period' : 'month';
+  prevBtn.setAttribute('aria-label', `Previous ${navNoun}`);
+  nextBtn.setAttribute('aria-label', `Next ${navNoun}`);
 
   // Period chips
   const periodRow = document.getElementById('rpt-period-row');
@@ -146,6 +142,7 @@ function renderReport() {
           renderReport();
         } else {
           document.getElementById('rpt-custom-dates').style.display = 'none';
+          if (p.key === 'salary') resetSalaryAnchor();
           computePeriodDates();
           await loadReport();
         }
@@ -524,6 +521,7 @@ function renderExportButton() {
   const entryCount = entries.length;
   const rangeLabel = period === 'monthly'
     ? monthLabel(year, month)
+    : period === 'salary' ? salaryTitle(startDate, endDate)
     : `${shortDate(startDate)} – ${shortDate(endDate)}`;
 
   const btn = document.createElement('button');
@@ -666,17 +664,30 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ── Month navigation ──────────────────────────────────────────────────────────
 
 document.getElementById('rpt-prev-month').addEventListener('click', async () => {
-  if (rptState.period !== 'monthly') return;
-  rptState.month--;
-  if (rptState.month < 1) { rptState.month = 12; rptState.year--; }
+  if (rptState.period === 'monthly') {
+    rptState.month--;
+    if (rptState.month < 1) { rptState.month = 12; rptState.year--; }
+  } else if (rptState.period === 'salary') {
+    rptState.spMonth--;
+    if (rptState.spMonth < 1) { rptState.spMonth = 12; rptState.spYear--; }
+  } else {
+    return;
+  }
   computePeriodDates();
   await loadReport();
 });
 
 document.getElementById('rpt-next-month').addEventListener('click', async () => {
-  if (rptState.period !== 'monthly') return;
-  rptState.month++;
-  if (rptState.month > 12) { rptState.month = 1; rptState.year++; }
+  if (rptState.period === 'monthly') {
+    rptState.month++;
+    if (rptState.month > 12) { rptState.month = 1; rptState.year++; }
+  } else if (rptState.period === 'salary') {
+    if (isCurrentSalaryPeriod()) return;      // no navigating into the future
+    rptState.spMonth++;
+    if (rptState.spMonth > 12) { rptState.spMonth = 1; rptState.spYear++; }
+  } else {
+    return;
+  }
   computePeriodDates();
   await loadReport();
 });

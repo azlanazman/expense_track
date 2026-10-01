@@ -35,6 +35,7 @@ export async function exportReport(entries, startDate, endDate) {
 
   const incomeRows = await fetchIncomeForPeriod(startDate, endDate);
   XLSX.utils.book_append_sheet(wb, buildIncomeSheet(XLSX, incomeRows), 'Income');
+  XLSX.utils.book_append_sheet(wb, buildDetailsSheet(XLSX, [...varEntries, ...fixedEntries]), 'Details');
 
   XLSX.writeFile(wb, `expense-${startDate}–${endDate}.xlsx`);
 }
@@ -142,6 +143,23 @@ function buildIncomeSheet(XLSX, incomeRows) {
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 13 }];
+  return ws;
+}
+
+// ── Sheet 5: Details (one row per expense, includes notes) ────────────────────
+
+function buildDetailsSheet(XLSX, entries) {
+  const sorted = entries.slice().sort((a, b) =>
+    b.date.localeCompare(a.date) || String(a.category).localeCompare(String(b.category)));
+  const rows = [['Date', 'Category', 'Sub-category', 'Payment method', 'Notes', 'Amount', 'Type']];
+  sorted.forEach(e => rows.push([
+    e.date, e.category, e.subCategory || '', e.paymentMethod, e.notes || '', e.amount, e.type || 'variable',
+  ]));
+  const total = sorted.reduce((s, e) => s + e.amount, 0);
+  rows.push(['', '', '', '', 'TOTAL', total, '']);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 30 }, { wch: 12 }, { wch: 10 }];
   return ws;
 }
 
