@@ -44,7 +44,7 @@ function ensureChartJS() {
   if (window.Chart) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.src = 'vendor/chart-4.4.0.umd.js';
     s.onload  = resolve;
     s.onerror = () => reject(new Error('Chart.js failed to load'));
     document.head.appendChild(s);
@@ -55,7 +55,7 @@ function ensureTreemapPlugin() {
   if (window._treemapLoaded) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js';
+    s.src = 'vendor/chartjs-chart-treemap-3.1.0.min.js';
     s.onload  = () => { window._treemapLoaded = true; resolve(); };
     s.onerror = () => reject(new Error('Treemap plugin failed to load'));
     document.head.appendChild(s);

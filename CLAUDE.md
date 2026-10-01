@@ -12,15 +12,15 @@ Design: **colour blocking, bold, pop-up feel** — solid fills, strong coloured 
 
 ```
 index.html              # HTML skeleton + ALL CSS (source of truth for styles)
-_headers                # GitHub Pages security headers (CSP, HSTS, X-Frame-Options)
-SECURITY.md             # API key domain restriction + App Check setup instructions
+vendor/                 # Vendored third-party libs (Chart.js, treemap plugin, SheetJS); see vendor/README.md
+SECURITY.md             # Security layers, known limitations, environments and testing
 js/
   app.js                # Entry point: auth, navigation, session timeout, state clearing
-  firebase.js           # Firebase init + App Check stub
+  firebase.js           # Firebase init (environment switch by hostname)
   state.js              # Shared mutable state (currentUser, userSettings)
   helpers.js            # Pure utils: fmt, catColor, showToast, escapeHtml, sanitise*
   db.js                 # All Firestore operations + audit log
-  export.js             # Report → Export to Sheets (.xlsx via SheetJS CDN, lazy-loaded)
+  export.js             # Report → Export to Sheets (.xlsx via vendored SheetJS, lazy-loaded)
   onboarding.js         # New-user onboarding overlay
   add.js                # Screen 1 — Add Expense
   log.js                # Screen 2 — Expense Log (+ Transfers chip)
@@ -92,6 +92,11 @@ Every `addExpense`, `updateExpense`, `deleteExpense`, `addTransfer`, `addPotTran
 If a checklist item is marked paid with amount = 0, no `expenses` doc is created (Firestore rules reject amount ≤ 0). The payment is still recorded in `budgetMonths` with `expenseId: null`.
 
 ---
+
+## Content-Security-Policy and third-party code
+- `index.html` has a CSP `<meta>` tag. Scripts may load only from `'self'`, `www.gstatic.com` (Firebase SDK) and `apis.google.com` (Google sign-in popup). No inline `<script>` and no inline event handlers (`onclick=` etc.): attach listeners in JS.
+- Do not add a CDN `<script>`. Put third-party libraries in `vendor/` (with licence, version in the file name, and an entry in `vendor/README.md`) and load them by relative path.
+- Any new external host the app calls (fonts, APIs, images) must be added to the right directive in the CSP, and tested on localhost with the console open: a violation shows as "Refused to ...".
 
 ## Environments
 

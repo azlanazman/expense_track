@@ -1,89 +1,38 @@
-# Security Setup Guide
+# Security
 
-## Overview
+This app holds private financial data. It is a static site (GitHub Pages) talking directly to Firebase from the browser, so the browser is untrusted and **Firestore security rules are the real protection**. Everything in this repo, including the Firebase web config, is public by design.
 
-This app stores private financial data. Security depends on:
-1. Firebase Authentication (Google Sign-In)
-2. Firestore Security Rules (in `firestore.rules`)
-3. API key domain restrictions in Google Cloud Console
-4. GitHub Actions secrets injection (keeps keys out of git history)
+## Layers
 
-## Required GitHub Secrets
+1. **Firestore rules** (`firestore.rules`) are the access control. Only two kinds of user are admitted, each limited to documents under their own uid:
+   - the owner: Google sign-in, verified email, email on the allowlist at the top of the rules;
+   - the public demo account (`demo@expense-track.app`, email/password; the password is in `js/app.js` on purpose).
+   Everyone else is denied. Writes are validated (key allowlists, amount/date/text limits, uid cannot be reassigned, audit-log timestamp is server-enforced).
+2. **Firebase Authentication**: Google and Email/Password providers; new-user sign-up is disabled in the console, so only existing accounts can sign in. Authorised domains are `localhost`, `azlanazman.github.io` and the project's `firebaseapp.com` / `web.app` domains.
+3. **API key restriction** (Google Cloud Console): the browser key is restricted to HTTP referrers (the Pages site, the Firebase auth domains, localhost).
+4. **Content-Security-Policy** (meta tag in `index.html`): limits where scripts, frames and network calls can go. All third-party libraries are vendored in `vendor/` and served from the same origin.
+5. **Output escaping**: every piece of user data placed into an HTML template goes through `escapeHtml()` (`js/helpers.js`). `node scripts/check-escape.js` flags likely misses; run it before committing.
+6. **Client behaviour**: 15-minute idle sign-out, screen state cleared on sign-out and when the tab is hidden, audit log of writes.
 
-Go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+## Known limitations
 
-| Secret name | Where to find it |
-|-------------|-----------------|
-| `FIREBASE_API_KEY` | Firebase Console → Project settings → Your apps |
-| `FIREBASE_AUTH_DOMAIN` | Firebase Console → Project settings → Your apps |
-| `FIREBASE_PROJECT_ID` | Firebase Console → Project settings → Your apps |
-| `FIREBASE_STORAGE_BUCKET` | Firebase Console → Project settings → Your apps |
-| `FIREBASE_MESSAGING_SENDER_ID` | Firebase Console → Project settings → Your apps |
-| `FIREBASE_APP_ID` | Firebase Console → Project settings → Your apps |
-| `RECAPTCHA_KEY` | reCAPTCHA admin console (optional — see App Check section) |
+- GitHub Pages cannot set response headers, so `frame-ancestors`, `X-Frame-Options` and HSTS cannot be set by us. Clickjacking protection is therefore weak. Moving to a host that supports headers (Cloudflare Pages, Netlify, Firebase Hosting) would fix that.
+- A meta-tag CSP cannot be report-only; test CSP changes on localhost and watch the console for "Refused to ..." messages.
+- App Check is not enabled. The demo account is public, so someone could use its quota. Mitigation: a billing budget alert in Google Cloud.
+- SheetJS 0.18.5 is the last npm release and has known issues when *parsing* untrusted files. The app only writes `.xlsx`, never reads uploads. Do not add spreadsheet import without upgrading first.
 
-After adding secrets, **change GitHub Pages deployment source** to the `gh-pages` branch (Settings → Pages → Deploy from branch → gh-pages).
+## Environments and testing
 
-## How It Works
+- `localhost` automatically uses the **test** Firebase project (`expense-track-test-4748f`); the live site uses production. `?env=prod` on localhost forces production.
+- Test rule changes in the test project first: publish `firestore.rules` there, then run `scripts/rules-smoke-test.js` in the browser console on localhost as the owner, the demo account and a stranger account (37 cases each). Then publish to production (Firebase console → Firestore → Rules; the Rules history allows rollback).
+- Composite indexes the app needs are in `firestore.indexes.json`.
 
-- `main` branch: `firebase.js` contains `__PLACEHOLDER__` strings (safe to commit)
-- On push to main: GitHub Actions runs, injects real values, deploys to `gh-pages`
-- `gh-pages` branch: deployed site with real values (never edited directly)
+## Console settings to keep
 
-## Local Development
+- Authentication → Settings → User actions: sign-up disabled.
+- Google Cloud → Credentials → browser key: HTTP referrer restriction.
+- Authorised domains: no `github.com`.
 
-The `main` branch has placeholder values in `js/firebase.js`. For local development:
+## Reporting
 
-1. Copy `js/firebase.js` somewhere safe
-2. Replace the `__PLACEHOLDER__` values with your real Firebase config
-3. Never commit the file with real values
-
-Alternatively, add a pre-commit hook that checks for placeholder values.
-
-## Firebase App Check (Optional but Recommended)
-
-App Check adds verification that requests come from your app domain, preventing API abuse:
-
-1. Go to Firebase Console → App Check → Register app
-2. Choose reCAPTCHA v3 and register your domain
-3. Copy the site key from Google reCAPTCHA Admin (console.cloud.google.com → reCAPTCHA Enterprise)
-4. Add it as the `RECAPTCHA_KEY` secret
-
-## API Key Domain Restrictions
-
-Even though Firebase web API keys are public by design, restrict yours to your domain:
-
-1. Google Cloud Console → APIs & Services → Credentials
-2. Click your API key → Application restrictions → HTTP referrers
-3. Add your GitHub Pages domain: `https://<username>.github.io/*`
-
-## SRI Hash for SheetJS
-
-The export feature loads SheetJS from a CDN. To enable Subresource Integrity protection:
-
-1. Compute the hash:
-   ```bash
-   curl -s https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js \
-     | openssl dgst -sha384 -binary | base64
-   ```
-2. In `js/export.js` and `js/log.js`, update the `ensureSheetJS()` function:
-   ```js
-   s.integrity = 'sha384-<your-computed-hash>';
-   s.crossOrigin = 'anonymous';
-   ```
-
-## Firestore Rules
-
-Rules are in `firestore.rules`. Deploy them after any change:
-```bash
-firebase deploy --only firestore:rules
-```
-
-Key protections in current rules:
-- Every document read/write requires the caller's UID to match the stored UID
-- `amount` must be `> 0` and `< 1,000,000`
-- `date` must match `YYYY-MM-DD` format
-- `notes` and text fields capped at 500 characters
-- Transfers are immutable after creation (`allow update: if false`)
-- `auditLog` is write-only (no reads/updates/deletes)
-- Catch-all `deny` at the bottom
+This is a personal project. If you find a problem, open a private security advisory on the GitHub repo or contact the owner.
