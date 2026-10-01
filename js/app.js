@@ -133,7 +133,19 @@ onAuthStateChanged(auth, async (user) => {
 
     document.getElementById('screen-login').style.display = 'none';
     document.getElementById('app').style.display = '';
-    const settings = await loadUserSettings();
+    let settings;
+    try {
+      settings = await loadUserSettings();
+    } catch (e) {
+      console.error(e);
+      // Firestore rules only admit the owner's Google accounts and the demo account.
+      if (e && e.code === 'permission-denied') {
+        showToast('This account is not authorised to use this app');
+        await signOut(auth);
+        return;
+      }
+      throw e;
+    }
     if (settings?.onboardingComplete) {
       const saved = sessionStorage.getItem('activeScreen') || 'add';
       if      (saved === 'log')      { initLog();        showScreen('log'); }

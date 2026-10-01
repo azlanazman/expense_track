@@ -274,7 +274,7 @@ document.getElementById('pot-delete-btn').addEventListener('click', async () => 
   if (!confirm(`Delete pot "${pot?.name}"? This also deletes all its transaction history.`)) return;
 
   try {
-    await deletePotTransactionsByPot(editPotId);
+    await deletePotTransactionsByPot(currentUser.uid, editPotId);
     savState.pots = savState.pots.filter(p => p.id !== editPotId);
     await savePots();
     closeSheet('pot-sheet');

@@ -69,6 +69,12 @@ sanitiseDate(val)            // throws if not "YYYY-MM-DD" format
 
 ### Firestore rules summary
 
+- **Who is admitted:** only the owner's verified Google accounts (email allowlist at the top of `firestore.rules`) and the public demo email/password account. Everyone else is denied by the catch-all. Each admitted user can only read or write documents under their own uid. If you add an owner account, edit the allowlist in BOTH `firestore.rules` and `scripts/rules-smoke-test.js`.
+- `expenses`, `transfers`, `potTransactions`: key allowlists plus full validation on create, and on update for expenses (uid is pinned, so a document can never be re-assigned). If you add a field to a document written by `db.js`, add it to the matching `valid*` function in `firestore.rules` or the write will be rejected.
+- List queries MUST include `where('uid', '==', uid)`. Rules are not filters, so a query without it is rejected outright.
+- `auditLog` entries must carry `timestamp: serverTimestamp()` and only the known keys.
+- **Testing rule changes:** publish to the TEST project, run `scripts/rules-smoke-test.js` in the browser console on localhost (as the owner, the demo account, and a stranger account), then deploy to production. Deploy with `firebase deploy --only firestore:rules --project test` (or `prod`); indexes are in `firestore.indexes.json`.
+
 - Ownership enforced on every collection via `request.auth.uid`
 - `amount`: number, `> 0`, `< 1,000,000`
 - `date`: string matching `YYYY-MM-DD`
