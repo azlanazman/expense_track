@@ -15,6 +15,9 @@ import { clearSavingsState } from './savings.js';
 import { clearInsightsState } from './insights.js';
 import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
+import { registerServiceWorker } from './pwa.js';
+
+registerServiceWorker();   // installable app + offline shell (skipped on localhost, see pwa.js)
 
 // ── Production: silence console output ──────────────────────────────────────
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
