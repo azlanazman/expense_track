@@ -283,7 +283,7 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 
 **Log:** Transfer rows excluded from totals when All/payment chip active; shown only when Transfers chip active. Rows sorted date desc (client-side).
 
-**Report:** Default period = Salary Period (not Monthly). Salary period: if `today >= salaryDay`, started this month; otherwise last month — auto-advances, no stored state. Variable expand = one sub-row per day (daily total, not per transaction). Export downloads all payment methods regardless of active filter chips.
+**Report:** Default period = Salary Period (not Monthly). Salary period: if `today >= salaryDay`, started this month; otherwise last month — auto-advances, no stored state. The header arrows step back and forward by salary period (anchor month `spYear`/`spMonth`, dates from `salaryStartForMonth`/`salaryEndForMonth` in `helpers.js`; forward stops at the current period; the year is shown in the title for older periods). Export has a fifth sheet, Details (one row per expense, with Notes). Variable expand = one sub-row per day (daily total, not per transaction). Export downloads all payment methods regardless of active filter chips.
 
 **Report — Combined tab shared categories** (merged var+fixed when names match exactly):
 
