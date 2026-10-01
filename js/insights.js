@@ -631,7 +631,7 @@ function renderTrendChart(container, { monthly }) {
       plugins:{
         legend:{ display:false },
         tooltip:{ backgroundColor:'rgba(18,18,28,0.90)', titleFont:FONT(12,'700'), bodyFont:FONT(12), padding:10,
-          callbacks:{ label: ctx => { const v=ctx.parsed.y; return ` ${ctx.dataset.label}: ${v<0?'−':''}RM ${fmt(Math.abs(v))}`; } } },
+          callbacks:{ label: ctx => { const v=ctx.parsed.y; return ` ${ctx.dataset.label}: ${v<0?'−':''}RM ${fmt(Math.abs(v))}`; } } }, // escape-ok: Chart.js canvas tooltip text, not HTML
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },

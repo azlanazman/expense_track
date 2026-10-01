@@ -261,7 +261,7 @@ document.getElementById('acc-cancel-btn').addEventListener('click', () => closeS
 
 function openTransferSheet() {
   const accounts = accState.accounts;
-  const opts = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  const opts = accounts.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
   document.getElementById('tf-from').innerHTML = opts;
   document.getElementById('tf-to').innerHTML   = opts;
   if (accounts.length > 1) document.getElementById('tf-to').selectedIndex = 1;

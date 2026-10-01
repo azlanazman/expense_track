@@ -271,7 +271,7 @@ function renderReport() {
 function renderVarTable(tableEl, varEntries, colMethods) {
   const cats = [...new Set(varEntries.map(e => e.category))].sort();
 
-  const headCols   = colMethods.map(m => `<th>${m}</th>`).join('');
+  const headCols   = colMethods.map(m => `<th>${escapeHtml(m)}</th>`).join('');
   const grandTotal = varEntries.reduce((s, e) => s + e.amount, 0);
   const footTotals = colMethods.map(m => {
     const s = varEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
@@ -354,7 +354,7 @@ function buildVarSubRows(catEntries, colMethods) {
 function renderFixedTable(tableEl, fixedEntries, colMethods) {
   const groups = [...new Set(fixedEntries.map(e => e.category))].sort();
 
-  const headCols   = colMethods.map(m => `<th>${m}</th>`).join('');
+  const headCols   = colMethods.map(m => `<th>${escapeHtml(m)}</th>`).join('');
   const grandTotal = fixedEntries.reduce((s, e) => s + e.amount, 0);
   const footTotals = colMethods.map(m => {
     const s = fixedEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
@@ -453,7 +453,7 @@ function renderCombinedTable(tableEl, varEntries, fixedEntries, colMethods) {
 
   const allCombined = [...varEntries, ...fixedEntries];
   const grandTotal  = allCombined.reduce((s, e) => s + e.amount, 0);
-  const headCols    = colMethods.map(m => `<th>${m}</th>`).join('');
+  const headCols    = colMethods.map(m => `<th>${escapeHtml(m)}</th>`).join('');
   const footTotals  = colMethods.map(m => {
     const s = allCombined.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
     return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;

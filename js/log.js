@@ -137,7 +137,7 @@ function renderFilterChips() {
 
   filterRow.innerHTML =
     chipMethods.map(m =>
-      `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`
+      `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${escapeHtml(m)}" type="button">${escapeHtml(m)}</button>`
     ).join('') +
     (hidden.length ? `<button class="chip add" id="log-more-chip" type="button">+${hidden.length}</button>` : '') +
     (hasTransfers ? `<button class="chip${showTransfers ? ' on' : ''}" id="log-transfers-chip" type="button">Transfers</button>` : '');
@@ -155,7 +155,7 @@ function renderFilterChips() {
   if (moreChip) {
     moreChip.addEventListener('click', () => {
       filterRow.innerHTML = methods.map(m =>
-        `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${m}" type="button">${m}</button>`
+        `<button class="chip${!showTransfers && m === filter ? ' on' : ''}" data-method="${escapeHtml(m)}" type="button">${escapeHtml(m)}</button>`
       ).join('') +
       (hasTransfers ? `<button class="chip${showTransfers ? ' on' : ''}" id="log-transfers-chip" type="button">Transfers</button>` : '');
       filterRow.querySelectorAll('.chip:not(#log-transfers-chip)').forEach(b =>
@@ -221,7 +221,7 @@ function buildEditForm(entry) {
   wrap.innerHTML = `
     <div class="field">
       <label class="field-label">Amount</label>
-      <input class="input-row note" type="text" inputmode="decimal" id="ea-${id}" value="${entry.amount}" autocomplete="off" />
+      <input class="input-row note" type="text" inputmode="decimal" id="ea-${id}" value="${escapeHtml(entry.amount)}" autocomplete="off" />
     </div>
     <div class="field">
       <label class="field-label">Date</label>
@@ -229,7 +229,7 @@ function buildEditForm(entry) {
         <span id="ed-disp-${id}">${displayDate(entry.date)}</span>
         <span class="muted-ic">${CAL_SVG}</span>
       </button>
-      <input type="date" id="ed-inp-${id}" value="${entry.date}" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
+      <input type="date" id="ed-inp-${id}" value="${escapeHtml(entry.date)}" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
     </div>
     <div class="field" id="ec-field-${id}">
       <label class="field-label">Category</label>

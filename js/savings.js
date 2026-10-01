@@ -93,12 +93,12 @@ function buildPotCard(pot) {
 
   card.innerHTML = `
     <div class="pot-hdr">
-      <div class="pot-dot" style="background:${colour}"></div>
+      <div class="pot-dot" style="background:${escapeHtml(colour)}"></div>
       <button class="pot-name-btn" type="button">${escapeHtml(pot.name)}</button>
       ${acc ? `<span class="pot-acc-lbl">${escapeHtml(acc.name)}</span>` : ''}
     </div>
     <div class="pot-bar-wrap">
-      <div class="pot-bar-fill" style="width:${pct.toFixed(1)}%;background:${colour}"></div>
+      <div class="pot-bar-fill" style="width:${pct.toFixed(1)}%;background:${escapeHtml(colour)}"></div>
     </div>
     <div class="pot-bal-row">
       <span class="pot-bal-val">RM ${fmt(bal)}</span>
@@ -131,7 +131,7 @@ function openTxnSheet(potId, type) {
 
   const accSel = document.getElementById('ptxn-account');
   accSel.innerHTML = savState.accounts.map(a =>
-    `<option value="${a.id}"${a.id === pot.linkedAccountId ? ' selected' : ''}>${a.name}</option>`
+    `<option value="${escapeHtml(a.id)}"${a.id === pot.linkedAccountId ? ' selected' : ''}>${escapeHtml(a.name)}</option>`
   ).join('');
 
   openSheet('pot-txn-sheet');
@@ -201,14 +201,14 @@ function openPotSheet(potId) {
   // Account dropdown
   const sel = document.getElementById('pot-acc-select');
   sel.innerHTML = savState.accounts.map(a =>
-    `<option value="${a.id}"${a.id === pot?.linkedAccountId ? ' selected' : ''}>${a.name}</option>`
+    `<option value="${escapeHtml(a.id)}"${a.id === pot?.linkedAccountId ? ' selected' : ''}>${escapeHtml(a.name)}</option>`
   ).join('');
 
   // Colour swatches
   savState.selectedColour = pot?.colour || POT_COLOURS[0];
   const swatchEl = document.getElementById('pot-colour-swatches');
   swatchEl.innerHTML = POT_COLOURS.map(c =>
-    `<button class="colour-swatch${c === savState.selectedColour ? ' on' : ''}" data-colour="${c}" type="button" style="background:${c}"></button>`
+    `<button class="colour-swatch${c === savState.selectedColour ? ' on' : ''}" data-colour="${escapeHtml(c)}" type="button" style="background:${escapeHtml(c)}"></button>`
   ).join('');
   swatchEl.querySelectorAll('.colour-swatch').forEach(sw =>
     sw.addEventListener('click', () => {
