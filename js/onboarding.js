@@ -1,4 +1,4 @@
-import { fmt, showToast, DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, DEFAULT_PAYMENT_TYPES } from './helpers.js';
+import { fmt, showToast, escapeHtml, DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, DEFAULT_PAYMENT_TYPES } from './helpers.js';
 import {
   updateUserSettings, persistAccounts, fetchAccounts, updateBudgetMonthIncome
 } from './db.js';
@@ -675,13 +675,13 @@ function featureRow(text) {
     <div style="width:20px;height:20px;border-radius:999px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent-ink)">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
-    <span style="font-size:14.5px;font-weight:600;color:var(--ink-2)">${text}</span>
+    <span style="font-size:14.5px;font-weight:600;color:var(--ink-2)">${escapeHtml(text)}</span>
   </div>`;
 }
 
 function summaryRow(label, value, isLast = false) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px${isLast ? '' : ';border-bottom:1px solid var(--line-2)'}">
-    <span style="font-size:14px;font-weight:600;color:var(--ink-2)">${label}</span>
+    <span style="font-size:14px;font-weight:600;color:var(--ink-2)">${escapeHtml(label)}</span>
     <span style="font-size:14px;font-weight:700;color:var(--ink)">${value}</span>
   </div>`;
 }
@@ -696,6 +696,3 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function escapeHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

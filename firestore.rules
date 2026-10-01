@@ -2,91 +2,205 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ──────────────────────────────────────────────────────
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    // ══ Who may use this database ═══════════════════════════════════════════
+    // Two kinds of user, both limited to documents under their OWN uid:
+    //   owner : signed in with Google, verified email, email on the list below
+    //   demo  : the public "Try Demo" email/password account
+    // Everyone else (any other Google account, any other email/password
+    // account) is denied everything by the catch-all at the bottom.
+    // The same file is used for the test and production projects, so the
+    // allowlist is by email, not uid (uids differ between projects).
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'mhdazlan.azman@gmail.com',
+          'irzazman@gmail.com'
+        ];
     }
-    function validAmount(amount) {
-      return amount is number && amount > 0 && amount < 1000000;
+    function isDemo() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email == 'demo@expense-track.app';
     }
-    function validDate(date) {
-      return date is string && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    function isAllowedUser() {
+      return isOwner() || isDemo();
     }
-    function validText(text) {
-      return text is string && text.size() <= 500;
-    }
-    function validOptText(text) {
-      return text == null || (text is string && text.size() <= 500);
+    function ownsUid(uid) {
+      return isAllowedUser() && request.auth.uid == uid;
     }
 
-    // ── expenses ──────────────────────────────────────────────────────────────
+    // ══ Field validators ════════════════════════════════════════════════════
+    function validAmount(a) {
+      return a is number && a > 0 && a < 1000000;
+    }
+    function validDate(s) {
+      return s is string && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    function validText(s) {
+      return s is string && s.size() <= 500;
+    }
+    function validId(s) {
+      return s is string && s.size() > 0 && s.size() <= 200;
+    }
+    // Optional text field: absent, null, or a string up to 500 chars.
+    function optText(d, k) {
+      return !(k in d) || d[k] == null || validText(d[k]);
+    }
+
+    function validExpense(d) {
+      return d.keys().hasOnly([
+          'uid', 'date', 'amount', 'category', 'subCategory', 'paymentMethod',
+          'notes', 'createdAt', 'type', 'budgetItemId', 'isIncome'
+        ])
+        && d.keys().hasAll(['uid', 'date', 'amount', 'category', 'paymentMethod'])
+        && validAmount(d.amount)
+        && validDate(d.date)
+        && validText(d.category)
+        && validText(d.paymentMethod)
+        && optText(d, 'subCategory')
+        && optText(d, 'notes')
+        && optText(d, 'budgetItemId')
+        && (!('type' in d) || d.type in ['variable', 'fixed', 'income'])
+        && (!('isIncome' in d) || d.isIncome is bool);
+    }
+
+    function validTransfer(d) {
+      return d.keys().hasOnly([
+          'uid', 'fromAccountId', 'toAccountId', 'amount', 'date', 'notes',
+          'type', 'createdAt'
+        ])
+        && d.keys().hasAll(['uid', 'fromAccountId', 'toAccountId', 'amount', 'date'])
+        && validId(d.fromAccountId)
+        && validId(d.toAccountId)
+        && d.fromAccountId != d.toAccountId
+        && validAmount(d.amount)
+        && validDate(d.date)
+        && optText(d, 'notes')
+        && (!('type' in d) || d.type == 'transfer');
+    }
+
+    function validPotTxn(d) {
+      return d.keys().hasOnly([
+          'uid', 'potId', 'type', 'amount', 'linkedAccountId', 'date', 'notes',
+          'createdAt'
+        ])
+        && d.keys().hasAll(['uid', 'potId', 'type', 'amount', 'date'])
+        && validId(d.potId)
+        && d.type in ['contribute', 'withdraw']
+        && validAmount(d.amount)
+        && validDate(d.date)
+        && optText(d, 'linkedAccountId')
+        && optText(d, 'notes');
+    }
+
+    // Single-document collections: shape and size sanity only (no key
+    // allowlist, so adding a setting later does not require a rules change).
+    function validSettings(d) {
+      return (!('categories' in d) || (d.categories is list && d.categories.size() <= 100))
+        && (!('paymentMethods' in d) || (d.paymentMethods is list && d.paymentMethods.size() <= 50))
+        && (!('salaryDay' in d) || (d.salaryDay is number && d.salaryDay >= 1 && d.salaryDay <= 31))
+        && (!('categoryLimits' in d) || d.categoryLimits is map);
+    }
+    function validTemplate(d) {
+      return !('groups' in d) || (d.groups is list && d.groups.size() <= 100);
+    }
+    function validMonth(d) {
+      return (!('income' in d) || (d.income is list && d.income.size() <= 100))
+        && (!('payments' in d) || (d.payments is list && d.payments.size() <= 1000));
+    }
+    function validAccounts(d) {
+      return !('accounts' in d) || (d.accounts is list && d.accounts.size() <= 50);
+    }
+    function validPots(d) {
+      return !('pots' in d) || (d.pots is list && d.pots.size() <= 100);
+    }
+
+    // ══ expenses ════════════════════════════════════════════════════════════
+    // uid is pinned on update, so a document can never be re-assigned to
+    // another user. The resulting document is fully re-validated on update.
     match /expenses/{expenseId} {
-      allow read, update, delete: if request.auth != null
-        && request.auth.uid == resource.data.uid;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid
-        && validAmount(request.resource.data.amount)
-        && validDate(request.resource.data.date)
-        && validText(request.resource.data.category)
-        && validOptText(request.resource.data.notes);
+      allow read, delete: if isAllowedUser()
+        && resource.data.uid == request.auth.uid;
+      allow create: if isAllowedUser()
+        && request.resource.data.uid == request.auth.uid
+        && validExpense(request.resource.data);
+      allow update: if isAllowedUser()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && validExpense(request.resource.data);
     }
 
-    // ── userSettings ──────────────────────────────────────────────────────────
-    match /userSettings/{uid} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // ── budgetTemplates ───────────────────────────────────────────────────────
-    match /budgetTemplates/{uid} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // ── budgetMonths ──────────────────────────────────────────────────────────
-    match /budgetMonths/{docId} {
-      allow read, write: if request.auth != null
-        && docId.matches(request.auth.uid + '_.*');
-    }
-
-    // ── accounts ──────────────────────────────────────────────────────────────
-    match /accounts/{uid} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // ── transfers (immutable after creation — allow update: if false) ─────────
+    // ══ transfers (never updated; deletable only by the owner of the doc) ═══
     match /transfers/{transferId} {
-      allow read, delete: if request.auth != null
-        && request.auth.uid == resource.data.uid;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid
-        && validAmount(request.resource.data.amount)
-        && validDate(request.resource.data.date)
-        && validOptText(request.resource.data.notes);
+      allow read, delete: if isAllowedUser()
+        && resource.data.uid == request.auth.uid;
+      allow create: if isAllowedUser()
+        && request.resource.data.uid == request.auth.uid
+        && validTransfer(request.resource.data);
       allow update: if false;
     }
 
-    // ── savingsPots ───────────────────────────────────────────────────────────
-    match /savingsPots/{uid} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // ── potTransactions (immutable after creation) ────────────────────────────
+    // ══ potTransactions (never updated; delete needed when a pot is deleted) ═
     match /potTransactions/{txId} {
-      allow read, delete: if request.auth != null
-        && request.auth.uid == resource.data.uid;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.uid
-        && validAmount(request.resource.data.amount)
-        && validDate(request.resource.data.date);
+      allow read, delete: if isAllowedUser()
+        && resource.data.uid == request.auth.uid;
+      allow create: if isAllowedUser()
+        && request.resource.data.uid == request.auth.uid
+        && validPotTxn(request.resource.data);
       allow update: if false;
     }
 
-    // ── auditLog (create-only, no read/update/delete) ─────────────────────────
+    // ══ Single documents keyed by uid ═══════════════════════════════════════
+    match /userSettings/{uid} {
+      allow read, delete: if ownsUid(uid);
+      allow create, update: if ownsUid(uid) && validSettings(request.resource.data);
+    }
+    match /budgetTemplates/{uid} {
+      allow read, delete: if ownsUid(uid);
+      allow create, update: if ownsUid(uid) && validTemplate(request.resource.data);
+    }
+    match /accounts/{uid} {
+      allow read, delete: if ownsUid(uid);
+      allow create, update: if ownsUid(uid) && validAccounts(request.resource.data);
+    }
+    match /savingsPots/{uid} {
+      allow read, delete: if ownsUid(uid);
+      allow create, update: if ownsUid(uid) && validPots(request.resource.data);
+    }
+
+    // ══ budgetMonths: doc id is "{uid}_{YYYY-MM}" ═══════════════════════════
+    match /budgetMonths/{docId} {
+      allow read, delete: if isAllowedUser()
+        && docId.matches(request.auth.uid + '_[0-9]{4}-[0-9]{2}');
+      allow create, update: if isAllowedUser()
+        && docId.matches(request.auth.uid + '_[0-9]{4}-[0-9]{2}')
+        && validMonth(request.resource.data);
+    }
+
+    // ══ auditLog: create-only, server timestamp enforced, never readable ════
     match /auditLog/{uid}/entries/{entryId} {
-      allow create: if isOwner(uid);
+      allow create: if ownsUid(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'action', 'collection', 'docId', 'timestamp', 'userAgent'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'action', 'collection', 'docId', 'timestamp'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.action in ['create', 'update', 'delete']
+        && request.resource.data.collection is string
+        && request.resource.data.collection.size() <= 100
+        && request.resource.data.docId is string
+        && request.resource.data.docId.size() <= 200
+        && request.resource.data.timestamp == request.time
+        && optText(request.resource.data, 'userAgent');
       allow read, update, delete: if false;
     }
 
-    // ── catch-all deny ────────────────────────────────────────────────────────
+    // ══ catch-all deny ══════════════════════════════════════════════════════
     match /{document=**} {
       allow read, write: if false;
     }

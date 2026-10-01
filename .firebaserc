@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "expense-track-test-4748f",
+    "test": "expense-track-test-4748f",
+    "prod": "expense-track-5b2d3"
+  }
+}

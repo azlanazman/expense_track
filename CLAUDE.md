@@ -49,6 +49,7 @@ firestore.rules
 - **Never use `innerHTML` with user-supplied data.** Always call `escapeHtml(str)` from `helpers.js` first. This includes: category names, payment method names, account names, notes, pot names, group/item names from templates.
 - **Never write to Firestore without sanitising.** Call `sanitiseAmount(n)`, `sanitiseDate(s)`, `sanitiseText(s, maxLen)` from `helpers.js` before any write. These are already called inside `db.js` write functions — don't bypass them by writing directly.
 - **Never call Firestore APIs directly from screen modules.** All reads and writes go through `db.js`. This ensures audit logging and sanitisation are never skipped.
+- **Run `node scripts/check-escape.js` before committing.** It is a tripwire that flags `${name}`-style interpolations of user-text fields in HTML templates. If a flagged value is provably safe (fixed list, number), add `// escape-ok` on that line only when the line is plain JS, never inside a template literal; otherwise wrap in `escapeHtml()`. It cannot see multi-line templates, so review still matters.
 
 ### Helpers (`helpers.js`)
 
@@ -68,6 +69,12 @@ sanitiseDate(val)            // throws if not "YYYY-MM-DD" format
 
 ### Firestore rules summary
 
+- **Who is admitted:** only the owner's verified Google accounts (email allowlist at the top of `firestore.rules`) and the public demo email/password account. Everyone else is denied by the catch-all. Each admitted user can only read or write documents under their own uid. If you add an owner account, edit the allowlist in BOTH `firestore.rules` and `scripts/rules-smoke-test.js`.
+- `expenses`, `transfers`, `potTransactions`: key allowlists plus full validation on create, and on update for expenses (uid is pinned, so a document can never be re-assigned). If you add a field to a document written by `db.js`, add it to the matching `valid*` function in `firestore.rules` or the write will be rejected.
+- List queries MUST include `where('uid', '==', uid)`. Rules are not filters, so a query without it is rejected outright.
+- `auditLog` entries must carry `timestamp: serverTimestamp()` and only the known keys.
+- **Testing rule changes:** publish to the TEST project, run `scripts/rules-smoke-test.js` in the browser console on localhost (as the owner, the demo account, and a stranger account), then deploy to production. Deploy with `firebase deploy --only firestore:rules --project test` (or `prod`); indexes are in `firestore.indexes.json`.
+
 - Ownership enforced on every collection via `request.auth.uid`
 - `amount`: number, `> 0`, `< 1,000,000`
 - `date`: string matching `YYYY-MM-DD`
@@ -83,6 +90,15 @@ Every `addExpense`, `updateExpense`, `deleteExpense`, `addTransfer`, `addPotTran
 ### `markPaid` with zero amount
 
 If a checklist item is marked paid with amount = 0, no `expenses` doc is created (Firestore rules reject amount ≤ 0). The payment is still recorded in `budgetMonths` with `expenseId: null`.
+
+---
+
+## Environments
+
+- **Production:** Firebase project `expense-track-5b2d3`, served by GitHub Pages from `main` (root).
+- **Test:** Firebase project `expense-track-test-4748f`. `js/firebase.js` selects it automatically when the page runs on `localhost` / `127.0.0.1`, and the tab title is prefixed `[TEST]`. Add `?env=prod` to a localhost URL to deliberately use production.
+- Run locally with `python3 -m http.server 8000` in the repo folder, then open `http://localhost:8000`.
+- The test project needs the same `firestore.rules` published (Firebase console → Firestore → Rules) and the composite indexes on `(uid, date)` for `expenses` and `transfers` (the console error link creates them). Its demo user is `demo@expense-track.app`.
 
 ---
 

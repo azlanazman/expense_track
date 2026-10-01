@@ -190,8 +190,10 @@ export async function fetchPotTransactions(uid) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function deletePotTransactionsByPot(potId) {
-  const q = query(collection(db, 'potTransactions'), where('potId', '==', potId));
+// The uid filter is required: Firestore rules are not filters, so a list query that
+// does not constrain uid is rejected outright (this used to make "Delete pot" fail).
+export async function deletePotTransactionsByPot(uid, potId) {
+  const q = query(collection(db, 'potTransactions'), where('uid', '==', uid), where('potId', '==', potId));
   const snap = await getDocs(q);
   if (snap.empty) return;
   const batch = writeBatch(db);

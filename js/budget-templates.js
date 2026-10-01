@@ -205,7 +205,7 @@ function openEditSheet(groupId, itemId) {
   const paySelect = document.getElementById('ies-pay-select');
   const currentPay = item?.paymentMethod || (userSettings.paymentMethods[0] || '');
   paySelect.innerHTML = userSettings.paymentMethods.map(p =>
-    `<option value="${p}"${p === currentPay ? ' selected' : ''}>${p}</option>`
+    `<option value="${escapeHtml(p)}"${p === currentPay ? ' selected' : ''}>${escapeHtml(p)}</option>`
   ).join('');
 
   const amtInp = document.getElementById('ies-amount');
