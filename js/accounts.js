@@ -1,6 +1,7 @@
 import { currentUser, userSettings, setUserSettings } from './state.js';
 import { fmt, todayString, displayDate, showToast, escapeHtml } from './helpers.js';
 import { fetchAccounts, persistAccounts, persistUserSettings, addTransfer, fetchAllTransfers, fetchAllExpenses, fetchPotTransactions } from './db.js';
+import { computeAccountBalance } from './balance.js';
 
 const ACCOUNT_TYPE_ICONS = {
   bank:    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
@@ -63,17 +64,11 @@ async function loadAccounts() {
 }
 
 function calcBalance(account) {
-  const { id, name, openingBalance } = account;
-
-  const expenses = accState.allExpenses.filter(e => e.paymentMethod === name);
-  const income   = expenses.filter(e => e.isIncome).reduce((s, e) => s + e.amount, 0);
-  const spend    = expenses.filter(e => !e.isIncome).reduce((s, e) => s + e.amount, 0);
-  const tfOut    = accState.allTransfers.filter(t => t.fromAccountId === id).reduce((s, t) => s + t.amount, 0);
-  const tfIn     = accState.allTransfers.filter(t => t.toAccountId   === id).reduce((s, t) => s + t.amount, 0);
-  const potOut   = accState.potTransactions.filter(c => c.linkedAccountId === id && c.type === 'contribute').reduce((s, c) => s + c.amount, 0);
-  const potIn    = accState.potTransactions.filter(c => c.linkedAccountId === id && c.type === 'withdraw').reduce((s, c) => s + c.amount, 0);
-
-  return (openingBalance || 0) + income - spend - tfOut + tfIn - potOut + potIn;
+  return computeAccountBalance(account, {
+    expenses:  accState.allExpenses,
+    transfers: accState.allTransfers,
+    potTxns:   accState.potTransactions,
+  });
 }
 
 function lastUpdated(account) {
@@ -103,7 +98,16 @@ export function renderAccounts() {
 
   // Account list
   const listSec = document.createElement('section');
-  listSec.innerHTML = '<span class="block-label">Accounts</span>';
+  const listHdr = document.createElement('div');
+  listHdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px';
+  listHdr.innerHTML = '<span class="block-label" style="margin-bottom:0">Accounts</span>';
+  const reconBtn = document.createElement('button');
+  reconBtn.type = 'button';
+  reconBtn.style.cssText = 'font-size:12.5px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px;cursor:pointer';
+  reconBtn.textContent = "Set today's balances";
+  reconBtn.addEventListener('click', openReconcileSheet);
+  listHdr.appendChild(reconBtn);
+  listSec.appendChild(listHdr);
   const listCard = document.createElement('div');
   listCard.className = 'acc-list';
 
@@ -195,7 +199,7 @@ function openAccSheet(id) {
 
   document.getElementById('acc-sheet-title').textContent = acc ? 'Edit account' : 'Add account';
   document.getElementById('acc-name-inp').value = acc?.name || '';
-  document.getElementById('acc-bal-inp').value  = acc?.openingBalance > 0 ? String(acc.openingBalance) : '';
+  document.getElementById('acc-bal-inp').value  = acc?.openingBalance ? String(acc.openingBalance) : '';
 
   const currentType = acc?.type || 'ewallet';
   const chipsEl = document.getElementById('acc-type-chips');
@@ -337,6 +341,110 @@ document.getElementById('tf-confirm-btn').addEventListener('click', async () => 
 });
 
 document.getElementById('tf-cancel-btn').addEventListener('click', () => closeSheet('transfer-sheet'));
+
+// ── Set today's balances (reconcile) ──────────────────────────────────────────
+// For each account the user types the real balance. The difference from the calculated balance is
+// saved as a dated adjustment on the account (account.adjustments), so opening balances and past
+// history are left alone and the Insights net-worth chart shows a step on the day it was set.
+
+const round2 = (n) => Math.round(n * 100) / 100;
+const money  = (n) => `${n < 0 ? '−' : ''}RM ${fmt(Math.abs(n))}`;
+
+function openReconcileSheet() {
+  const rows = document.getElementById('recon-rows');
+  rows.innerHTML = accState.accounts.map(acc => `
+    <div class="recon-row" data-acc-id="${escapeHtml(acc.id)}" data-shown="${calcBalance(acc)}">
+      <div class="recon-head">
+        <span class="recon-name">${escapeHtml(acc.name)}</span>
+        <span class="recon-shown">App shows ${money(calcBalance(acc))}</span>
+      </div>
+      <div class="recon-input-wrap">
+        <button class="recon-sign" type="button" aria-label="Negative balance" aria-pressed="false">−</button>
+        <input class="input-row recon-inp" type="text" inputmode="decimal" placeholder="Real balance (RM)" autocomplete="off" />
+      </div>
+      <div class="recon-diff"></div>
+    </div>`).join('');
+
+  rows.querySelectorAll('.recon-row').forEach(row => {
+    const inp  = row.querySelector('.recon-inp');
+    const sign = row.querySelector('.recon-sign');
+    inp.addEventListener('input', () => {
+      let v = inp.value;
+      if (v.startsWith('-')) setNegative(sign, true);
+      v = v.replace(/[^0-9.]/g, '');
+      const p = v.split('.');
+      inp.value = p.length > 2 ? p[0] + '.' + p.slice(1).join('') : v;
+      updateReconRow(row);
+    });
+    sign.addEventListener('click', () => { setNegative(sign, sign.getAttribute('aria-pressed') !== 'true'); updateReconRow(row); });
+  });
+  document.getElementById('recon-save-btn').disabled = false;
+  openSheet('recon-sheet');
+}
+
+function setNegative(signBtn, on) {
+  signBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  signBtn.classList.toggle('on', on);
+}
+
+// Returns the real balance typed for a row, or null if the box is empty or invalid.
+function readReal(row) {
+  const raw = row.querySelector('.recon-inp').value.trim();
+  if (raw === '' || raw === '.') return null;
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n)) return null;
+  return row.querySelector('.recon-sign').getAttribute('aria-pressed') === 'true' ? -n : n;
+}
+
+function updateReconRow(row) {
+  const out  = row.querySelector('.recon-diff');
+  const real = readReal(row);
+  if (real === null) { out.textContent = ''; return; }
+  const diff = round2(real - parseFloat(row.dataset.shown));
+  if (Math.abs(diff) < 0.005) { out.textContent = 'Already correct'; out.style.color = 'var(--ink-3)'; return; }
+  out.textContent = `Adjustment ${diff > 0 ? '+' : '−'}RM ${fmt(Math.abs(diff))}`;
+  out.style.color = 'var(--accent-ink)';
+}
+
+document.getElementById('recon-save-btn').addEventListener('click', async () => {
+  const today = todayString();
+  const changes = [];
+  for (const row of document.querySelectorAll('#recon-rows .recon-row')) {
+    const real = readReal(row);
+    if (real === null) continue;
+    if (Math.abs(real) >= 10000000) { showToast('That balance looks too large'); return; }
+    const diff = round2(real - parseFloat(row.dataset.shown));
+    if (Math.abs(diff) >= 0.005) changes.push({ id: row.dataset.accId, diff });
+  }
+  if (changes.length === 0) { showToast('Nothing to update'); return; }
+
+  changes.forEach((c, i) => {
+    const acc = accState.accounts.find(a => a.id === c.id);
+    if (!acc) return;
+    acc.adjustments = [...(acc.adjustments || []),
+      { id: `adj-${Date.now()}-${i}`, date: today, amount: c.diff, createdAt: new Date().toISOString() }];
+  });
+
+  const btn = document.getElementById('recon-save-btn');
+  btn.disabled = true;
+  try {
+    await persistAccounts(currentUser.uid, accState.accounts);
+    closeSheet('recon-sheet');
+    renderAccounts();
+    showToast(changes.length === 1 ? 'Balance updated' : `${changes.length} balances updated`);
+  } catch (e) {
+    console.error(e);
+    // roll back the in-memory change so the screen matches what was saved
+    changes.forEach(c => {
+      const acc = accState.accounts.find(a => a.id === c.id);
+      if (acc?.adjustments) acc.adjustments = acc.adjustments.slice(0, -1);
+    });
+    btn.disabled = false;
+    showToast('Error — please try again');
+  }
+});
+
+document.getElementById('recon-cancel-btn').addEventListener('click', () => closeSheet('recon-sheet'));
 
 // ── Sheet helpers ─────────────────────────────────────────────────────────────
 

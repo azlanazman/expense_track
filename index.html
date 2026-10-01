@@ -1729,6 +1729,15 @@
     .acc-bal-col { text-align: right; flex-shrink: 0; }
     .acc-bal-val { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
     .acc-bal-open { font-size: 12.5px; font-weight: 600; color: var(--ink-3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+    .recon-row { margin-top: 16px; }
+    .recon-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+    .recon-name { font-size: 15px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recon-shown { font-size: 12.5px; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .recon-input-wrap { display: flex; gap: 8px; align-items: stretch; }
+    .recon-input-wrap .recon-inp { flex: 1; min-width: 0; }
+    .recon-sign { width: 48px; flex-shrink: 0; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink-3); font: inherit; font-size: 20px; font-weight: 700; cursor: pointer; }
+    .recon-sign.on { background: var(--danger-soft); border-color: var(--danger); color: var(--danger-ink); }
+    .recon-diff { min-height: 18px; margin-top: 5px; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .acc-add-btn {
       border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 14px;
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -2504,6 +2513,15 @@
       </div>
       <button class="btn-save" id="acc-save-btn" type="button" style="margin-top:20px">Save</button>
       <button id="acc-cancel-btn" type="button" style="margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
+    </div>
+
+    <!-- Set today's balances sheet -->
+    <div class="bottom-sheet" id="recon-sheet" style="max-height:90dvh;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">
+      <div class="sheet-title">Set today's balances</div>
+      <p style="margin-top:8px;font-size:13.5px;font-weight:500;color:var(--ink-2);line-height:1.5">Type the real balance from your bank or wallet app. The difference is saved as a dated adjustment. Leave an account blank to skip it.</p>
+      <div id="recon-rows"></div>
+      <button class="btn-save" id="recon-save-btn" type="button" style="margin-top:16px">Save balances</button>
+      <button id="recon-cancel-btn" type="button" style="margin-top:8px;width:100%;padding:14px;border:none;background:none;color:var(--ink-3);font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-radius:var(--radius)">Cancel</button>
     </div>
 
     <!-- Transfer sheet -->
