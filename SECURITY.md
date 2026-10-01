@@ -14,6 +14,10 @@ This app holds private financial data. It is a static site (GitHub Pages) talkin
 5. **Output escaping**: every piece of user data placed into an HTML template goes through `escapeHtml()` (`js/helpers.js`). `node scripts/check-escape.js` flags likely misses; run it before committing.
 6. **Client behaviour**: 15-minute idle sign-out, screen state cleared on sign-out and when the tab is hidden, audit log of writes.
 
+## Installed app (PWA)
+
+`manifest.webmanifest` and `sw.js` make the app installable. The service worker caches only an explicit allowlist of static files (the site's own files, `vendor/`, the versioned Firebase SDK modules and Google Fonts) and does not intercept Firestore, Authentication or any other API call, so no financial data is stored by it. The site's own files are fetched network-first with revalidation, so a deploy is picked up on the next load. Do not widen the cache allowlist in `sw.js` to cover API hosts.
+
 ## Known limitations
 
 - GitHub Pages cannot set response headers, so `frame-ancestors`, `X-Frame-Options` and HSTS cannot be set by us. Clickjacking protection is therefore weak. Moving to a host that supports headers (Cloudflare Pages, Netlify, Firebase Hosting) would fix that.
