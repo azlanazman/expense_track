@@ -72,7 +72,7 @@ function showFinalScreen() {
 
 function dismissOnboarding() {
   document.getElementById('onboarding-overlay').remove();
-  document.dispatchEvent(new CustomEvent('nav:go-add'));
+  document.dispatchEvent(new CustomEvent('nav:go-home'));
 }
 
 // ── Dynamic step renderers ─────────────────────────────────────────────────────

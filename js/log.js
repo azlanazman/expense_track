@@ -50,6 +50,11 @@ export function showLogTransfers() {
   loadLog();
 }
 
+// Reload the entries for the period and filter already on screen (after an expense is saved elsewhere)
+export async function refreshLog() {
+  if (logState.startDate) await loadLog();
+}
+
 async function loadLog() {
   const { startDate, endDate } = logState;
   const uid = currentUser.uid;

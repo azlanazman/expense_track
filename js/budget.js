@@ -48,6 +48,11 @@ export async function initBudget() {
   await switchSubTab(bdgState.subTab);
 }
 
+// Reload whichever sub-tab is showing (after an expense is saved elsewhere)
+export async function refreshBudget() {
+  if (bdgState.year) await switchSubTab(bdgState.subTab);
+}
+
 function wireSubTabs() {
   document.querySelectorAll('#budget-subtab-bar .rpt-tab').forEach(btn => {
     btn.onclick = () => switchSubTab(btn.dataset.subtab);

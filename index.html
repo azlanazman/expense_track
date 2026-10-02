@@ -133,52 +133,6 @@
     }
     button, input, select, textarea { font: inherit; }
 
-    /* ── Amount hero card ── */
-    .amount-card {
-      background: var(--accent);
-      color: var(--on-accent);
-      border-radius: var(--radius-lg);
-      padding: calc(var(--sp) * 22px) 24px;
-      box-shadow: 0 12px 24px -12px var(--accent-shadow);
-    }
-
-    .amount-label {
-      font-size: 13px;
-      font-weight: 600;
-      opacity: 0.85;
-    }
-
-    .amount-input {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    .amount-input .rm {
-      font-size: 24px;
-      font-weight: 700;
-      opacity: 0.85;
-    }
-
-    .amount-input input {
-      background: none;
-      border: none;
-      outline: none;
-      color: var(--on-accent);
-      font: inherit;
-      font-size: 46px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      width: 100%;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .amount-input input::placeholder {
-      color: var(--on-accent);
-      opacity: 0.55;
-    }
-
     /* ── Form fields ── */
     .field {
       display: flex;
@@ -2122,7 +2076,7 @@
 
     .btn-save { border-radius: 16px; box-shadow: 0 5px 0 var(--yel-edge); }
     .btn-save:active { transform: translateY(5px); box-shadow: 0 0 0 var(--yel-edge); }
-    .amount-card, .acc-total-card, .stat-card.accent { box-shadow: 0 5px 0 var(--yel-edge); }
+    .acc-total-card, .stat-card.accent { box-shadow: 0 5px 0 var(--yel-edge); }
     .stat-card.comp { box-shadow: 0 5px 0 #000; }
     .stat-card.positive { box-shadow: 0 5px 0 oklch(0.42 0.11 145); }
     .stat-card.negative { box-shadow: 0 5px 0 oklch(0.40 0.13 25); }
@@ -2151,6 +2105,36 @@
     .screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     .toast { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
     @media (prefers-reduced-motion: reduce) { .chip, .btn-save, .nav-add { transition: none; } }
+
+    /* ── Redesign, phase B: Add expense bottom sheet ── */
+    .add-sheet { max-height: 92dvh; overflow-y: auto; scrollbar-width: none; padding-top: 8px; border-radius: 30px 30px 0 0; overscroll-behavior: contain; }
+    .add-sheet::-webkit-scrollbar { display: none; }
+    .add-sheet.dragging { transition: none; }
+    .add-sheet .chip:not(.on) { background: var(--inset); }
+    .as-grab { padding: 6px 0 12px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+    .as-grab i { width: 44px; height: 5px; border-radius: 3px; background: var(--ink-3); opacity: 0.5; display: block; }
+    .as-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .as-top h2 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+    .as-x { width: 34px; height: 34px; border-radius: 11px; border: 0; background: var(--inset); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+    .as-amt { display: flex; align-items: baseline; gap: 8px; background: var(--inset); box-shadow: inset 0 3px 4px rgba(0, 0, 0, 0.18); border-radius: 18px; padding: 14px 16px; margin-bottom: 16px; }
+    .as-amt .rm { font-size: 18px; font-weight: 800; color: var(--ink-3); align-self: center; }
+    .as-amt input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: 44px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .as-amt input::placeholder { color: var(--ink-3); opacity: 0.6; }
+    .as-amt:focus-within { box-shadow: inset 0 3px 4px rgba(0, 0, 0, 0.18), 0 0 0 2px var(--accent); }
+    .as-amt.shake { animation: as-shake 0.35s; }
+    @keyframes as-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    .as-group { margin-bottom: 14px; position: relative; }
+    .as-group .block-label { margin-bottom: 8px; }
+    .as-note-btn { background: none; border: 0; font: inherit; font-size: 13.5px; font-weight: 800; color: var(--ink); cursor: pointer; padding: 4px 0; }
+    .as-date-input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+    .btn-save .bs-tick { display: none; }
+    .btn-save.done .bs-tick { display: block; }
+    .btn-save.done .bs-label { display: none; }
+    .btn-save:disabled { cursor: default; }
+    .as-again { display: block; margin: 14px auto 0; background: none; border: 0; font: inherit; font-size: 13.5px; font-weight: 800; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 6px 10px; }
+    .add-sheet [hidden] { display: none !important; }
+    .add-open .toast { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }   /* keep the toast clear of the sheet's Save button */
+    @media (prefers-reduced-motion: reduce) { .add-sheet { transition: none; } .as-amt.shake { animation: none; } }
   </style>
 </head>
 
@@ -2188,82 +2172,6 @@
     <div id="onboarding-overlay"></div>
 
     <!-- Screen 1: Add Expense -->
-    <div id="screen-add" class="screen" style="display:none">
-      <div class="hdr">
-        <div class="hdr-eyebrow" id="add-eyebrow"></div>
-        <h1>Add expense</h1>
-      </div>
-      <div class="screen-body" id="add-body">
-        <!-- amount card -->
-        <div class="amount-card">
-          <div class="amount-label">Amount</div>
-          <div class="amount-input">
-            <span class="rm">RM</span>
-            <input id="add-amount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" />
-          </div>
-        </div>
-        <!-- date field -->
-        <div class="field">
-          <label class="field-label">Date</label>
-          <button class="input-row select" id="add-date-btn" type="button">
-            <span class="sel-val" id="add-date-display"></span>
-            <span class="muted-ic">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            </span>
-          </button>
-          <input type="date" id="add-date-input"
-            style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
-        </div>
-        <!-- category field -->
-        <div class="field" id="add-cat-field">
-          <label class="field-label">Category</label>
-          <button class="input-row select" id="add-cat-btn" type="button">
-            <span class="sel-val" id="add-cat-display"></span>
-            <span class="muted-ic">
-              <svg class="chev" id="add-cat-chev" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </span>
-          </button>
-          <div class="dropdown" id="add-cat-dd" style="display:none"></div>
-        </div>
-        <!-- payment field -->
-        <div class="field" id="add-pay-field">
-          <label class="field-label">Account</label>
-          <button class="input-row select" id="add-pay-btn" type="button">
-            <span class="sel-val" id="add-pay-display"></span>
-            <span class="muted-ic">
-              <svg class="chev" id="add-pay-chev" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </span>
-          </button>
-          <div class="dropdown" id="add-pay-dd" style="display:none"></div>
-        </div>
-        <!-- notes field -->
-        <div class="field">
-          <label class="field-label">Notes</label>
-          <input class="input-row note" id="add-notes" type="text" placeholder="optional…" autocomplete="off" />
-        </div>
-        <!-- save button -->
-        <button class="btn-save" id="btn-save-expense" type="button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Save expense
-        </button>
-      </div>
-    </div>
-
     <!-- Screen 2: Expense Log -->
     <div id="screen-log" class="screen" style="display:none">
       <div class="hdr">
@@ -2822,6 +2730,41 @@
         Settings
       </button>
     </nav>
+
+    <!-- Add expense: bottom sheet opened by the round + in the nav bar (js/add.js) -->
+    <div class="sheet-backdrop" id="add-backdrop"></div>
+    <div class="bottom-sheet add-sheet" id="add-sheet" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title" aria-hidden="true">
+      <div class="as-grab" id="add-grab"><i></i></div>
+      <div class="as-top">
+        <h2 id="add-sheet-title">Add expense</h2>
+        <button class="as-x" id="add-close" type="button" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div class="as-amt" id="add-amt-wrap">
+        <span class="rm">RM</span>
+        <input id="add-amount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount in ringgit" />
+      </div>
+      <div class="as-group"><span class="block-label">Category</span><div class="chip-wrap" id="add-cat-chips"></div></div>
+      <div class="as-group"><span class="block-label">Paid with</span><div class="chip-wrap" id="add-pay-chips"></div></div>
+      <div class="as-group">
+        <span class="block-label">Date</span>
+        <div class="chip-wrap" id="add-date-chips"></div>
+        <input type="date" id="add-date-input" class="as-date-input" tabindex="-1" aria-hidden="true" />
+      </div>
+      <div class="as-group">
+        <button class="as-note-btn" id="add-note-btn" type="button">+ Add a note</button>
+        <div id="add-note-wrap" hidden>
+          <span class="block-label">Note</span>
+          <input class="input-row note" id="add-notes" type="text" placeholder="optional…" maxlength="200" autocomplete="off" />
+        </div>
+      </div>
+      <button class="btn-save" id="btn-save-expense" type="button">
+        <span class="bs-label">Save expense</span>
+        <svg class="bs-tick" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+      </button>
+      <button class="as-again" id="btn-save-another" type="button">Save &amp; add another</button>
+    </div>
 
   </div><!-- /#app -->
 
