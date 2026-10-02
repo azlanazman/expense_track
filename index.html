@@ -967,7 +967,6 @@
       transition: 0.15s;
     }
     .back-btn:hover { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
-    .sub-page-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 
     /* ── Sheet backdrop ── */
     .sheet-backdrop {
@@ -1278,24 +1277,6 @@
       padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     }
 
-    .hdr {
-      padding: calc(var(--sp) * 14px) 24px calc(var(--sp) * 18px);
-    }
-
-    .hdr-eyebrow {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--ink-3);
-      margin-bottom: 5px;
-    }
-
-    .hdr h1 {
-      font-size: 30px;
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      line-height: 1.05;
-    }
-
     .hdr-total {
       margin-top: 12px;
       font-size: 22px;
@@ -1320,41 +1301,6 @@
     }
 
     /* ── Month nav ── */
-    .report-hdr {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .month-title {
-      text-align: center;
-    }
-
-    .month-title h1 {
-      font-size: 24px;
-    }
-
-    .month-nav {
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      color: var(--ink);
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: 0.15s;
-    }
-
-    .month-nav:hover {
-      background: var(--accent-soft);
-      border-color: var(--accent-line);
-      color: var(--accent);
-    }
-
     /* ── Login screen ── */
     .login-screen {
       min-height: 100dvh;
@@ -1887,8 +1833,8 @@
     .chip.soft, .chip.soft.comp { box-shadow: none; }
     .chip.add { border: 1.5px dashed var(--line); box-shadow: none; }
 
-    .month-nav, .back-btn, .log-export-btn, .log-page-btn { border: 0; box-shadow: 0 3px 0 var(--edge); }
-    .month-nav:active, .back-btn:active { transform: translateY(3px); box-shadow: none; }
+    .back-btn, .log-export-btn, .log-page-btn { border: 0; box-shadow: 0 3px 0 var(--edge); }
+    .back-btn:active { transform: translateY(3px); box-shadow: none; }
 
     .btn-save { border-radius: 16px; box-shadow: 0 5px 0 var(--yel-edge); }
     .btn-save:active { transform: translateY(5px); box-shadow: 0 0 0 var(--yel-edge); }
@@ -1925,9 +1871,10 @@
     .add-sheet .chip:not(.on) { background: var(--inset); }
     .as-grab { padding: 6px 0 12px; display: grid; place-items: center; cursor: grab; touch-action: none; }
     .as-grab i { width: 44px; height: 5px; border-radius: 3px; background: var(--ink-3); opacity: 0.5; display: block; }
-    .as-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .as-top h2 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
-    .as-x { width: 34px; height: 34px; border-radius: 11px; border: 0; background: var(--inset); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+    .as-top { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; }
+    .as-top h2 { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }   /* same title style as the page headers (.pk-top b) */
+    .as-x { width: 40px; height: 40px; border-radius: 999px; border: 0; background: var(--screen-bg); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; box-shadow: 0 3px 0 var(--edge); }
+    .as-x:active { transform: translateY(3px); box-shadow: none; }
     .as-amt { display: flex; align-items: baseline; gap: 8px; background: var(--inset); box-shadow: inset 0 3px 4px rgba(0, 0, 0, 0.18); border-radius: 18px; padding: 14px 16px; margin-bottom: 16px; }
     .as-amt .rm { font-size: 18px; font-weight: 800; color: var(--ink-3); align-self: center; }
     .as-amt input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: 44px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1983,6 +1930,24 @@
     .pk-st-none, .pk-st-early { --c: var(--pk-none); }
     .pk-top { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin: 4px 0 10px; color: var(--ink-2); }
     .pk-top b { font-size: 13px; letter-spacing: .14em; color: var(--ink); }
+
+    /* ── Page headers (one style everywhere, taken from Insights) ──
+       .pg-hdr: top-level screens. Row 1 = .pk-top (tracked title left, muted detail right). Row 2 (optional) = .stepper.
+       Sub-pages: .sub-page-hdr = round back button + .pk-top title; the period stepper sits under it in .pg-hdr.sub.
+       Round raised key = BACK. Wide inset capsule with a chevron key at each end = STEP through periods. */
+    .pg-hdr { padding: calc(14px + env(safe-area-inset-top, 0px)) 24px 16px; }
+    #screen-settings .pg-hdr { padding-bottom: 24px; }
+    .pg-hdr.sub { padding-top: 0; }
+    .pg-hdr .pk-top { margin: 4px 0 10px; }
+    .pg-hdr .pk-top:last-child { margin-bottom: 0; }
+    .pk-top .pk-mail { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 12px; }
+    .sub-page-hdr { padding: calc(14px + env(safe-area-inset-top, 0px)) 24px 12px; gap: 14px; }
+    .sub-page-hdr .pk-top { margin: 0; flex: 1; min-width: 0; }
+    .stepper { display: flex; align-items: center; gap: 6px; padding: 4px; background: var(--accent-soft); border-radius: 18px; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.12), inset 0 0 0 1.5px var(--accent-line); }   /* yellow, so it reads as a different control from the grey tab bars below it */
+    .step-btn { width: 46px; height: 40px; flex-shrink: 0; border: 0; border-radius: 14px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 var(--yel-edge); transition: 0.15s; }
+    .step-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
+    .step-btn:disabled { opacity: .3; box-shadow: none; cursor: default; }
+    .step-title { flex: 1; min-width: 0; margin: 0; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pk-dial { background: var(--surface); border-radius: 28px; box-shadow: 0 6px 0 var(--edge); padding: 12px 8px; margin-bottom: 18px; }
     .pk-dial svg { display: block; width: 100%; height: auto; }
     .pk-dial text { font-family: inherit; fill: var(--ink); pointer-events: none; }
@@ -2252,22 +2217,12 @@
 
     <!-- Screen: Report (Summary | Transactions) -->
     <div id="screen-report" class="screen" style="display:none">
-      <div class="hdr">
-        <div class="hdr-eyebrow">Report</div>
-        <div id="rpt-month-nav" class="report-hdr">
-          <button class="month-nav" id="rpt-prev-month" type="button" aria-label="Previous month">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div class="month-title"><h1 id="rpt-range-title"></h1></div>
-          <button class="month-nav" id="rpt-next-month" type="button" aria-label="Next month">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+      <div class="pg-hdr">
+        <div class="pk-top"><b>REPORT</b><span id="rpt-hdr-meta"></span></div>
+        <div class="stepper" id="rpt-month-nav">
+          <button class="step-btn" id="rpt-prev-month" type="button" aria-label="Previous month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg></button>
+          <h1 class="step-title" id="rpt-range-title"></h1>
+          <button class="step-btn" id="rpt-next-month" type="button" aria-label="Next month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
         </div>
       </div>
       <div class="period-row" id="rpt-period-row"></div>
@@ -2321,9 +2276,8 @@
 
     <!-- Screen 4: Settings -->
     <div id="screen-settings" class="screen" style="display:none">
-      <div class="hdr">
-        <div class="hdr-eyebrow" id="settings-eyebrow"></div>
-        <h1>Settings</h1>
+      <div class="pg-hdr">
+        <div class="pk-top"><b>SETTINGS</b><span class="pk-mail" id="settings-eyebrow"></span></div>
       </div>
       <div class="screen-body settings" id="settings-body">
         <section>
@@ -2463,23 +2417,13 @@
 
     <!-- Screen 5: Budget overview -->
     <div id="screen-budget" class="screen" style="display:none">
-      <div class="hdr report-hdr">
-        <button class="month-nav" id="budget-prev-month" type="button" aria-label="Previous month">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <div class="month-title">
-          <div class="hdr-eyebrow">Budget</div>
-          <div id="budget-month-title" style="font-size:22px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums"></div>
+      <div class="pg-hdr">
+        <div class="pk-top"><b>BUDGET</b><span id="budget-hdr-meta"></span></div>
+        <div class="stepper" id="budget-stepper">
+          <button class="step-btn" id="budget-prev-month" type="button" aria-label="Previous month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg></button>
+          <div class="step-title" id="budget-month-title"></div>
+          <button class="step-btn" id="budget-next-month" type="button" aria-label="Next month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
         </div>
-        <button class="month-nav" id="budget-next-month" type="button" aria-label="Next month">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
       </div>
       <div class="rpt-tab-bar" id="budget-subtab-bar">
         <button class="rpt-tab on" data-subtab="overview" type="button">Overview</button>
@@ -2499,29 +2443,16 @@
 
     <!-- Budget checklist sub-page -->
     <div class="sub-page" id="budget-checklist-page">
-      <div class="sub-page-hdr" style="justify-content:space-between">
-        <button class="back-btn" id="budget-checklist-back" type="button" aria-label="Back">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="month-nav" id="chk-prev-month" type="button" aria-label="Previous month">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <span class="sub-page-title" id="budget-checklist-title" style="white-space:nowrap;font-size:18px">Checklist</span>
-          <button class="month-nav" id="chk-next-month" type="button" aria-label="Next month">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+      <div class="sub-page-hdr">
+        <button class="back-btn" id="budget-checklist-back" type="button" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg></button>
+        <div class="pk-top"><b>CHECKLIST</b></div>
+      </div>
+      <div class="pg-hdr sub">
+        <div class="stepper" id="chk-stepper">
+          <button class="step-btn" id="chk-prev-month" type="button" aria-label="Previous month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg></button>
+          <div class="step-title" id="budget-checklist-title"></div>
+          <button class="step-btn" id="chk-next-month" type="button" aria-label="Next month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
         </div>
-        <div style="width:40px;flex-shrink:0"></div>
       </div>
       <div id="budget-checklist-body" style="padding:0 24px 40px"></div>
     </div>
@@ -2535,7 +2466,7 @@
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span class="sub-page-title">Analysis</span>
+        <div class="pk-top"><b>ANALYSIS</b></div>
       </div>
       <div class="screen-body" id="analysis-body" style="padding-bottom:48px"></div>
     </div>
@@ -2549,7 +2480,7 @@
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span class="sub-page-title">Budget templates</span>
+        <div class="pk-top"><b>BUDGET TEMPLATES</b></div>
       </div>
       <div class="screen-body settings" id="budget-templates-body" style="padding-top:8px">
         <p style="color:var(--ink-3);font-size:14px;text-align:center;padding:48px 0;font-weight:500">

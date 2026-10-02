@@ -163,6 +163,15 @@ document.getElementById('rpt-view').addEventListener('click', e => {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
+function rangeMeta(start, end) {
+  if (!start || !end) return '';
+  const dayMs = 86400000, a = parseLocalDate(start), b = parseLocalDate(end);
+  const total = Math.round((b - a) / dayMs) + 1;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const day = Math.round((t - a) / dayMs) + 1;
+  return day >= 1 && day <= total ? `DAY ${day}/${total}` : `${total} DAYS`;
+}
+
 function renderReport() {
   const { period, year, month, startDate, endDate, selected, tab, entries } = rptState;
   renderViewSwitch();
@@ -173,17 +182,20 @@ function renderReport() {
   const nextBtn  = document.getElementById('rpt-next-month');
   if (period === 'monthly') {
     titleEl.textContent = monthLabel(year, month);
-    prevBtn.style.visibility = '';
-    nextBtn.style.visibility = '';
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
   } else if (period === 'salary') {
     titleEl.textContent = salaryTitle(startDate, endDate);
-    prevBtn.style.visibility = '';
-    nextBtn.style.visibility = isCurrentSalaryPeriod() ? 'hidden' : '';
+    prevBtn.disabled = false;
+    nextBtn.disabled = isCurrentSalaryPeriod();
   } else {
     titleEl.textContent = `${shortDate(startDate)} – ${shortDate(endDate)}`;
-    prevBtn.style.visibility = 'hidden';
-    nextBtn.style.visibility = 'hidden';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
   }
+  // Header detail (same slot as Insights' "DAY 9/30"): day n of N when the range holds today, else the number of days
+  const metaEl = document.getElementById('rpt-hdr-meta');
+  if (metaEl) metaEl.textContent = rangeMeta(startDate, endDate);
   const navNoun = period === 'salary' ? 'period' : 'month';
   prevBtn.setAttribute('aria-label', `Previous ${navNoun}`);
   nextBtn.setAttribute('aria-label', `Next ${navNoun}`);

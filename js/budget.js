@@ -66,12 +66,11 @@ async function switchSubTab(tab) {
     b.classList.toggle('on', b.dataset.subtab === tab)
   );
 
+  // The period stepper only belongs to Overview; Accounts and Savings are not per period
   const showMonthNav = tab === 'overview';
-  document.getElementById('budget-prev-month').style.visibility = showMonthNav ? '' : 'hidden';
-  document.getElementById('budget-next-month').style.visibility = showMonthNav ? '' : 'hidden';
-  document.getElementById('budget-month-title').textContent =
-    tab === 'overview' ? _bdgPeriodLabel() :
-    tab === 'accounts' ? 'Accounts' : 'Savings';
+  document.getElementById('budget-stepper').style.display = showMonthNav ? '' : 'none';
+  if (showMonthNav) setBudgetHeader();
+  else document.getElementById('budget-hdr-meta').textContent = '';
 
   document.getElementById('acc-transfer-fab').classList.toggle('show', tab === 'accounts');
 
@@ -142,12 +141,31 @@ function _bdgPeriodLabel() {
   return salaryPeriodLabel(salaryStartForMonth(sd, year, month), salaryEndForMonth(sd, year, month));
 }
 
+// Period label in the stepper and "DAY n/N" (or "N DAYS") in the header, like Insights
+// Budget (and the Checklist) can look at most one period ahead of the current salary period: enough to plan next
+// month's salary and bills, and it stops empty future months from being created and bills ticked in the future.
+function atLastAllowedPeriod() {
+  const sp = salaryPeriodMonth(userSettings.salaryDay);
+  return bdgState.year * 12 + bdgState.month >= sp.year * 12 + sp.month + 1;
+}
+
+function setBudgetHeader() {
+  document.getElementById('budget-month-title').textContent = _bdgPeriodLabel();
+  const stop = atLastAllowedPeriod();
+  document.getElementById('budget-next-month').disabled = stop;
+  document.getElementById('chk-next-month').disabled = stop;
+  const { year, month } = bdgState, sd = userSettings.salaryDay;
+  const a = parseLocalDate(salaryStartForMonth(sd, year, month)), b = parseLocalDate(salaryEndForMonth(sd, year, month));
+  const total = Math.round((b - a) / 86400000) + 1;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const day = Math.round((t - a) / 86400000) + 1;
+  document.getElementById('budget-hdr-meta').textContent = day >= 1 && day <= total ? `DAY ${day}/${total}` : `${total} DAYS`;
+}
+
 function renderBudget() {
   const { monthData, template, variableExpenses } = bdgState;
 
-  document.getElementById('budget-month-title').textContent = _bdgPeriodLabel();
-  document.getElementById('budget-prev-month').style.visibility = '';
-  document.getElementById('budget-next-month').style.visibility = '';
+  setBudgetHeader();
 
   const body = document.getElementById('budget-body');
   body.innerHTML = '';
@@ -490,6 +508,7 @@ document.getElementById('chk-prev-month').addEventListener('click', async () => 
 });
 
 document.getElementById('chk-next-month').addEventListener('click', async () => {
+  if (atLastAllowedPeriod()) return;
   bdgState.month++;
   if (bdgState.month > 12) { bdgState.month = 1; bdgState.year++; }
   await loadData();
@@ -503,6 +522,7 @@ function renderChecklist() {
   const { year, month, monthData, template, variableExpenses } = bdgState;
 
   document.getElementById('budget-checklist-title').textContent = monthLabel(year, month);
+  document.getElementById('chk-next-month').disabled = atLastAllowedPeriod();
 
   const body = document.getElementById('budget-checklist-body');
   body.innerHTML = '';
@@ -744,7 +764,7 @@ document.getElementById('budget-prev-month').addEventListener('click', async () 
 });
 
 document.getElementById('budget-next-month').addEventListener('click', async () => {
-  if (bdgState.subTab !== 'overview') return;
+  if (bdgState.subTab !== 'overview' || atLastAllowedPeriod()) return;
   bdgState.month++;
   if (bdgState.month > 12) { bdgState.month = 1; bdgState.year++; }
   await loadData();
