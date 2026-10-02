@@ -8,7 +8,8 @@
        apis.google.com / *.firebaseapp.com / accounts.google.com are needed for the Google sign-in popup. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com; img-src 'self' data: https://*.googleusercontent.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#E8E4DA" />
+  <script src="js/theme.js"></script>
   <meta name="apple-mobile-web-app-title" content="Expenses" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -25,32 +26,38 @@
     rel="stylesheet" />
   <style>
     :root {
-      --ink: oklch(0.24 0.012 265);
-      --ink-2: oklch(0.46 0.012 265);
-      --ink-3: oklch(0.62 0.012 265);
-      --line: oklch(0.91 0.006 265);
-      --line-2: oklch(0.95 0.005 265);
-      --surface: oklch(1 0 0);
-      --screen-bg: oklch(0.994 0.002 95);
-      --page-bg: oklch(0.965 0.004 95);
+      --ink: #1C1C1C;
+      --ink-2: rgba(28, 28, 28, 0.70);
+      --ink-3: rgba(28, 28, 28, 0.56);
+      --line: rgba(28, 28, 28, 0.12);
+      --line-2: rgba(28, 28, 28, 0.07);
+      --surface: #F4F1E8;          /* plate */
+      --screen-bg: #E8E4DA;       /* paper page */
+      --page-bg: #EBE7DD;
+      --edge: #C9C3B1;             /* plate / key bottom edge */
+      --inset: #D9D4C6;            /* troughs, pressed fields */
+      --nav: #181B1F;
+      --nav-ink: rgba(255, 255, 255, 0.55);
+      --nav-line: transparent;
+      --yel-edge: #B58A00;
       --danger:      oklch(0.55 0.16 25);
       --danger-soft: oklch(0.95 0.05 25);
       --danger-ink:  oklch(0.47 0.15 25);
 
       --accent: oklch(0.84 0.18 86);
       --accent-strong: oklch(0.78 0.18 86);
-      --accent-soft: oklch(0.97 0.06 86);
-      --accent-line: oklch(0.91 0.10 86);
+      --accent-soft: oklch(0.95 0.07 86);
+      --accent-line: oklch(0.88 0.10 86);
       --accent-ink: oklch(0.46 0.12 86);
       --accent-shadow: oklch(0.84 0.18 86 / 0.55);
       --on-accent: oklch(0.28 0.05 86);
 
       --comp:        oklch(0.22 0.01 265);
-      --comp-soft:   oklch(0.94 0.01 265);
-      --comp-line:   oklch(0.82 0.02 265);
+      --comp-soft:   #DDD8CA;
+      --comp-line:   #CFC9B8;
       --comp-ink:    oklch(0.30 0.01 265);
       --comp-shadow: oklch(0.22 0.01 265 / 0.5);
-      --on-comp:     oklch(0.99 0 0);
+      --on-comp:     #F7F4EC;
 
       /* amber — needs-entry state, CC Balance / Car Maintenance rows */
       --amber:        oklch(0.72 0.14 55);
@@ -74,6 +81,40 @@
       --radius-lg: 19px;
 
       --sp: 1;
+    }
+
+    /* Dark theme: set by data-theme="dark" on <html> (js/theme.js, Settings > Appearance). Light is the default. */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --ink: #F2EFE8;
+      --ink-2: rgba(242, 239, 232, 0.74);
+      --ink-3: rgba(242, 239, 232, 0.54);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-2: rgba(255, 255, 255, 0.07);
+      --surface: #1D1E22;
+      --screen-bg: #121315;
+      --page-bg: #17181B;
+      --edge: #070708;
+      --inset: #0E0F11;
+      --nav: #08080A;
+      --nav-line: rgba(255, 255, 255, 0.08);
+      --danger: oklch(0.68 0.19 25);
+      --danger-soft: oklch(0.30 0.07 25);
+      --danger-ink: oklch(0.82 0.12 25);
+      --accent-soft: oklch(0.32 0.06 86);
+      --accent-line: oklch(0.45 0.09 86);
+      --accent-ink: oklch(0.86 0.15 86);
+      --comp: #2B2C31;
+      --comp-soft: #2B2C31;
+      --comp-line: #3A3B41;
+      --comp-ink: #E4E1DA;
+      --comp-shadow: transparent;
+      --amber-soft: oklch(0.30 0.06 55);
+      --amber-line: oklch(0.45 0.08 55);
+      --amber-ink: oklch(0.85 0.12 55);
+      --positive: oklch(0.62 0.14 145);
+      --positive-soft: oklch(0.30 0.06 145);
+      --positive-ink: oklch(0.85 0.13 145);
     }
 
     * {
@@ -682,7 +723,7 @@
       align-items: center;
       justify-content: center;
       background: none;
-      border: 1px solid oklch(0.8 0.08 25);
+      border: 1px solid var(--danger);
       color: var(--danger);
       border-radius: var(--radius);
       padding: 12px 18px;
@@ -694,7 +735,7 @@
     }
 
     .btn-delete:hover {
-      background: oklch(0.985 0.012 25);
+      background: var(--danger-soft);
     }
 
     /* ── Report stat cards ── */
@@ -857,7 +898,7 @@
     }
 
     .report-table tbody td.zero {
-      color: oklch(0.82 0.006 265);
+      color: var(--ink-3); opacity: 0.55;
       font-weight: 500;
     }
 
@@ -972,7 +1013,7 @@
     }
 
     .row-card.danger .rc-ic {
-      background: oklch(0.95 0.03 25);
+      background: var(--danger-soft);
       color: var(--danger);
     }
 
@@ -981,8 +1022,8 @@
     }
 
     .row-card.danger:hover {
-      border-color: oklch(0.8 0.08 25);
-      background: oklch(0.985 0.012 25);
+      border-color: var(--danger);
+      background: var(--danger-soft);
     }
 
     /* ── Row card right-side value badge ── */
@@ -1136,7 +1177,7 @@
       flex-shrink: 0;
       transition: 0.14s;
     }
-    .tmpl-del-group:hover { background: oklch(0.95 0.03 25); border-color: oklch(0.8 0.08 25); color: var(--danger); }
+    .tmpl-del-group:hover { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
     .tmpl-group-body { border-top: 1px solid var(--line-2); }
     .tmpl-item-row {
       display: flex;
@@ -1561,7 +1602,7 @@
       left: 50%;
       transform: translateX(-50%);
       background: var(--ink);
-      color: oklch(0.99 0 0);
+      color: var(--screen-bg);
       padding: 10px 20px;
       border-radius: 999px;
       font-size: 13.5px;
@@ -1700,7 +1741,7 @@
       padding: 9px 16px; font: inherit; font-size: 13.5px; font-weight: 700;
       cursor: pointer; flex-shrink: 0; transition: 0.14s;
     }
-    .chk-entry-ok:hover { background: oklch(0.30 0.02 265); }
+    .chk-entry-ok:hover { opacity: 0.85; }
     .chk-entry-cancel {
       background: none; border: 1px solid var(--line);
       border-radius: var(--radius-sm); padding: 9px 12px;
@@ -1873,7 +1914,7 @@
     .ob-dots { display: flex; align-items: center; gap: 6px; }
     .ob-dot {
       width: 6px; height: 6px; border-radius: 999px;
-      background: rgba(0,0,0,0.12);
+      background: var(--line);
       transition: width 0.3s ease, background 0.3s ease;
     }
     .ob-dot.current { width: 18px; background: var(--accent); }
@@ -1984,7 +2025,7 @@
     .summary.accent .sum-spark { background: var(--accent); }
     .summary.comp { background: var(--comp-soft); border-color: var(--comp-line); }
     .summary.comp .sum-spark { background: var(--comp-ink); }
-    .summary.good { background: var(--positive-soft); border-color: oklch(0.88 0.06 145); }
+    .summary.good { background: var(--positive-soft); border-color: var(--positive); }
     .summary.good .sum-spark { background: var(--positive); }
 
     /* ── Details expander ── */
@@ -2053,7 +2094,63 @@
     .flow-table .fsticky { position: sticky; left: 0; background: var(--surface); text-align: left; }
     .flow-table tfoot .fsticky { background: var(--accent-soft); }
     .flow-table .ftot { font-weight: 800; color: var(--accent-ink); background: var(--accent-soft); }
-    .flow-table .z { color: oklch(0.82 0.006 265); font-weight: 500; }
+    .flow-table .z { color: var(--ink-3); opacity: 0.55; font-weight: 500; }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       Redesign, phase A: shell (plates, keys, segmented controls, dark nav).
+       Plates replace white bordered cards: cream fill, no border, hard bottom edge.
+       Keys press down 3px. Orange is reserved for the Insights dial (later phase);
+       selected chips go ink-dark, yellow stays the app accent. See project doc 09.
+       ════════════════════════════════════════════════════════════════════════════ */
+    .row-card, .tmpl-section, .income-card, .acc-list, .recent-transfers, .pot-card, .export-btn,
+    .ob-bal-card, .stat-card.surface, .hero, .ins-block, .details {
+      border: 0;
+      box-shadow: 0 4px 0 var(--edge);
+    }
+    .input-row { border: 0; box-shadow: 0 3px 0 var(--edge); }
+    input.input-row { background: var(--inset); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.14); }
+    .dropdown { border: 0; box-shadow: 0 5px 0 var(--edge), 0 18px 34px -12px rgba(0, 0, 0, 0.35); }
+
+    .chip { border: 0; box-shadow: 0 3px 0 var(--edge); }
+    .chip:active { transform: translateY(3px); box-shadow: 0 0 0 var(--edge); }
+    .chip.on { background: var(--ink); color: var(--screen-bg); transform: translateY(3px); box-shadow: 0 0 0 var(--edge); }
+    .chip.soft, .chip.soft.comp { box-shadow: none; }
+    .chip.add { border: 1.5px dashed var(--line); box-shadow: none; }
+
+    .month-nav, .back-btn, .log-export-btn, .log-page-btn { border: 0; box-shadow: 0 3px 0 var(--edge); }
+    .month-nav:active, .back-btn:active { transform: translateY(3px); box-shadow: none; }
+
+    .btn-save { border-radius: 16px; box-shadow: 0 5px 0 var(--yel-edge); }
+    .btn-save:active { transform: translateY(5px); box-shadow: 0 0 0 var(--yel-edge); }
+    .amount-card, .acc-total-card, .stat-card.accent { box-shadow: 0 5px 0 var(--yel-edge); }
+    .stat-card.comp { box-shadow: 0 5px 0 #000; }
+    .stat-card.positive { box-shadow: 0 5px 0 oklch(0.42 0.11 145); }
+    .stat-card.negative { box-shadow: 0 5px 0 oklch(0.40 0.13 25); }
+    .fab { box-shadow: 0 4px 0 var(--yel-edge), 0 12px 20px -8px rgba(0, 0, 0, 0.4); }
+
+    .block-label { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; }
+
+    /* Segmented controls (Report/Budget tab bars, Insights lenses, Settings theme) */
+    .rpt-tab-bar { border: 0; margin: 0 24px 12px; padding: 4px; gap: 4px; background: var(--inset); border-radius: 15px; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.14); }
+    .rpt-tab { border: 0; border-radius: 11px; padding: 9px 4px; }
+    .rpt-tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 2px 0 var(--edge); }
+    .seg { background: var(--inset); border-radius: 15px; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.14); }
+    .seg-btn { border-radius: 11px; }
+    .seg-btn.on { background: var(--surface); color: var(--ink); box-shadow: 0 2px 0 var(--edge); }
+    .seg.seg-2 { grid-template-columns: repeat(2, 1fr); position: static; }
+
+    /* Bottom nav: dark bar in both themes, raised round yellow Add button in the middle */
+    .bottom-nav { display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; background: var(--nav); border-top: 1px solid var(--nav-line); }
+    .nav-item { color: var(--nav-ink); }
+    .nav-item.on { color: var(--accent); }
+    .nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 10px; }
+    .nav-add-slot { position: relative; height: 44px; }
+    .nav-add { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); width: 62px; height: 62px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--accent); box-shadow: 0 0 0 6px var(--nav); display: grid; place-items: center; transition: transform 0.16s; }
+    .nav-add:active { transform: translateX(-50%) scale(0.92); }
+    .nav-add:focus-visible { outline: 3px solid var(--accent); outline-offset: 8px; }
+    .screen { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+    .toast { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
+    @media (prefers-reduced-motion: reduce) { .chip, .btn-save, .nav-add { transition: none; } }
   </style>
 </head>
 
@@ -2255,6 +2352,13 @@
         <h1>Settings</h1>
       </div>
       <div class="screen-body settings" id="settings-body">
+        <section>
+          <span class="block-label">Appearance</span>
+          <div class="seg seg-2" id="theme-seg" role="group" aria-label="Theme">
+            <button class="seg-btn" data-theme-opt="light" type="button" aria-pressed="false">Light</button>
+            <button class="seg-btn" data-theme-opt="dark" type="button" aria-pressed="false">Dark</button>
+          </div>
+        </section>
         <section>
           <span class="block-label">Categories</span>
           <div class="chip-wrap" id="cat-chips"></div>
@@ -2670,15 +2774,7 @@
     <div class="sheet-backdrop" id="sheet-backdrop"></div>
 
     <!-- Bottom navigation -->
-    <nav class="bottom-nav" id="bottom-nav">
-      <button class="nav-item" id="nav-add" type="button">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        Add
-      </button>
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
       <button class="nav-item" id="nav-log" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
@@ -2700,6 +2796,14 @@
         </svg>
         Report
       </button>
+      <div class="nav-add-slot">
+        <button class="nav-add" id="nav-add" type="button" aria-label="Add expense">
+          <svg width="62" height="62" viewBox="0 0 62 62" aria-hidden="true">
+            <g fill="#8A5C00" transform="translate(2.6 2.6)"><rect x="17" y="26.5" width="28" height="9" rx="4.5" /><rect x="26.5" y="17" width="9" height="28" rx="4.5" /></g>
+            <g fill="#181B1F"><rect x="17" y="26.5" width="28" height="9" rx="4.5" /><rect x="26.5" y="17" width="9" height="28" rx="4.5" /></g>
+          </svg>
+        </button>
+      </div>
       <button class="nav-item" id="nav-budget" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
