@@ -800,6 +800,7 @@
     .report-table .sticky-col {
       position: sticky;
       left: 0;
+      z-index: 1;   /* .zero cells use opacity (own stacking layer), which painted their dash over this column */
       text-align: left;
       background: var(--surface);
       font-weight: 700;
