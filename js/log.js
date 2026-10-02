@@ -1,5 +1,5 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, displayDate, catColor, showToast, escapeHtml } from './helpers.js';
+import { fmt, displayDate, parseLocalDate, catColor, showToast, escapeHtml } from './helpers.js';
 import { updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const PAGE_SIZE   = 10;
@@ -18,7 +18,7 @@ const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 
 let logState = {
   startDate: '', endDate: '',
-  filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
+  filter: 'All', dateFilter: '', entries: [], transfers: [], accounts: [], openId: null,
   showTransfers: false, page: 1,
   extrasKey: '',   // period the transfers / accounts were loaded for
 };
@@ -39,9 +39,25 @@ export function setLogData(entries, startDate, endDate) {
   logState.startDate = startDate;
   logState.endDate   = endDate;
   if (changed) {
-    logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
+    logState.filter = 'All'; logState.dateFilter = ''; logState.openId = null; logState.showTransfers = false; logState.page = 1;
   }
   if (isActive()) activateLog();
+}
+
+// Show only one day of the period (opened from Analysis › Day by day); the chip in the filter row clears it
+export function setLogDate(date) {
+  logState.dateFilter = date || '';
+  logState.showTransfers = false;
+  logState.filter = 'All';
+  logState.openId = null;
+  logState.page = 1;
+  if (isActive()) activateLog();
+}
+
+// Expenses on screen: not income, matching the account chip and the date chip
+function visibleEntries() {
+  const { entries, filter, dateFilter } = logState;
+  return entries.filter(e => !e.isIncome && (filter === 'All' || e.paymentMethod === filter) && (!dateFilter || e.date === dateFilter));
 }
 
 // The Transactions view was opened (or its data changed while open): load what is missing and draw it
@@ -77,7 +93,7 @@ function renderLog() {
   const { entries, filter, showTransfers, transfers } = logState;
   // a delete can leave the current page empty: step back to the last page that still has rows
   const rowCount = showTransfers ? transfers.length
-    : entries.filter(e => !e.isIncome && (filter === 'All' || e.paymentMethod === filter)).length;
+    : visibleEntries().length;
   logState.page = Math.max(1, Math.min(logState.page, Math.ceil(rowCount / PAGE_SIZE) || 1));
   const page = logState.page;
 
@@ -99,9 +115,7 @@ function renderLog() {
     return;
   }
 
-  const pool     = entries.filter(e => !e.isIncome);
-  const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const filtered = visibleEntries().sort((a, b) => b.date.localeCompare(a.date));
   const total      = filtered.reduce((s, e) => s + e.amount, 0);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const pageItems  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -173,10 +187,21 @@ function renderFilterChips() {
         b.addEventListener('click', () => { logState.showTransfers = false; logState.filter = b.dataset.method; logState.page = 1; renderLog(); })
       );
       wireTransfersChip();
+      addDateChip(filterRow);
     });
   }
 
   wireTransfersChip();
+  addDateChip(filterRow);
+}
+
+// "Fri 12 Sep ✕": the day filter, first in the row; tapping it shows the whole period again
+function addDateChip(filterRow) {
+  const d = logState.dateFilter;
+  if (!d || logState.showTransfers) return;
+  const label = parseLocalDate(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  filterRow.insertAdjacentHTML('afterbegin', `<button class="chip on" id="log-date-chip" type="button" aria-label="Showing ${escapeHtml(label)} only. Tap to show the whole period">${escapeHtml(label)} ✕</button>`);
+  document.getElementById('log-date-chip').addEventListener('click', () => { logState.dateFilter = ''; logState.page = 1; renderLog(); });
 }
 
 function wireTransfersChip() {
@@ -394,9 +419,7 @@ async function exportLog() {
       XLSX.utils.book_append_sheet(wb, ws, 'Transfers');
       XLSX.writeFile(wb, `log-${startDate}–${endDate}-transfers.xlsx`);
     } else {
-      const pool     = entries.filter(e => !e.isIncome);
-      const filtered = (filter === 'All' ? pool : pool.filter(e => e.paymentMethod === filter))
-        .sort((a, b) => b.date.localeCompare(a.date));
+      const filtered = visibleEntries().sort((a, b) => b.date.localeCompare(a.date));
       const rows = [['Date', 'Category', 'Sub-category', 'Account', 'Notes', 'Amount', 'Type']];
       filtered.forEach(e => rows.push([
         e.date, e.category, e.subCategory || '', e.paymentMethod, e.notes || '', e.amount, e.type || 'variable',

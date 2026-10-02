@@ -2,7 +2,7 @@ import { currentUser, userSettings } from './state.js';
 import { fmt, fmt0, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
-import { setLogData, activateLog, showLogTransfers } from './log.js';
+import { setLogData, setLogDate, activateLog, showLogTransfers } from './log.js';
 import { lcdStatic, tapeStrip, iconFor } from './tape.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -112,6 +112,31 @@ export async function openTransactions({ transfers = false } = {}) {
   await initReport();
   setView('tx');
   if (transfers) showLogTransfers();
+}
+
+// Open Transactions for one day (from Analysis › Day by day): the salary period that contains the date, filtered to that date
+export async function openTransactionsOnDate(date) {
+  const sd = userSettings.salaryDay ?? 25;
+  const [y, m] = date.split('-').map(Number);
+  // the anchor month is the one the period starts in: this month, the one before, or (rarely, clamped salary days) the next
+  let anchor = null;
+  for (const off of [0, -1, 1]) {
+    let ay = y, am = m + off;
+    if (am < 1) { am = 12; ay--; } else if (am > 12) { am = 1; ay++; }
+    if (salaryStartForMonth(sd, ay, am) <= date && date <= salaryEndForMonth(sd, ay, am)) { anchor = { year: ay, month: am }; break; }
+  }
+  if (!anchor) { await openTransactions(); return; }
+  rptState.view     = 'summary';
+  rptState.period   = 'salary';
+  rptState.spYear   = anchor.year;
+  rptState.spMonth  = anchor.month;
+  rptState.selected = [];
+  rptState.tab      = 'variable';
+  rptState.expanded = new Set();
+  computePeriodDates();
+  await loadReport();
+  setView('tx');
+  setLogDate(date);
 }
 
 function setView(view) {

@@ -8,12 +8,12 @@ import { fetchUserSettings, persistUserSettings } from './db.js';
 import { openAddSheet, closeAddSheet, isAddSheetOpen, clearAddState } from './add.js';
 import { clearLogState } from './log.js';
 import { initPocket, refreshPocket, clearPocketState } from './pocket.js';
-import { initReport, refreshReport, openTransactions, clearReportState } from './report.js';
+import { initReport, refreshReport, openTransactions, openTransactionsOnDate, clearReportState } from './report.js';
 import { renderSettings } from './settings.js';
 import { initBudget, refreshBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
 import { clearSavingsState } from './savings.js';
-import { clearAnalysisState } from './analysis.js';
+import { clearAnalysisState, reopenAnalysis } from './analysis.js';
 import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 import { registerServiceWorker } from './pwa.js';
@@ -28,7 +28,11 @@ if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
 
 // ── Navigation ──────────────────────────────────────────────────────────────
 
+// Set when Report was opened from Analysis (day detail): the phone's back button then returns to Analysis
+let returnToAnalysis = false;
+
 export function showScreen(name) {
+  returnToAnalysis = false;   // any other navigation cancels the way back
   ['insights', 'report', 'budget', 'settings'].forEach(s => {
     document.getElementById(`screen-${s}`).style.display = s === name ? '' : 'none';
     document.getElementById(`nav-${s}`).classList.toggle('on', s === name);
@@ -47,12 +51,22 @@ document.getElementById('nav-settings').addEventListener('click', () => { render
 window.addEventListener('popstate', () => {
   if (isAddSheetOpen()) { closeAddSheet(true); return; }   // back button closes the Add sheet first
   const openSubPage = document.querySelector('.sub-page.active');
-  if (openSubPage) openSubPage.classList.remove('active');
+  if (openSubPage) { openSubPage.classList.remove('active'); return; }
+  if (returnToAnalysis) { returnToAnalysis = false; showScreen('insights'); initPocket(); reopenAnalysis(); }
 });
 
 document.addEventListener('nav:show-log-transfers', () => {
   showScreen('report');
   openTransactions({ transfers: true });
+});
+
+// Analysis › Day by day › "See N transactions": close the Analysis page and open Report › Transactions on that date
+document.addEventListener('nav:show-transactions-date', (e) => {
+  document.querySelector('.sub-page.active')?.classList.remove('active');
+  showScreen('report');
+  history.pushState(null, '');          // so the phone's back button has a step to take
+  returnToAnalysis = true;              // (set after showScreen, which clears it)
+  openTransactionsOnDate(e.detail.date);
 });
 
 document.addEventListener('nav:go-home', () => {

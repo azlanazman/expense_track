@@ -2,10 +2,10 @@
 // Phase A: shell + "Am I improving?" (saved per pay period against the savings goal).
 // Later phases add plates by pushing more renderers onto PLATES (see doc 12 in the project).
 import { currentUser, userSettings } from './state.js';
-import { fmt0, escapeHtml, parseLocalDate, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fmt0, escapeHtml, parseLocalDate, todayString, salaryPeriodLabel, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate } from './db.js';
-import { clamp } from './tape.js';
-import { holidaysBetween } from './holidays.js';
+import { clamp, tapeStrip, iconFor } from './tape.js';
+import { holidaysBetween, holidayOn } from './holidays.js';
 
 const PERIODS   = 12;
 const EARLY_DAYS = 4;   // same rule as the Insights home: pace says nothing in the first days of a period
@@ -18,11 +18,14 @@ const rm = (n) => 'RM ' + (n < 0 ? '−' : '') + fmt0(Math.abs(n));
 let _cache = null;           // { periods, expenses, ... } for the 12-period window
 let sel    = null;           // index of the selected bar in plate 1 (null = overview)
 let cell   = null;           // selected cell of the category grid: { c: 'Food' | 'All', p: period index }
+let dayPer = null;           // period shown in the calendar (index)
+let dayIdx = null;           // selected day of that period (0-based, day 1 = salary day), null = none
 
 export function clearAnalysisState() {
   _cache = null;
   sel = null;
   cell = null;
+  dayPer = null; dayIdx = null;
   const body = document.getElementById('analysis-body');
   if (body) body.innerHTML = '';
 }
@@ -41,6 +44,13 @@ export function openAnalysis() {
   history.pushState(null, '');
   sel = null;
   cell = null;
+  dayPer = null; dayIdx = null;
+  initAnalysis();
+}
+
+// Back from Report › Transactions (opened from day detail): show the page again exactly as it was
+export function reopenAnalysis() {
+  document.getElementById('analysis-page').classList.add('active');
   initAnalysis();
 }
 
@@ -63,6 +73,8 @@ export async function initAnalysis() {
 // ── Data ───────────────────────────────────────────────────────────────────────
 
 // Periods are named by the month they END in (28 Feb – 27 Mar = "Mar"). One function, so it is easy to flip later.
+const dstr = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
 function periodLabel(p) {
   return MONTH_SHORT[parseLocalDate(p.end).getMonth()];
 }
@@ -87,6 +99,7 @@ async function load(uid) {
 
   const goalPct = userSettings.savingsGoalPct ?? 20;
   const dayMs   = 86400000;
+  const todayStr = todayString();
   const today   = new Date(); today.setHours(0, 0, 0, 0);
 
   const periods = refs.map((r, i) => {
@@ -103,6 +116,20 @@ async function load(uid) {
     p.cat = {};
     pe.filter(e => !e.type || e.type === 'variable').forEach(e => { const c = e.category || 'Other'; p.cat[c] = (p.cat[c] || 0) + e.amount; });
     p.hasSpend  = variable > 0;
+    // One entry per day of the period: variable spend, by category, plus how many transactions the Transactions view will list
+    const byDate = {};
+    pe.forEach(e => {
+      const b = byDate[e.date] || (byDate[e.date] = { v: 0, cats: {}, nAll: 0 });
+      b.nAll++;
+      if (!e.type || e.type === 'variable') { b.v += e.amount; const c = e.category || 'Other'; b.cats[c] = (b.cats[c] || 0) + e.amount; }
+    });
+    const tags = userSettings.periodTags || [];
+    p.days = [];
+    for (let d = parseLocalDate(r.start), k = 0; dstr(d) <= r.end; d.setDate(d.getDate() + 1), k++) {
+      const ds = dstr(d), b = byDate[ds] || { v: 0, cats: {}, nAll: 0 };
+      p.days.push({ i: k, date: ds, d: new Date(d), wd: (d.getDay() + 6) % 7, v: ds > todayStr ? null : b.v, cats: b.cats, nAll: b.nAll,
+        hol: holidayOn(ds), trip: tags.some(t => t && t.from <= ds && ds <= t.to) });
+    }
     p.holidays  = holidaysBetween(r.start, r.end);
     p.trip      = (userSettings.periodTags || []).find(t => t && t.from <= r.end && t.to >= r.start) || null;
 
@@ -279,13 +306,144 @@ function plateGrid({ periods, cats }) {
   return h;
 }
 
+
+// ── Plates 3 and 4: Day by day, then the calendar with day detail ─────────────
+
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MON = MONTH_SHORT;
+const dayName = (d) => WD[d.wd] + ' ' + d.d.getDate() + ' ' + MON[d.d.getMonth()];
+
+// Heat scale shared by the overview and the calendar: 75% of the biggest day in a finished period = full colour
+function dayScale(periods) {
+  let mx = 0;
+  periods.filter(p => !p.current && p.hasSpend).forEach(p => p.days.forEach(d => { if (d.v > mx) mx = d.v; }));
+  return Math.max(1, mx * 0.75);
+}
+
+function ensureDayPer(periods) {
+  if (dayPer === null || !periods[dayPer]) {
+    const done = periods.filter(p => !p.current && p.hasSpend);
+    dayPer = (done.length ? done[done.length - 1] : periods[periods.length - 1]).i;
+    dayIdx = null;
+  }
+}
+
+function plateDays({ periods }) {
+  const done = periods.filter(p => !p.current && p.hasSpend);
+  let h = '<div class="pk-plate an-plate"><div class="an-h">Day by day</div>' +
+    '<div class="an-q">Each row is a pay period, each cell a day. Day 1 is salary day. Tap a row or a day.</div>';
+  if (done.length < 2) return h + '<div class="an-empty">Needs a few finished periods of spending before it can compare days.</div></div>';
+  ensureDayPer(periods);
+
+  // Average per day-of-period over finished periods (days 29–31 exist in only some of them: need at least half)
+  const sums = [], cnt = [];
+  for (let i = 0; i < 31; i++) { sums[i] = 0; cnt[i] = 0; }
+  done.forEach(p => p.days.forEach(d => { sums[d.i] += d.v; cnt[d.i]++; }));
+  const av = sums.map((s, i) => cnt[i] >= Math.ceil(done.length / 2) ? s / cnt[i] : null);
+  const idx = av.map((v, i) => [v, i]).filter(a => a[0] !== null).sort((a, b) => b[0] - a[0]);
+  const hi = idx[0], lo = idx[idx.length - 1];
+  const first3 = (av[0] + av[1] + av[2]) / 3;
+  h += `<div class="pk-lcd an-lcd"><div class="pk-l1"><span>ACROSS ${done.length} PERIODS</span><span>AVG PER DAY</span></div>` +
+    `<div class="an-l2">Heaviest on day ${hi[1] + 1} (${rm(hi[0])} on average). Lightest on day ${lo[1] + 1} (${rm(lo[0])}). The first 3 days after payday average ${rm(first3)}.</div></div>`;
+
+  const mx = dayScale(periods);
+  h += '<div class="an-dv">';
+  periods.forEach(p => {
+    let pk = -1, pv = 0;
+    p.days.forEach(d => { if (d.v !== null && d.v > pv) { pv = d.v; pk = d.i; } });
+    let cells = '';
+    for (let i = 0; i < 31; i++) {
+      const d = p.days[i];
+      if (!d) cells += '<i class="an-dc out"></i>';
+      else if (d.v === null) cells += '<i class="an-dc out box"></i>';
+      else cells += `<i class="an-dc${d.i === pk ? ' pk' : ''}${d.hol ? ' hd' : ''}${dayPer === p.i && dayIdx === d.i ? ' sel' : ''}${d.v === 0 ? ' zero' : ''}" data-p="${p.i}" data-d="${d.i}" style="${d.v === 0 ? '' : 'background:' + heat(d.v / mx)}"></i>`;
+    }
+    h += `<button type="button" class="an-dvr${dayPer === p.i ? ' on' : ''}" data-p="${p.i}" aria-label="${escapeHtml(p.label)} period${p.current ? ' so far' : ''}, open its calendar">` +
+      `<span class="an-rl${p.current ? ' cur' : ''}">${escapeHtml(p.label)}${p.trip ? house(9) : ''}</span><span class="an-dcells">${cells}</span></button>`;
+  });
+  h += '</div><div class="an-dax"><span></span><span class="an-axis">' +
+    [1, 5, 10, 15, 20, 25, 30].map(n => `<b style="left:${((n - 0.5) / 31 * 100).toFixed(2)}%">${n}</b>`).join('') + '</span></div>';
+  h += '<div class="an-legend"><span><i class="k zero"></i>no spend</span><span class="an-ramp"><i style="background:' + heat(0.2) + '"></i><i style="background:' + heat(0.6) + '"></i><i style="background:' + heat(1) + '"></i></span><span>more</span>' +
+    '<span><i class="k pkk"></i>peak day</span><span><i class="hd"></i>holiday</span></div></div>';
+  return h;
+}
+
+function plateCalendar({ periods }) {
+  const done = periods.filter(p => !p.current && p.hasSpend);
+  if (done.length < 2) return '';
+  ensureDayPer(periods);
+  const p = periods[dayPer];
+  const prev = dayPer > 0 ? periods[dayPer - 1] : null;
+  const past = p.days.filter(d => d.v !== null), spend = past.filter(d => d.v > 0).sort((a, b) => b.v - a.v);
+  const top = spend[0], low = spend[spend.length - 1];
+  const zero = past.length - spend.length;
+  const prevZero = prev && prev.hasSpend ? prev.days.filter(d => d.v === 0).length : null;
+  const prevTop = prev ? prev.days.filter(d => d.v > 0).sort((a, b) => b.v - a.v)[0] : null;
+
+  let h = '<div class="pk-plate an-plate"><div class="an-chead"><div><div class="an-h">' + escapeHtml(p.label) + ' period' + (p.current ? ' (so far)' : '') + '</div>' +
+    '<div class="an-q" style="margin:2px 0 0">' + escapeHtml(salaryPeriodLabel(p.start, p.end)) + ' ’' + String(p.year).slice(2) + '</div></div>' +
+    '<span class="an-period"><button type="button" class="an-pp" data-step="-1" aria-label="Earlier period"' + (dayPer === 0 ? ' disabled' : '') + '>‹</button>' +
+    '<span>' + escapeHtml(p.label) + '</span><button type="button" class="an-pp" data-step="1" aria-label="Later period"' + (dayPer === periods.length - 1 ? ' disabled' : '') + '>›</button></span></div>';
+
+  // Weekdays run across the top (Mon–Sun), one row per week
+  const mx = dayScale(periods), off = p.days[0].wd, weeks = Math.ceil((off + p.days.length) / 7);
+  h += '<div class="an-cal">' + WD.map(w => `<div class="an-wd">${w}</div>`).join('');
+  for (let r = 0; r < weeks; r++) {
+    for (let c = 0; c < 7; c++) {
+      const i = r * 7 + c - off, d = p.days[i];
+      if (i < 0 || !d) { h += '<div class="an-cd out"></div>'; continue; }
+      if (d.v === null) { h += `<div class="an-cd out box"><span>${d.d.getDate()}</span></div>`; continue; }
+      const cls = 'an-cd' + (d.v === 0 ? ' zero' : '') + (d.v / mx > 0.55 ? ' hot' : '') + (top && d === top ? ' hi' : '') + (low && d === low && low !== top ? ' lo' : '') + (dayIdx === d.i ? ' sel' : '');
+      const aria = dayName(d) + ', ' + (d.v ? rm(d.v) : 'no spending') + (d.hol ? ', ' + d.hol : '') + (d.trip ? ', trip' : '');
+      h += `<button type="button" class="${cls}" data-day="${d.i}" aria-pressed="${dayIdx === d.i}" aria-label="${escapeHtml(aria)}" style="${d.v === 0 ? '' : 'background:' + heat(d.v / mx)}">` +
+        `<span>${d.d.getDate()}</span>${d.v ? `<span class="v">${fmt0(d.v)}</span>` : ''}${d.hol ? '<i class="p"></i>' : ''}${d.trip ? '<i class="tr"></i>' : ''}</button>`;
+    }
+  }
+  h += '</div>';
+
+  h += dayDetail(p);
+
+  const ds = (d) => d.d.getDate() + ' ' + MON[d.d.getMonth()];
+  h += `<div class="pk-three an-stats"><div><span class="pk-lab">Highest</span><b>${top ? ds(top) : '—'}</b><small>${top ? rm(top.v) : ''}</small></div>` +
+    `<div><span class="pk-lab">Lowest</span><b>${low ? ds(low) : '—'}</b><small>${low ? rm(low.v) : ''}</small></div>` +
+    `<div><span class="pk-lab">No-spend days</span><b>${zero}</b><small>${prevZero === null ? '' : (zero >= prevZero ? '+' : '−') + Math.abs(zero - prevZero) + ' vs ' + escapeHtml(prev.label)}</small></div></div>`;
+  const hs = p.days.filter(d => d.hol).map(d => ds(d) + ' · ' + d.hol);
+  if (hs.length || p.trip) h += '<div class="an-ph">' + (hs.length ? 'Holidays: ' + escapeHtml(hs.join(', ')) + '. ' : '') + (p.trip ? 'Trip: ' + escapeHtml(p.trip.name) + ' (bar under the date).' : '') + '</div>';
+  if (prevTop) h += `<div class="an-ph">${escapeHtml(prev.label)} period peaked on ${ds(prevTop)} at ${rm(prevTop.v)}.</div>`;
+  h += '<div class="an-legend"><span><i class="k pkk"></i>highest</span><span><i class="k lowk"></i>lowest day with spend</span><span><i class="hd"></i>holiday</span></div></div>';
+  return h;
+}
+
+function dayDetail(p) {
+  const d = dayIdx !== null ? p.days[dayIdx] : null;
+  if (!d || d.v === null) return '<div class="an-ph an-hint">Tap a day to see what it was spent on.</div>';
+  const ent = Object.entries(d.cats).filter(a => a[1] > 0).sort((a, b) => b[1] - a[1]);
+  const n = ent.length;
+  let l2 = d.v === 0 ? 'No variable spending this day.' : n + ' categor' + (n > 1 ? 'ies' : 'y') + ', biggest is ' + ent[0][0] + ' (' + rm(ent[0][1]) + ').';
+  if (d.hol) l2 += ' ' + d.hol + '.';
+  if (d.trip) l2 += ' During your trip.';
+  let h = `<div class="an-dd"><div class="pk-lcd an-lcd" style="margin-top:12px"><div class="pk-l1"><span>${escapeHtml(dayName(d).toUpperCase())}</span><span>${rm(d.v)}</span></div><div class="an-l2">${escapeHtml(l2)}</div></div>`;
+  if (ent.length) {
+    h += '<div class="an-tps">' + ent.map(([c, amt], k) => tapeStrip({
+      key: c, title: c, code: c, icon: iconFor(c), tone: 'n', big: fmt0(amt),
+      aria: 'RM ' + fmt0(amt) + ', ' + Math.round(amt / d.v * 100) + '% of the day', frac: amt / ent[0][1], notch: null,
+    }, k, { isStatic: true, pct: Math.round(amt / d.v * 100) + '%' })).join('') + '</div>';
+  }
+  if (d.nAll > 0) {
+    h += `<div class="an-center"><button type="button" class="an-key" data-date="${escapeHtml(d.date)}">See ${d.nAll} transaction${d.nAll === 1 ? '' : 's'} on ${d.d.getDate()} ${MON[d.d.getMonth()]} ›</button></div>`;
+  }
+  return h + '</div>';
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-const PLATES = [plateImproving, plateGrid];
+const PLATES = [plateImproving, plateGrid, plateDays, plateCalendar];
 
 function render(data) {
-  const body = document.getElementById('analysis-body');
+  const body = document.getElementById('analysis-body'), page = document.getElementById('analysis-page');
+  const top = page.scrollTop;   // keep the reading position when a tap redraws the plates
   body.innerHTML = PLATES.map(fn => fn(data)).join('');
+  page.scrollTop = top;
 }
 
 document.getElementById('analysis-body').addEventListener('click', (e) => {
@@ -300,5 +458,15 @@ document.getElementById('analysis-body').addEventListener('click', (e) => {
   const c = e.target.closest('.an-cell');
   if (c) { cell = { c: c.dataset.c, p: Number(c.dataset.p) }; render(_cache); return; }
   const row = e.target.closest('.an-rowbtn');
-  if (row) { cell = { c: row.dataset.c, p: cell ? cell.p : _cache.periods.length - 2 }; render(_cache); }
+  if (row) { cell = { c: row.dataset.c, p: cell ? cell.p : _cache.periods.length - 2 }; render(_cache); return; }
+  const dc = e.target.closest('.an-dc[data-p]');
+  if (dc) { dayPer = Number(dc.dataset.p); dayIdx = Number(dc.dataset.d); render(_cache); return; }
+  const dr = e.target.closest('.an-dvr');
+  if (dr) { dayPer = Number(dr.dataset.p); dayIdx = null; render(_cache); return; }
+  const pp = e.target.closest('.an-pp');
+  if (pp && !pp.disabled) { dayPer = clamp(dayPer + Number(pp.dataset.step), 0, _cache.periods.length - 1); dayIdx = null; render(_cache); return; }
+  const cd = e.target.closest('.an-cd[data-day]');
+  if (cd) { const i = Number(cd.dataset.day); dayIdx = dayIdx === i ? null : i; render(_cache); return; }
+  const key = e.target.closest('.an-key');
+  if (key) document.dispatchEvent(new CustomEvent('nav:show-transactions-date', { detail: { date: key.dataset.date } }));
 });
