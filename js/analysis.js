@@ -1,9 +1,9 @@
 // Analysis sub-page (Insights › Full analysis). One scroll of "plates", each answering one question.
 // Phase A: shell + "Am I improving?" (saved per pay period against the savings goal).
 // Later phases add plates by pushing more renderers onto PLATES (see doc 12 in the project).
-import { currentUser, userSettings } from './state.js';
-import { fmt0, escapeHtml, parseLocalDate, todayString, salaryPeriodLabel, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
-import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate } from './db.js';
+import { currentUser, userSettings, setUserSettings } from './state.js';
+import { fmt0, escapeHtml, showToast, parseLocalDate, todayString, salaryPeriodLabel, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate, updateUserSettings } from './db.js';
 import { clamp, ico, tapeStrip, iconFor } from './tape.js';
 import { holidaysBetween, holidayOn } from './holidays.js';
 
@@ -62,7 +62,7 @@ document.getElementById('analysis-back').addEventListener('click', () => {
 
 export async function initAnalysis() {
   const body = document.getElementById('analysis-body');
-  if (!_cache) body.innerHTML = '<div class="an-loading">Loading…</div>';
+  if (!body.firstElementChild) body.innerHTML = '<div class="an-loading">Loading…</div>';   // only on the first draw; later reloads keep the page (and scroll position) in place
   try {
     const data = await load(currentUser.uid);
     render(data);
@@ -305,6 +305,7 @@ function plateGrid({ periods, cats }) {
 
   h += mx + '<div class="an-legend"><span class="an-ramp"><i style="background:var(--inset)"></i><i style="background:' + heat(0.25) + '"></i><i style="background:' + heat(0.5) + '"></i><i style="background:' + heat(0.75) + '"></i><i style="background:' + heat(1) + '"></i></span><span>less → more</span>' +
     '<span><i class="hd"></i>public holiday</span>' + (periods.some(x => x.trip) ? '<span>' + house(12) + 'trip</span>' : '') + '</div>' +
+    tripsBlock(periods, cats) +
     '<div class="an-ph">Shade is relative to each category\'s own heaviest finished period. Trend = last 3 finished periods vs the 3 before. Dashed column = this period so far. Variable spending only; public holidays are federal.</div></div>';
   return h;
 }
@@ -521,6 +522,115 @@ function plateLookup({ periods, cats }) {
   return h;
 }
 
+
+// ── Trips: tags you add per period (balik kampung etc.), plus suggestions ──────
+
+const MAX_TAGS = 40;
+const TRIP_WORDS = /\b(kampung|balik|tol|toll|hotel|homestay|chalet|resort)\b/i;
+const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(parseLocalDate(v));
+const shortRange = (from, to) => {
+  const a = parseLocalDate(from), b = parseLocalDate(to);
+  return a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear() ? (a.getDate() === b.getDate() ? a.getDate() + ' ' + MON[a.getMonth()] : a.getDate() + '–' + b.getDate() + ' ' + MON[b.getMonth()])
+    : a.getDate() + ' ' + MON[a.getMonth()] + ' – ' + b.getDate() + ' ' + MON[b.getMonth()];
+};
+
+async function saveTripSettings(fields) {
+  const before = { periodTags: userSettings.periodTags, tripSuggestionsDismissed: userSettings.tripSuggestionsDismissed };
+  setUserSettings({ ...userSettings, ...fields });
+  try {
+    await updateUserSettings(currentUser.uid, fields);
+  } catch (e) {
+    console.error(e);
+    setUserSettings({ ...userSettings, ...before });
+    showToast('Could not save. Check your connection.');
+  }
+  _cache = null;
+  initAnalysis();
+}
+
+// One suggestion at a time: the newest period without a trip tag whose Transport is about double its usual, or with 3+ travel words in the notes
+function findSuggestion(periods, cats) {
+  const tCat = cats.find(c => /transport/i.test(c));
+  const dismissed = userSettings.tripSuggestionsDismissed || [];
+  const done = periods.filter(p => !p.current && p.hasSpend);
+  for (let i = periods.length - 1; i >= 0; i--) {
+    const p = periods[i];
+    if (!p.hasSpend || p.trip || dismissed.includes(p.start) || (p.current && p.early)) continue;
+    const reasons = [];
+    let mult = 0, v = 0;
+    if (tCat) {
+      v = p.cat[tCat] || 0;
+      const us = median(done.filter(x => x !== p).map(x => x.cat[tCat] || 0));
+      if (us > 0 && v >= us * 2 && v - us >= 100) { mult = v / us; reasons.push(tCat + ' was ' + mult.toFixed(1).replace(/\.0$/, '') + '× usual'); }
+    }
+    const kw = p.ents.filter(e => TRIP_WORDS.test(e.notes || ''));
+    const words = [...new Set(kw.map(e => (String(e.notes).match(TRIP_WORDS) || [''])[0].toLowerCase()))];
+    if (kw.length >= 3) reasons.push(kw.length + ' notes mention “' + words[0] + '”');
+    if (!reasons.length) continue;
+    // Suggested dates: the span of the travel-word entries and the biggest transport entries (the owner adjusts them in the form)
+    const pick = [...kw, ...p.ents.filter(e => e.category === tCat).sort((a, b) => b.amount - a.amount).slice(0, 3)].map(e => e.date).sort();
+    return { p, reasons, from: pick[0] || p.start, to: pick[pick.length - 1] || p.end };
+  }
+  return null;
+}
+
+function tripsBlock(periods, cats) {
+  const tags = (userSettings.periodTags || []).filter(t => t && isDate(t.from) && isDate(t.to)).slice().sort((a, b) => b.from.localeCompare(a.from));
+  let h = '<div class="an-sub">Your trips</div>';
+  const sug = findSuggestion(periods, cats);
+  if (sug) {
+    h += `<div class="an-sug"><span><b>${escapeHtml(sug.p.label)} period looks like a trip.</b> ${escapeHtml(sug.reasons.join(' and '))}. Tag it as a trip?</span>` +
+      `<span class="acts"><button type="button" data-sug="yes" data-pk="${escapeHtml(sug.p.start)}" data-from="${escapeHtml(sug.from)}" data-to="${escapeHtml(sug.to)}">Tag</button><button type="button" data-sug="no" data-pk="${escapeHtml(sug.p.start)}">No</button></span></div>`;
+  }
+  h += '<div class="an-chips">' + tags.map(t => `<button type="button" class="chip" data-trip-edit="${escapeHtml(t.id)}" aria-label="${escapeHtml('Edit trip ' + t.name + ', ' + shortRange(t.from, t.to))}">${escapeHtml(t.name)} · ${escapeHtml(shortRange(t.from, t.to))}</button>`).join('') +
+    '<button type="button" class="chip add" data-trip-add="1">+ Add a trip</button></div>';
+  if (!tags.length) h += '<div class="an-ph">A trip tag adds a marker to the Holiday and Trip rows and the calendar, so you can see why a period was heavy.</div>';
+  return h;
+}
+
+// Bottom sheet to add, edit or delete one trip tag
+function openTripSheet(existing, prefill = {}) {
+  const t = existing || { id: '', name: prefill.name || '', from: prefill.from || '', to: prefill.to || '' };
+  const overlay = document.createElement('div');
+  overlay.className = 'lim-overlay';
+  overlay.innerHTML = `<div class="lim-sheet" role="dialog" aria-modal="true" aria-labelledby="trip-title"><div class="export-grabber"></div>` +
+    `<div class="sheet-title" id="trip-title">${existing ? 'Edit trip' : 'Add a trip'}</div>` +
+    `<div class="sheet-sub">Balik kampung, holiday or any trip. It only marks your periods; nothing else changes.</div>` +
+    `<div class="field"><label class="field-label" for="trip-name">Name</label><input type="text" class="input-row note" id="trip-name" maxlength="40" autocomplete="off" value="${escapeHtml(t.name)}" placeholder="e.g. Balik kampung" /></div>` +
+    `<div class="an-trip-dates"><div class="field"><label class="field-label" for="trip-from">From</label><input type="date" class="input-row note" id="trip-from" value="${escapeHtml(t.from)}" /></div>` +
+    `<div class="field"><label class="field-label" for="trip-to">To</label><input type="date" class="input-row note" id="trip-to" value="${escapeHtml(t.to)}" /></div></div>` +
+    `<div class="an-trip-err" id="trip-err" role="alert"></div>` +
+    `<button type="button" class="btn-save" id="trip-save">${existing ? 'Save trip' : 'Add trip'}</button>` +
+    (existing ? '<button type="button" class="lim-remove" id="trip-del">Delete trip</button>' : '') + '</div>';
+  document.body.appendChild(overlay);
+  const $ = (id) => overlay.querySelector('#' + id);
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  setTimeout(() => $('trip-name').focus(), 80);
+  overlay.querySelectorAll('input').forEach(i => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('trip-save').click(); }));
+
+  $('trip-save').addEventListener('click', () => {
+    const name = $('trip-name').value.trim().replace(/\s+/g, ' ').slice(0, 40), from = $('trip-from').value, to = $('trip-to').value;
+    const err = !name ? 'Give the trip a name.' : !isDate(from) || !isDate(to) ? 'Choose both dates.' : from > to ? 'The end date is before the start date.'
+      : (parseLocalDate(to) - parseLocalDate(from)) / 86400000 > 90 ? 'A trip can be at most 90 days.' : '';
+    if (err) { $('trip-err').textContent = err; return; }
+    const tags = (userSettings.periodTags || []).slice();
+    if (existing) { const i = tags.findIndex(x => x.id === existing.id); if (i >= 0) tags[i] = { id: existing.id, name, from, to }; }
+    else {
+      if (tags.length >= MAX_TAGS) { $('trip-err').textContent = 'You have reached the limit of ' + MAX_TAGS + ' trips. Delete an old one first.'; return; }
+      tags.push({ id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, from, to });
+    }
+    close();
+    saveTripSettings({ periodTags: tags });
+  });
+  if (existing) $('trip-del').addEventListener('click', () => {
+    close();
+    saveTripSettings({ periodTags: (userSettings.periodTags || []).filter(x => x.id !== existing.id) });
+  });
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 const PLATES = [plateImproving, plateGrid, plateDays, plateCalendar, plateLeaks, plateLookup];
@@ -553,6 +663,15 @@ document.getElementById('analysis-body').addEventListener('click', (e) => {
   if (pp && !pp.disabled) { dayPer = clamp(dayPer + Number(pp.dataset.step), 0, _cache.periods.length - 1); dayIdx = null; render(_cache); return; }
   const cd = e.target.closest('.an-cd[data-day]');
   if (cd) { const i = Number(cd.dataset.day); dayIdx = dayIdx === i ? null : i; render(_cache); return; }
+  const tEdit = e.target.closest('[data-trip-edit]');
+  if (tEdit) { const t = (userSettings.periodTags || []).find(x => x.id === tEdit.dataset.tripEdit); if (t) openTripSheet(t); return; }
+  if (e.target.closest('[data-trip-add]')) { openTripSheet(null); return; }
+  const sg = e.target.closest('[data-sug]');
+  if (sg) {
+    if (sg.dataset.sug === 'yes') openTripSheet(null, { name: 'Trip', from: sg.dataset.from, to: sg.dataset.to });
+    else saveTripSettings({ tripSuggestionsDismissed: [...(userSettings.tripSuggestionsDismissed || []), sg.dataset.pk].slice(-60) });
+    return;
+  }
   const lk = e.target.closest('[data-look]');
   if (lk) { look = lk.dataset.look; render(_cache); return; }
   const lb = e.target.closest('.an-lb');
