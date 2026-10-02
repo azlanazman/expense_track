@@ -2174,6 +2174,30 @@
     .an-legend .k.dash { border: 1.5px dashed var(--ink-3); }
     .an-legend .k.tick { height: 0; width: 12px; border-radius: 0; border-top: 2px solid var(--pk-good); }
     .an-stats { margin-top: 12px; }
+    .an-empty, .an-ph { font-size: 11px; font-weight: 700; color: var(--ink-3); line-height: 1.5; }
+    .an-empty { padding: 8px 0 4px; font-size: 12.5px; }
+    .an-ph { margin-top: 10px; }
+    .an-range { margin-top: 4px; }
+    .an-mx { display: flex; flex-direction: column; gap: 2px; }
+    .an-mrow { display: grid; grid-template-columns: 50px repeat(12, 1fr) 50px; gap: 2px; align-items: center; }
+    .an-mrow.tot { margin-top: 5px; padding-top: 6px; border-top: 1.5px dashed var(--line); }
+    .an-mh span { font-size: 8px; font-weight: 800; color: var(--ink-3); text-align: center; text-transform: uppercase; }
+    .an-mh span.cur { color: var(--ink); }
+    .an-yr span { font-size: 7px; }
+    .an-rl, .an-rowbtn { font-size: 9px; font-weight: 800; letter-spacing: .06em; color: var(--ink-2); text-transform: uppercase; }
+    .an-rowbtn { background: none; border: 0; padding: 0; text-align: left; display: flex; align-items: center; gap: 4px; cursor: pointer; min-width: 0; }
+    .an-rowbtn span { overflow: hidden; }
+    .an-cell { width: 100%; aspect-ratio: 1; border-radius: 4px; border: 0; padding: 0; cursor: pointer; background: var(--inset); }
+    .an-cell.partial { outline: 1.5px dashed var(--ink-3); outline-offset: -1.5px; }
+    .an-cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; position: relative; z-index: 1; }
+    .an-ev { height: 14px; display: flex; align-items: center; justify-content: center; gap: 1px; color: var(--ink-2); }
+    .an-ev i, .an-legend .hd { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); display: inline-block; }
+    .an-legend .hd { width: 7px; height: 7px; }
+    .an-ev svg { display: block; }
+    .an-trend { font-size: 10.5px; font-weight: 800; text-align: right; white-space: nowrap; color: var(--ink-3); }
+    .an-trend.up { color: var(--pk-bad); } .an-trend.dn { color: var(--pk-good); }
+    .an-ramp { display: inline-flex; gap: 2px; } .an-ramp i { width: 12px; height: 10px; border-radius: 2px; display: inline-block; }
+    .an-cell:focus-visible, .an-rowbtn:focus-visible { outline: 3px solid var(--pk-knob); outline-offset: 2px; }
     .an-bar:focus-visible { outline: 3px solid var(--pk-knob); outline-offset: 2px; }
 
     /* Category limit sheet (opened from Budget and Analysis) */

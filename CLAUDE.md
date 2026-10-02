@@ -34,6 +34,7 @@ js/
   tape.js               # Shared Tape pieces: strips, LED bar, static LCD, category icons, on-track/watch/over rule (phase E)
   pocket.js             # Insights home: dial + LCD + Tape strips for the current salary period (new in phase D)
   analysis.js           # Analysis sub-page (plates; phase A = Am I improving?), opened from Insights › Full analysis
+  holidays.js           # Federal Malaysian public holidays 2025-2027 (Analysis)
   limit-sheet.js        # Category limit sheet (opened from Budget strips)
 firestore.rules
 ```
@@ -333,6 +334,7 @@ Active: `.nav-item.on`. Budget and Report maintain **independent** period state.
 - **Data:** `load()` fetches 12 periods of expenses, the template and 12 `budgetMonths`; cached in `_cache`, cleared by `clearAnalysisState()` and on `expenses:changed` (redraws if the page is open). Per period: income (budgetMonths income lines), fixed and variable expenses (`type`), `saved = income − fixed − variable`, `goal = income × savingsGoalPct`. A period with income 0 is "no data" and ignored in the stats. The current period is projected like the Insights home (planned fixed from the template + variable ÷ share of period gone; "too early" under 4 days).
 - **Plates:** `PLATES` array in `analysis.js` (add new plates there). Phase A has "Am I improving?": 12 bars (solid = goal met, faded = below, dashed = current projected, green tick = that period's goal), tap a bar for the LCD detail, stats goal met / in a row / best. Styles are `.an-*` in `index.html` (plates reuse `.pk-plate`, `.pk-lcd`, `.pk-three`). Chart.js is no longer loaded by Analysis.
 - **Category limit sheet:** `openCategoryLimitSheet(cat)` now lives in `js/limit-sheet.js` (imported by `budget.js`); it saves to `userSettings.categoryLimits` and dispatches `expenses:changed`.
+- **Category by period (phase B):** grid of variable spend per category × 12 periods. Shade = spend ÷ that category's highest finished period (`heat()`, `--pk-knob` over `--inset`); the current period is a dashed unshaded "so far" column; trend = last 3 finished periods vs the 3 before (±4% = flat); readout compares with the median ("usual") of finished periods. Holiday row from `js/holidays.js` (federal Malaysian holidays 2025–2027, review each year; `holidaysBetween`/`holidayOn`); Trip row appears only when a tag in `userSettings.periodTags` (`{id,name,from,to}`) overlaps a period. Selected cell lives in `cell`.
 - **Pending cleanup:** old Analysis CSS in `index.html` (`.hero*`, `.kpi*`, `.verdict`, `.lens`, `.ins-block`, `.details*`, `.lb-*`, `.hm-*`, `.flow-*`, `.pot-grid`, chart wrappers) and `vendor/` Chart.js + treemap files are unused once all phases land; keep `.delta`, `.bills`, `.block-label`, `.summary`, `.sw`, `.chip-dot`, `.pot-card`, `.seg`, `.seg-btn` (used elsewhere).
 - **ES module listeners:** buttons in dynamically injected HTML must use `addEventListener` after injection — module functions are not on `window`.
 - **Transfer From ≠ To:** enforced with toast on confirm (not a disabled button).
