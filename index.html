@@ -390,8 +390,9 @@
 
     .log-meta {
       display: inline-flex;
+      flex-wrap: wrap;          /* a narrow row wraps the payment pill under the date instead of overlapping it */
       align-items: center;
-      gap: 8px;
+      gap: 4px 8px;
       font-size: 12.5px;
       color: var(--ink-3);
       font-weight: 500;
@@ -403,6 +404,7 @@
       align-items: flex-end;
       gap: 4px;
       flex-shrink: 0;
+      max-width: 45%;           /* a long note must not squeeze the date column */
     }
 
     .log-amt {
@@ -417,6 +419,10 @@
       font-size: 12px;
       color: var(--ink-3);
       font-style: italic;
+      text-align: right;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; text-overflow: ellipsis;   /* at most three lines; the full note is in the edit view */
     }
 
     .log-export-btn {
@@ -2135,6 +2141,7 @@
     .an-dot { width: 32px; height: 32px; border-radius: 10px; background: var(--inset); display: grid; place-items: center; flex-shrink: 0; }
     .an-sub { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 18px 0 6px; }
     .an-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+    .an-chips .chip { max-width: 100%; border-radius: 20px; white-space: normal; text-align: left; line-height: 1.25; overflow-wrap: anywhere; }   /* a long trip name wraps inside the plate instead of running past it */
     .an-usual { position: absolute; left: -2px; right: -2px; border-top: 1.6px dashed var(--ink-3); pointer-events: none; }
     .an-usual b { position: absolute; right: 0; top: -15px; font-size: 9px; font-weight: 800; color: var(--ink-3); letter-spacing: .06em; }
     /* Analysis: trips */
