@@ -1,5 +1,5 @@
 // App lock: asks for the phone's fingerprint (WebAuthn platform authenticator) every time the installed app is
-// opened or returned to. While it is on, the 15-minute idle sign-out is skipped (see app.js), so the person stays
+// opened or returned to after more than 30 seconds. A page refresh while the app is open and unlocked does not ask again. While it is on, the 15-minute idle sign-out is skipped (see app.js), so the person stays
 // signed in and the fingerprint is the gate. The check is on this device only: it keeps people out of an unlocked
 // phone, it does not replace the Firestore rules, which still protect the data on the server.
 // Per-device state lives in localStorage: applock.cred (credential id) and applock.uid (who it belongs to).
@@ -14,6 +14,20 @@ const $ = (id) => document.getElementById(id);
 
 function read(k)     { try { return localStorage.getItem(k); } catch (_) { return null; } }
 function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} }
+
+// Per-session state (sessionStorage: survives a page refresh, is gone once the app is closed)
+function sess(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (_) {} return null; }
+const S_OK = 'applock.ok', S_AWAY = 'applock.away';   // ok = unlocked right now; away = when the app went to the background
+
+// True when this load is a plain refresh of an app that was unlocked and not away for longer than the grace period
+function isRefreshWhileUnlocked() {
+  try {
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (!nav || nav.type !== 'reload' || sess(S_OK) !== '1') return false;
+    const away = Number(sess(S_AWAY));
+    return !away || Date.now() - away < GRACE_MS;
+  } catch (_) { return false; }
+}
 
 const b64u = {
   to:   (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
@@ -69,6 +83,7 @@ export async function enableLock(user) {
 export function disableLock() {
   store(K_CRED, null);
   store(K_UID, null);
+  sess(S_OK, null); sess(S_AWAY, null);
   locked = false;
   hideLock();
   changed();
@@ -116,6 +131,7 @@ async function tryUnlock(silent) {
     } });
     if (a && await verified(a, challenge)) {
       locked = false;
+      sess(S_OK, '1'); sess(S_AWAY, null);
       setMsg('Use your fingerprint to continue.');
       hideLock();
     } else {
@@ -149,13 +165,16 @@ function init() {
   // Coming back to the app: ask again unless it was only away for a moment
   document.addEventListener('visibilitychange', () => {
     if (busy || !appLockActive()) return;
-    if (document.hidden) { hiddenAt = Date.now(); wasLocked = locked; showLock(); }   // keeps data out of the app switcher
-    else if (!wasLocked && Date.now() - hiddenAt < GRACE_MS) hideLock();
-    else { locked = true; showLock(); tryUnlock(true); }
+    if (document.hidden) { hiddenAt = Date.now(); wasLocked = locked; sess(S_AWAY, String(hiddenAt)); showLock(); }   // keeps data out of the app switcher
+    else if (!wasLocked && Date.now() - hiddenAt < GRACE_MS) { sess(S_AWAY, null); hideLock(); }
+    else { locked = true; sess(S_OK, null); sess(S_AWAY, null); showLock(); tryUnlock(true); }
   });
 
-  // Cold start: cover the app before anything else renders
-  if (read(K_CRED) && isStandalone()) { locked = true; showLock(); tryUnlock(true); }
+  // Cold start: cover the app before anything else renders. A refresh of an app that is already unlocked stays open.
+  if (read(K_CRED) && isStandalone()) {
+    if (isRefreshWhileUnlocked()) sess(S_AWAY, null);
+    else { locked = true; sess(S_OK, null); showLock(); tryUnlock(true); }
+  }
 }
 
 init();
