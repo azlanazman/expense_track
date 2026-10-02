@@ -13,7 +13,7 @@ import { renderSettings } from './settings.js';
 import { initBudget, refreshBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
 import { clearSavingsState } from './savings.js';
-import { clearAnalysisState, reopenAnalysis } from './analysis.js';
+import { clearAnalysisState, reopenAnalysis, initAnalysis } from './analysis.js';
 import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 import { registerServiceWorker } from './pwa.js';
@@ -129,6 +129,8 @@ document.addEventListener('visibilitychange', () => {
     if      (screen === 'budget')   initBudget();
     else if (screen === 'report')   initReport();
     else if (screen === 'insights') initPocket();
+    // The Analysis sub-page sits over Insights: its content was cleared when the tab was hidden, so load it again
+    if (document.getElementById('analysis-page')?.classList.contains('active')) initAnalysis();
   }
 });
 
