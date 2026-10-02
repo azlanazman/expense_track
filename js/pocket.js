@@ -182,8 +182,8 @@ function dialSVG() {
     h += `<line class="${k <= S.day ? 'pk-tk-p' : 'pk-tk-f'}" x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}" stroke-width="${k === S.day ? 4 : 2.4}" stroke-linecap="round"/>`;
   }
   const l0 = pol(cx, cy, 92, -135), l1 = pol(cx, cy, 92, 135);
-  h += `<text class="pk-dim" x="${(l0[0] - 4).toFixed(1)}" y="${(l0[1] + 20).toFixed(1)}" font-size="9" font-weight="800" text-anchor="middle" letter-spacing=".1em">DAY 1</text>`;
-  h += `<text class="pk-dim" x="${(l1[0] + 4).toFixed(1)}" y="${(l1[1] + 20).toFixed(1)}" font-size="9" font-weight="800" text-anchor="middle" letter-spacing=".1em">DAY ${n}</text>`;
+  h += `<text class="pk-dim" x="${(l0[0] - 4).toFixed(1)}" y="${(l0[1] + 20).toFixed(1)}" font-size="10" font-weight="800" text-anchor="middle" letter-spacing=".1em">DAY 1</text>`;
+  h += `<text class="pk-dim" x="${(l1[0] + 4).toFixed(1)}" y="${(l1[1] + 20).toFixed(1)}" font-size="10" font-weight="800" text-anchor="middle" letter-spacing=".1em">DAY ${n}</text>`;
   if (!none && tone !== 'early') {
     const a0 = Math.min(th, tg), a1 = Math.max(th, tg);
     if (a1 - a0 > 1.5) {
@@ -195,7 +195,7 @@ function dialSVG() {
   h += `<g id="pk-ptr" data-a="${th.toFixed(1)}" style="transform-origin:${cx}px ${cy}px;transform:rotate(${prevAngle === undefined ? -135 : prevAngle}deg)"><rect x="${cx - 3.5}" y="${cy - 74}" width="7" height="24" rx="3.5" fill="#fff"/></g>`;
   const big = none ? '--' : fmt0(Math.abs(S.left)), fs = big.length > 4 ? 38 : 46;
   const sub = none ? 'SET INCOME' : S.left > 0 && S.dl > 0 ? '≈ ' + fmt0(S.allowed) + ' / DAY' : S.left > 0 ? 'LAST DAY' : 'PAUSE';
-  h += `<g text-anchor="middle"><text class="pk-onknob" x="${cx}" y="${cy - 26}" font-size="9.5" font-weight="800" letter-spacing=".13em">RM LEFT</text>`;
+  h += `<g text-anchor="middle"><text class="pk-onknob" x="${cx}" y="${cy - 26}" font-size="10" font-weight="800" letter-spacing=".13em">RM LEFT</text>`;
   h += `<text class="pk-onknob" x="${cx}" y="${cy + 14}" font-size="${fs}" font-weight="800" letter-spacing="-.04em">${S.left < 0 && !none ? '−' : ''}${big}</text>`;
   h += `<text class="pk-onknob" x="${cx}" y="${cy + 36}" font-size="10" font-weight="800" letter-spacing=".08em">${sub}</text></g>`;
   return h + '</svg>';

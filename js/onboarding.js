@@ -125,7 +125,7 @@ function renderCategoryChips() {
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.placeholder = 'Category name';
-    inp.style.cssText = 'padding:9px 14px;border-radius:999px;border:1.5px solid var(--accent);font:inherit;font-size:14px;font-weight:600;outline:none;max-width:140px;color:var(--ink);background:var(--surface)';
+    inp.style.cssText = 'padding:9px 14px;border-radius:999px;border:1.5px solid var(--accent);font:inherit;font-size:var(--fs-body);font-weight:600;outline:none;max-width:140px;color:var(--ink);background:var(--surface)';
     container.appendChild(inp);
     inp.focus();
 
@@ -200,7 +200,7 @@ function renderMethodChips() {
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.placeholder = 'Method name';
-    inp.style.cssText = 'padding:9px 14px;border-radius:999px;border:1.5px solid var(--accent);font:inherit;font-size:14px;font-weight:600;outline:none;max-width:140px;color:var(--ink);background:var(--surface)';
+    inp.style.cssText = 'padding:9px 14px;border-radius:999px;border:1.5px solid var(--accent);font:inherit;font-size:var(--fs-body);font-weight:600;outline:none;max-width:140px;color:var(--ink);background:var(--surface)';
     container.appendChild(inp);
     inp.focus();
 
@@ -248,14 +248,14 @@ function renderBalanceRows() {
   container.innerHTML = visible.map(acc => `
     <div class="ob-bal-row">
       <div style="color:var(--ink-3)">${TYPE_ICONS[acc.type] || ICON_BANK}</div>
-      <div style="flex:1;font-size:15px;font-weight:700">${escapeHtml(acc.name)}</div>
+      <div style="flex:1;font-size:var(--fs-title);font-weight:700">${escapeHtml(acc.name)}</div>
       <div style="display:flex;align-items:center">
-        <span style="font-size:14px;font-weight:700;color:var(--ink-2);padding-right:6px">RM</span>
+        <span style="font-size:var(--fs-body);font-weight:700;color:var(--ink-2);padding-right:6px">RM</span>
         <input type="text" inputmode="decimal" placeholder="0.00" data-acc-id="${acc.id}"
-          style="width:90px;border:none;border-left:1.5px solid var(--line);outline:none;font:inherit;font-size:15px;font-weight:700;text-align:right;padding:2px 0 2px 10px;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
+          style="width:90px;border:none;border-left:1.5px solid var(--line);outline:none;font:inherit;font-size:var(--fs-title);font-weight:700;text-align:right;padding:2px 0 2px 10px;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
       </div>
     </div>`).join('') + (more > 0
-    ? `<div style="padding:10px 16px;font-size:13px;font-weight:500;color:var(--ink-3)">and ${more} more — set in Budget → Accounts</div>`
+    ? `<div style="padding:10px 16px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-3)">and ${more} more — set in Budget → Accounts</div>`
     : '');
 }
 
@@ -432,8 +432,8 @@ function buildHTML() {
       </div>
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:32px 24px 24px">
         <div style="width:72px;height:72px;border-radius:20px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:28px;color:var(--accent-ink)">${walletSVG(32)}</div>
-        <h1 style="font-size:30px;font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Your finances,<br>finally clear</h1>
-        <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Track every dollar — expenses, fixed bills, income, savings, and account balances in one place.</p>
+        <h1 style="font-size:var(--fs-display);font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Your finances,<br>finally clear</h1>
+        <p style="font-size:var(--fs-title);font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Track every dollar — expenses, fixed bills, income, savings, and account balances in one place.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${featureRow('Log expenses instantly')}
           ${featureRow('Smart monthly reports')}
@@ -442,7 +442,7 @@ function buildHTML() {
       </div>
       <div style="padding:0 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-t0-next">Next →</button>
-        <button style="background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-t0-skip">Skip tour — go to setup</button>
+        <button style="background:none;border:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-t0-skip">Skip tour — go to setup</button>
       </div>
     </div>
 
@@ -457,8 +457,8 @@ function buildHTML() {
       </div>
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:32px 24px 24px">
         <div style="width:72px;height:72px;border-radius:20px;background:var(--comp);display:flex;align-items:center;justify-content:center;margin-bottom:28px;color:var(--amber)">${walletSVG(32)}</div>
-        <h1 style="font-size:30px;font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Know your net balance</h1>
-        <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">See exactly what's left after salary, fixed bills, and daily spending — updated live every month.</p>
+        <h1 style="font-size:var(--fs-display);font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Know your net balance</h1>
+        <p style="font-size:var(--fs-title);font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">See exactly what's left after salary, fixed bills, and daily spending — updated live every month.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${featureRow('Income tracking')}
           ${featureRow('All your accounts tracked live')}
@@ -469,7 +469,7 @@ function buildHTML() {
         <button class="ob-btn-main" id="ob-t1-next">Next →</button>
         <div style="display:flex;gap:10px">
           <button class="ob-btn-outline" style="flex:1" id="ob-t1-back">← Back</button>
-          <button style="flex:1;background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-t1-skip">Skip tour</button>
+          <button style="flex:1;background:none;border:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-t1-skip">Skip tour</button>
         </div>
       </div>
     </div>
@@ -485,14 +485,14 @@ function buildHTML() {
       </div>
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:32px 24px 24px">
         <div style="width:72px;height:72px;border-radius:20px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:28px;color:var(--accent-ink)">${shieldSVG(32)}</div>
-        <h1 style="font-size:30px;font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Your data,<br>yours only</h1>
-        <p style="font-size:15px;font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Secured with Google Sign-In. Your financial data is locked to your account — nobody else can see it.</p>
+        <h1 style="font-size:var(--fs-display);font-weight:800;letter-spacing:-0.025em;margin-bottom:12px;line-height:1.15">Your data,<br>yours only</h1>
+        <p style="font-size:var(--fs-title);font-weight:500;color:var(--ink-2);line-height:1.65;margin-bottom:32px">Secured with Google Sign-In. Your financial data is locked to your account — nobody else can see it.</p>
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
           ${featureRow('Private by design')}
           ${featureRow('Auto session timeout')}
           ${featureRow('Delete all data anytime')}
         </div>
-        <p style="font-size:12.5px;font-weight:500;color:var(--ink-3);line-height:1.65">By continuing, you agree that your financial data is stored in Google Firebase, private to your account only. You can delete all data anytime in Settings.</p>
+        <p style="font-size:var(--fs-meta);font-weight:500;color:var(--ink-3);line-height:1.65">By continuing, you agree that your financial data is stored in Google Firebase, private to your account only. You can delete all data anytime in Settings.</p>
       </div>
       <div style="padding:0 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-t2-next">Set up my app →</button>
@@ -505,21 +505,21 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:20%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 1 of 5</span>
+          <span style="font-size:var(--fs-small);font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 1 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Let's personalise</div>
-        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">When do you get paid?</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:28px">This sets your salary period for reports — e.g. 25th means your month runs 25 May → 24 Jun.</p>
+        <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Let's personalise</div>
+        <h2 style="font-size:var(--fs-num-lg);font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">When do you get paid?</h2>
+        <p style="font-size:var(--fs-body);font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:28px">This sets your salary period for reports — e.g. 25th means your month runs 25 May → 24 Jun.</p>
         <div id="ob-day-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:14px"></div>
-        <p id="ob-day-hint" style="font-size:13px;font-weight:500;color:var(--ink-3);text-align:center;min-height:18px">Tap a day above</p>
+        <p id="ob-day-hint" style="font-size:var(--fs-meta);font-weight:500;color:var(--ink-3);text-align:center;min-height:18px">Tap a day above</p>
       </div>
       <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-s0-cont" disabled>Continue</button>
         <div style="display:flex;gap:10px">
           <button class="ob-btn-outline" style="flex:1" id="ob-s0-back">← Back</button>
-          <button style="flex:1;background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-s0-skip">Skip for now</button>
+          <button style="flex:1;background:none;border:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-s0-skip">Skip for now</button>
         </div>
       </div>
     </div>
@@ -529,25 +529,25 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:40%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 2 of 5</span>
+          <span style="font-size:var(--fs-small);font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 2 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your spending</div>
-        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">How do you categorise?</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Choose a starting set. You can add, rename, or remove categories later in Settings.</p>
+        <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your spending</div>
+        <h2 style="font-size:var(--fs-num-lg);font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">How do you categorise?</h2>
+        <p style="font-size:var(--fs-body);font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Choose a starting set. You can add, rename, or remove categories later in Settings.</p>
         <div style="display:flex;gap:8px;margin-bottom:20px">
-          <button id="ob-cat-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
-          <button id="ob-cat-preset-blank" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer">Start blank</button>
+          <button id="ob-cat-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:var(--fs-meta);font-weight:700;cursor:pointer">General ✓</button>
+          <button id="ob-cat-preset-blank" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--ink-2);font:inherit;font-size:var(--fs-meta);font-weight:700;cursor:pointer">Start blank</button>
         </div>
         <div id="ob-cat-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
-        <p id="ob-cat-count" style="font-size:13px;font-weight:600;color:var(--ink-3)"></p>
+        <p id="ob-cat-count" style="font-size:var(--fs-meta);font-weight:600;color:var(--ink-3)"></p>
       </div>
       <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-sc-cont">Continue</button>
         <div style="display:flex;gap:10px">
           <button class="ob-btn-outline" style="flex:1" id="ob-sc-back">← Back</button>
-          <button style="flex:1;background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-sc-skip">Skip for now</button>
+          <button style="flex:1;background:none;border:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-sc-skip">Skip for now</button>
         </div>
       </div>
     </div>
@@ -557,18 +557,18 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:60%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 3 of 5</span>
+          <span style="font-size:var(--fs-small);font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 3 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your accounts</div>
-        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Which do you use?</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your accounts. Tap the type badge to change account type.</p>
+        <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Your accounts</div>
+        <h2 style="font-size:var(--fs-num-lg);font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Which do you use?</h2>
+        <p style="font-size:var(--fs-body);font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:20px">Select all your accounts. Tap the type badge to change account type.</p>
         <div style="display:flex;gap:8px;margin-bottom:20px">
-          <button id="ob-method-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:13px;font-weight:700;cursor:pointer">General ✓</button>
+          <button id="ob-method-preset-general" type="button" style="flex:1;padding:8px 0;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:var(--screen-bg);font:inherit;font-size:var(--fs-meta);font-weight:700;cursor:pointer">General ✓</button>
         </div>
         <div id="ob-method-chips" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px"></div>
-        <p id="ob-method-count" style="font-size:13px;font-weight:600;color:var(--ink-3)"></p>
+        <p id="ob-method-count" style="font-size:var(--fs-meta);font-weight:600;color:var(--ink-3)"></p>
       </div>
       <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-s1-cont">Continue</button>
@@ -581,20 +581,20 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:80%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 4 of 5</span>
+          <span style="font-size:var(--fs-small);font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 4 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Account balances</div>
-        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Starting balances</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:24px">Enter your current balance for each account. Leave blank to start from zero.</p>
+        <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Account balances</div>
+        <h2 style="font-size:var(--fs-num-lg);font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Starting balances</h2>
+        <p style="font-size:var(--fs-body);font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:24px">Enter your current balance for each account. Leave blank to start from zero.</p>
         <div id="ob-bal-rows" class="ob-bal-card"></div>
       </div>
       <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
         <button class="ob-btn-main" id="ob-s2-cont">Continue</button>
         <div style="display:flex;gap:10px">
           <button class="ob-btn-outline" style="flex:1" id="ob-s2-back">← Back</button>
-          <button style="flex:1;background:none;border:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-s2-skip">Skip — set up later</button>
+          <button style="flex:1;background:none;border:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink-3);cursor:pointer;padding:8px" id="ob-s2-skip">Skip — set up later</button>
         </div>
       </div>
     </div>
@@ -604,32 +604,32 @@ function buildHTML() {
       <div style="padding:20px 24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="ob-prog-bar" style="flex:1;margin-right:16px"><div class="ob-prog-fill" style="width:100%"></div></div>
-          <span style="font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 5 of 5</span>
+          <span style="font-size:var(--fs-small);font-weight:700;color:var(--ink-3);white-space:nowrap">Setup 5 of 5</span>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 24px 24px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Almost done</div>
-        <h2 style="font-size:26px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Your monthly income</h2>
-        <p style="font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:28px">Used to calculate your net balance. You can update this anytime in Budget → Overview.</p>
+        <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">Almost done</div>
+        <h2 style="font-size:var(--fs-num-lg);font-weight:800;letter-spacing:-0.02em;margin-bottom:10px">Your monthly income</h2>
+        <p style="font-size:var(--fs-body);font-weight:500;color:var(--ink-2);line-height:1.6;margin-bottom:28px">Used to calculate your net balance. You can update this anytime in Budget → Overview.</p>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
-          <label style="font-size:13px;font-weight:600;color:var(--ink-2)">Salary <span style="color:var(--ink-3);font-weight:500">required*</span></label>
+          <label style="font-size:var(--fs-meta);font-weight:600;color:var(--ink-2)">Salary <span style="color:var(--ink-3);font-weight:500">required*</span></label>
           <div style="display:flex;align-items:center;border:2px solid var(--accent);border-radius:var(--radius);background:var(--surface);overflow:hidden">
-            <span style="padding:14px 10px 14px 16px;font-size:15px;font-weight:700;color:var(--accent-ink)">RM</span>
+            <span style="padding:14px 10px 14px 16px;font-size:var(--fs-title);font-weight:700;color:var(--accent-ink)">RM</span>
             <input id="ob-salary" type="text" inputmode="decimal" placeholder="0.00"
-              style="flex:1;border:none;outline:none;font:inherit;font-size:16px;font-weight:600;padding:14px 16px 14px 0;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
+              style="flex:1;border:none;outline:none;font:inherit;font-size:var(--fs-title);font-weight:600;padding:14px 16px 14px 0;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:24px">
-          <label style="font-size:13px;font-weight:600;color:var(--ink-2)">Claim / allowance <span style="color:var(--ink-3);font-weight:500">optional</span></label>
+          <label style="font-size:var(--fs-meta);font-weight:600;color:var(--ink-2)">Claim / allowance <span style="color:var(--ink-3);font-weight:500">optional</span></label>
           <div style="display:flex;align-items:center;border:1.5px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden">
-            <span style="padding:14px 10px 14px 16px;font-size:15px;font-weight:700;color:var(--ink-3)">RM</span>
+            <span style="padding:14px 10px 14px 16px;font-size:var(--fs-title);font-weight:700;color:var(--ink-3)">RM</span>
             <input id="ob-claim" type="text" inputmode="decimal" placeholder="0.00"
-              style="flex:1;border:none;outline:none;font:inherit;font-size:16px;font-weight:600;padding:14px 16px 14px 0;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
+              style="flex:1;border:none;outline:none;font:inherit;font-size:var(--fs-title);font-weight:600;padding:14px 16px 14px 0;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums">
           </div>
         </div>
         <div style="background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:var(--radius);padding:14px 16px">
-          <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:6px">Set up after</div>
-          <div style="font-size:13px;font-weight:500;color:var(--ink-2);line-height:1.7">Budget templates (fixed bills) · Savings pot goals · Category budgets — all in Settings after setup</div>
+          <div style="font-size:var(--fs-small);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:6px">Set up after</div>
+          <div style="font-size:var(--fs-meta);font-weight:500;color:var(--ink-2);line-height:1.7">Budget templates (fixed bills) · Savings pot goals · Category budgets — all in Settings after setup</div>
         </div>
       </div>
       <div style="padding:16px 24px 48px;display:flex;flex-direction:column;gap:12px">
@@ -642,11 +642,11 @@ function buildHTML() {
     <div class="ob-step" id="ob-final">
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px 24px;text-align:center">
         <div style="width:80px;height:80px;border-radius:999px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:var(--accent-ink)">${checkSVG(38)}</div>
-        <h1 style="font-size:30px;font-weight:800;letter-spacing:-0.025em;margin-bottom:10px">You're all set!</h1>
-        <p style="font-size:15px;font-weight:500;color:var(--ink-2);margin-bottom:28px">Here's what's been configured for you:</p>
+        <h1 style="font-size:var(--fs-display);font-weight:800;letter-spacing:-0.025em;margin-bottom:10px">You're all set!</h1>
+        <p style="font-size:var(--fs-title);font-weight:500;color:var(--ink-2);margin-bottom:28px">Here's what's been configured for you:</p>
         <div id="ob-summary" style="width:100%;background:var(--surface);border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;margin-bottom:12px;text-align:left"></div>
         <div style="width:100%;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:var(--radius);padding:14px 16px;text-align:left">
-          <div style="font-size:13px;font-weight:700;color:var(--accent-ink)">Next step → Add your first expense</div>
+          <div style="font-size:var(--fs-meta);font-weight:700;color:var(--accent-ink)">Next step → Add your first expense</div>
         </div>
       </div>
       <div style="padding:0 24px 48px">
@@ -675,14 +675,14 @@ function featureRow(text) {
     <div style="width:20px;height:20px;border-radius:999px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent-ink)">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
-    <span style="font-size:14.5px;font-weight:600;color:var(--ink-2)">${escapeHtml(text)}</span>
+    <span style="font-size:var(--fs-body);font-weight:600;color:var(--ink-2)">${escapeHtml(text)}</span>
   </div>`;
 }
 
 function summaryRow(label, value, isLast = false) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px${isLast ? '' : ';border-bottom:1px solid var(--line-2)'}">
-    <span style="font-size:14px;font-weight:600;color:var(--ink-2)">${escapeHtml(label)}</span>
-    <span style="font-size:14px;font-weight:700;color:var(--ink)">${value}</span>
+    <span style="font-size:var(--fs-body);font-weight:600;color:var(--ink-2)">${escapeHtml(label)}</span>
+    <span style="font-size:var(--fs-body);font-weight:700;color:var(--ink)">${value}</span>
   </div>`;
 }
 

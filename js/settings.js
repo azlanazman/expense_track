@@ -243,7 +243,7 @@ function renderCatChips() {
     const inp = document.createElement('input');
     inp.type        = 'text';
     inp.placeholder = 'New category';
-    inp.style.cssText = 'border:1px solid var(--accent-line);border-radius:999px;padding:9px 15px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);outline:none;min-width:120px;';
+    inp.style.cssText = 'border:1px solid var(--accent-line);border-radius:999px;padding:9px 15px;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink);outline:none;min-width:120px;';
     wrap.replaceChild(inp, addBtn);
     inp.focus();
     async function saveNew() {
@@ -268,13 +268,13 @@ function makeCatChip(cat, idx) {
   chip.innerHTML = `
     <span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>
     <span class="cat-label" style="cursor:pointer">${escapeHtml(cat)}</span>
-    <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--ink-3);padding:0 0 0 6px;font-size:14px;line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
+    <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--ink-3);padding:0 0 0 6px;font-size:var(--fs-body);line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
 
   chip.querySelector('.cat-label').addEventListener('click', () => {
     const inp = document.createElement('input');
     inp.type  = 'text';
     inp.value = cat;
-    inp.style.cssText = 'border:none;outline:none;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--accent-ink);width:80px;';
+    inp.style.cssText = 'border:none;outline:none;background:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--accent-ink);width:80px;';
     chip.querySelector('.cat-label').replaceWith(inp);
     inp.focus(); inp.select();
     async function saveRename() {
@@ -318,7 +318,7 @@ function renderPayChips() {
     const inp = document.createElement('input');
     inp.type        = 'text';
     inp.placeholder = 'New method';
-    inp.style.cssText = 'border:1px solid var(--comp-line);border-radius:999px;padding:9px 15px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);outline:none;min-width:120px;';
+    inp.style.cssText = 'border:1px solid var(--comp-line);border-radius:999px;padding:9px 15px;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--ink);outline:none;min-width:120px;';
     wrap.replaceChild(inp, addBtn);
     inp.focus();
     async function saveNew() {
@@ -345,13 +345,13 @@ function makePayChip(pay, idx) {
   chip.className = 'chip soft comp';
   chip.innerHTML = `
     <span class="pay-label" style="cursor:pointer">${escapeHtml(pay)}</span>
-    <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--comp-ink);padding:0 0 0 6px;font-size:14px;line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
+    <button type="button" class="chip-x" style="background:none;border:none;cursor:pointer;color:var(--comp-ink);padding:0 0 0 6px;font-size:var(--fs-body);line-height:1;display:inline-flex;align-items:center;" title="Remove">✕</button>`;
 
   chip.querySelector('.pay-label').addEventListener('click', () => {
     const inp = document.createElement('input');
     inp.type  = 'text';
     inp.value = pay;
-    inp.style.cssText = 'border:none;outline:none;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--comp-ink);width:70px;';
+    inp.style.cssText = 'border:none;outline:none;background:none;font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--comp-ink);width:70px;';
     chip.querySelector('.pay-label').replaceWith(inp);
     inp.focus(); inp.select();
     async function saveRename() {

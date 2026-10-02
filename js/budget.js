@@ -175,8 +175,8 @@ function renderBudget() {
     const notice = document.createElement('div');
     notice.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0;color:var(--ink-3)';
     notice.innerHTML = `
-      <span style="font-size:15px;font-weight:600">No budget template set up</span>
-      <span style="font-size:13px">Go to Settings → Budget templates to get started</span>`;
+      <span style="font-size:var(--fs-title);font-weight:600">No budget template set up</span>
+      <span style="font-size:var(--fs-meta)">Go to Settings → Budget templates to get started</span>`;
     body.appendChild(notice);
     body.appendChild(buildLimitStrips(variableExpenses));
     return;
@@ -350,7 +350,7 @@ function startIncomeEdit(entry) {
   inp.inputMode   = 'decimal';
   inp.value       = entry.amount > 0 ? String(entry.amount) : '';
   inp.placeholder = '0.00';
-  inp.style.cssText = 'border:1px solid var(--accent-line);border-radius:var(--radius-sm);padding:7px 10px;font:inherit;font-size:15px;font-weight:700;width:110px;text-align:right;outline:none;color:var(--ink);font-variant-numeric:tabular-nums;background:var(--surface);';
+  inp.style.cssText = 'border:1px solid var(--accent-line);border-radius:var(--radius-sm);padding:7px 10px;font:inherit;font-size:var(--fs-title);font-weight:700;width:110px;text-align:right;outline:none;color:var(--ink);font-variant-numeric:tabular-nums;background:var(--surface);';
   valEl.replaceWith(inp);
   inp.focus();
   if (inp.value) inp.select();
@@ -457,7 +457,7 @@ function buildFixedSummary(template, payments, paidCount, totalItems, billsDue) 
     const moreBtn = document.createElement('button');
     moreBtn.type      = 'button';
     moreBtn.className = 'chip add';
-    moreBtn.style.cssText = 'width:100%;justify-content:center;padding:12px;margin-top:8px;font-size:13px;';
+    moreBtn.style.cssText = 'width:100%;justify-content:center;padding:12px;margin-top:8px;font-size:var(--fs-meta);';
     moreBtn.textContent  = `+ ${hidden.length} more groups`;
     moreBtn.addEventListener('click', () => {
       appendGroupRows(hidden, payments, card);
@@ -528,7 +528,7 @@ function renderChecklist() {
   body.innerHTML = '';
 
   if (!template) {
-    body.innerHTML = `<p style="text-align:center;color:var(--ink-3);padding:48px 0;font-size:14px;font-weight:500">No budget template. Go to Settings → Budget templates.</p>`;
+    body.innerHTML = `<p style="text-align:center;color:var(--ink-3);padding:48px 0;font-size:var(--fs-body);font-weight:500">No budget template. Go to Settings → Budget templates.</p>`;
     return;
   }
 
@@ -589,7 +589,7 @@ function buildChkGroup(group, payments) {
     gbody.className = 'chk-group-body';
     if (group.items.length === 0) {
       const empty = document.createElement('div');
-      empty.style.cssText = 'padding:14px 16px;font-size:13px;font-weight:500;color:var(--ink-3);font-style:italic';
+      empty.style.cssText = 'padding:14px 16px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-3);font-style:italic';
       empty.textContent = 'No items — add in Settings → Budget templates';
       gbody.appendChild(empty);
     } else {

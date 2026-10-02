@@ -102,7 +102,7 @@ export function renderAccounts() {
   listHdr.innerHTML = '<span class="block-label" style="margin-bottom:0">Accounts</span>';
   const reconBtn = document.createElement('button');
   reconBtn.type = 'button';
-  reconBtn.style.cssText = 'font-size:12.5px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px;cursor:pointer';
+  reconBtn.style.cssText = 'font-size:var(--fs-meta);font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px;cursor:pointer';
   reconBtn.textContent = "Set today's balances";
   reconBtn.addEventListener('click', openReconcileSheet);
   listHdr.appendChild(reconBtn);
@@ -131,14 +131,14 @@ export function renderAccounts() {
   tfHdr.innerHTML = `<span class="block-label" style="margin-bottom:0">Recent transfers</span>`;
   const seeAll = document.createElement('button');
   seeAll.type = 'button';
-  seeAll.style.cssText = 'font-size:12.5px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px;cursor:pointer';
+  seeAll.style.cssText = 'font-size:var(--fs-meta);font-weight:700;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px;cursor:pointer';
   seeAll.textContent = 'See all';
   seeAll.addEventListener('click', () => document.dispatchEvent(new CustomEvent('nav:show-log-transfers')));
   tfHdr.appendChild(seeAll);
   tfSec.appendChild(tfHdr);
 
   if (recentTf.length === 0) {
-    tfSec.insertAdjacentHTML('beforeend', '<p style="color:var(--ink-3);font-size:13.5px;font-weight:500;padding:12px 0">No transfers yet</p>');
+    tfSec.insertAdjacentHTML('beforeend', '<p style="color:var(--ink-3);font-size:var(--fs-body);font-weight:500;padding:12px 0">No transfers yet</p>');
   } else {
     const tfCard = document.createElement('div');
     tfCard.className = 'recent-transfers';

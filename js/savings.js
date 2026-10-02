@@ -62,7 +62,7 @@ export function renderSavings() {
   potsSec.innerHTML = '<span class="block-label">Savings pots</span>';
 
   if (savState.pots.length === 0) {
-    potsSec.insertAdjacentHTML('beforeend', '<p style="color:var(--ink-3);font-size:13.5px;font-weight:500;padding:12px 0">No savings pots yet. Add one below.</p>');
+    potsSec.insertAdjacentHTML('beforeend', '<p style="color:var(--ink-3);font-size:var(--fs-body);font-weight:500;padding:12px 0">No savings pots yet. Add one below.</p>');
   } else {
     const potsWrap = document.createElement('div');
     potsWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
@@ -100,7 +100,7 @@ function buildPotCard(pot) {
     <div class="pot-bal-row">
       <span class="pot-bal-val">RM ${fmt(bal)}</span>
       ${target > 0 ? `<span class="pot-bal-goal">goal RM ${fmt(target)}</span>` : ''}
-      ${target > 0 ? `<span style="font-size:12px;font-weight:600;color:var(--ink-3);margin-left:auto">${pct.toFixed(0)}%</span>` : ''}
+      ${target > 0 ? `<span style="font-size:var(--fs-small);font-weight:600;color:var(--ink-3);margin-left:auto">${pct.toFixed(0)}%</span>` : ''}
     </div>
     <div class="pot-btns">
       <button class="pot-btn add" type="button">Add</button>

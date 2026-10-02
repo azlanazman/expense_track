@@ -409,7 +409,7 @@ function buildVarSubRows(catEntries, colMethods) {
       const tr = document.createElement('tr');
       tr.className = 'rpt-sub-row';
       tr.innerHTML = `
-        <td class="sticky-col" style="padding-left:30px;font-size:12.5px;font-weight:500;color:var(--ink-2)">${shortDate(date)}</td>
+        <td class="sticky-col" style="padding-left:30px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-2)">${shortDate(date)}</td>
         ${methodCells}
         <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(dayTotal)}</td>`;
       return tr;
@@ -487,7 +487,7 @@ function buildFixedSubRows(groupEntries, colMethods) {
     const tr = document.createElement('tr');
     tr.className = 'rpt-sub-row';
     tr.innerHTML = `
-      <td class="sticky-col" style="padding-left:30px;font-size:12.5px;font-weight:500;color:var(--ink-2)">${sub}</td>
+      <td class="sticky-col" style="padding-left:30px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-2)">${sub}</td>
       ${methodCells}
       <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(subTotal)}</td>`;
     return tr;
@@ -571,7 +571,7 @@ function insertAfter(ref, rows) {
 }
 
 function emptyRow(colCount, msg) {
-  return `<tr><td colspan="${colCount + 2}" style="text-align:center;color:var(--ink-3);padding:24px;font-size:13.5px;font-weight:500">${msg}</td></tr>`;
+  return `<tr><td colspan="${colCount + 2}" style="text-align:center;color:var(--ink-3);padding:24px;font-size:var(--fs-body);font-weight:500">${msg}</td></tr>`;
 }
 
 // ── Export button + sheet ─────────────────────────────────────────────────────
