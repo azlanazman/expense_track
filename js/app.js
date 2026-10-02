@@ -5,11 +5,11 @@ import { auth, provider } from './firebase.js';
 import { currentUser, setCurrentUser, setUserSettings } from './state.js';
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, showToast } from './helpers.js';
 import { fetchUserSettings, persistUserSettings } from './db.js';
-import { initAdd } from './add.js';
-import { initLog, showLogTransfers, clearLogState } from './log.js';
-import { initReport, clearReportState } from './report.js';
+import { openAddSheet, closeAddSheet, isAddSheetOpen, clearAddState } from './add.js';
+import { initLog, refreshLog, showLogTransfers, clearLogState } from './log.js';
+import { initReport, refreshReport, clearReportState } from './report.js';
 import { renderSettings } from './settings.js';
-import { initBudget, clearBudgetState } from './budget.js';
+import { initBudget, refreshBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
 import { clearSavingsState } from './savings.js';
 import { clearInsightsState } from './insights.js';
@@ -27,7 +27,7 @@ if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
 // ── Navigation ──────────────────────────────────────────────────────────────
 
 export function showScreen(name) {
-  ['add', 'log', 'report', 'budget', 'settings'].forEach(s => {
+  ['log', 'report', 'budget', 'settings'].forEach(s => {
     document.getElementById(`screen-${s}`).style.display = s === name ? '' : 'none';
     document.getElementById(`nav-${s}`).classList.toggle('on', s === name);
   });
@@ -35,7 +35,7 @@ export function showScreen(name) {
   sessionStorage.setItem('activeScreen', name);
 }
 
-document.getElementById('nav-add').addEventListener('click', () => showScreen('add'));
+document.getElementById('nav-add').addEventListener('click', () => openAddSheet());
 document.getElementById('nav-log').addEventListener('click', () => { initLog(); showScreen('log'); });
 document.getElementById('nav-report').addEventListener('click', () => { initReport(); showScreen('report'); });
 document.getElementById('nav-budget').addEventListener('click', () => { initBudget(); showScreen('budget'); });
@@ -43,6 +43,7 @@ document.getElementById('nav-settings').addEventListener('click', () => { render
 
 // Intercept phone back button — close any open sub-page instead of leaving the app
 window.addEventListener('popstate', () => {
+  if (isAddSheetOpen()) { closeAddSheet(true); return; }   // back button closes the Add sheet first
   const openSubPage = document.querySelector('.sub-page.active');
   if (openSubPage) openSubPage.classList.remove('active');
 });
@@ -52,9 +53,17 @@ document.addEventListener('nav:show-log-transfers', () => {
   initLog().then(() => showLogTransfers());
 });
 
-document.addEventListener('nav:go-add', () => {
-  initAdd();
-  showScreen('add');
+document.addEventListener('nav:go-home', () => {
+  initLog();
+  showScreen('log');
+});
+
+// An expense was saved from the Add sheet: refresh whichever screen is underneath (keeps its filters and period)
+document.addEventListener('expense:saved', () => {
+  const screen = sessionStorage.getItem('activeScreen');
+  if      (screen === 'log')    refreshLog();
+  else if (screen === 'report') refreshReport();
+  else if (screen === 'budget') refreshBudget();
 });
 
 // ── 15-minute idle session timeout (C2) ─────────────────────────────────────
@@ -77,6 +86,7 @@ function resetIdleTimer() {
 // ── Clear financial state from memory ────────────────────────────────────────
 
 function clearAllFinancialState() {
+  clearAddState();
   clearLogState();
   clearBudgetState();
   clearReportState();
@@ -92,7 +102,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearAllFinancialState();
   } else {
-    const screen = sessionStorage.getItem('activeScreen') || 'add';
+    const screen = sessionStorage.getItem('activeScreen') || 'log';
     if      (screen === 'log')    initLog();
     else if (screen === 'report') initReport();
     else if (screen === 'budget') initBudget();
@@ -150,12 +160,11 @@ onAuthStateChanged(auth, async (user) => {
       throw e;
     }
     if (settings?.onboardingComplete) {
-      const saved = sessionStorage.getItem('activeScreen') || 'add';
-      if      (saved === 'log')      { initLog();        showScreen('log'); }
-      else if (saved === 'report')   { initReport();     showScreen('report'); }
+      const saved = sessionStorage.getItem('activeScreen') || 'log';
+      if      (saved === 'report')   { initReport();     showScreen('report'); }
       else if (saved === 'budget')   { initBudget();     showScreen('budget'); }
       else if (saved === 'settings') { renderSettings(); showScreen('settings'); }
-      else                           { initAdd();        showScreen('add'); }
+      else                           { initLog();        showScreen('log'); }
     } else {
       document.getElementById('onboarding-overlay').style.display = 'flex';
       initOnboarding(user.uid);

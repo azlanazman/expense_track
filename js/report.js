@@ -91,6 +91,11 @@ function salaryTitle(startDate, endDate) {
 
 // ── Data load ─────────────────────────────────────────────────────────────────
 
+// Reload the period already on screen (after an expense is saved elsewhere)
+export async function refreshReport() {
+  if (rptState.startDate) await loadReport();
+}
+
 async function loadReport() {
   rptState.entries  = await fetchExpenses(currentUser.uid, rptState.startDate, rptState.endDate);
   rptState.expanded = new Set();
