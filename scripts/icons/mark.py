@@ -1,6 +1,6 @@
 # Generates the SVG variants of the monogram icon (run from the repo root; writes icons/*.svg and favicon.svg).
-# Colours are the app's tokens: --comp #181B1F (navy), --accent #FEC000 (yellow), shadow #B37900.
-BG, FG, SH = '#181B1F', '#FEC000', '#B37900'
+# Icon background is pure black (changed 2026-10-02); --accent #FEC000 (yellow), shadow #B37900.
+BG, FG, SH = '#000000', '#FEC000', '#B37900'
 
 def letter(dx=0, dy=0, scale=1.0, shadow=16):
     # heavy rounded "T": crossbar + stem; drawn twice (hard offset shadow, then letter)
