@@ -2155,6 +2155,15 @@
     .as-amt.sm input { font-size: 32px; }
     .lim-remove { width: 100%; text-align: center; padding: 14px 12px 2px; font: inherit; font-size: 14px; font-weight: 700; color: var(--danger); background: none; border: 0; cursor: pointer; }
     .login-mark { display: block; width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 5px 0 var(--edge), 0 0 0 1px rgba(255, 255, 255, 0.10); margin-bottom: -12px; }
+
+    /* App lock (js/applock.js): covers the app until the fingerprint is accepted */
+    #lock-screen { position: fixed; inset: 0; z-index: 300; background: var(--screen-bg); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; text-align: center; }
+    #lock-screen.on { display: flex; }
+    .lock-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; }
+    .lock-sub { font-size: 14px; color: var(--ink-3); max-width: 28ch; }
+    .lock-btn { width: min(280px, 100%); margin-top: 8px; }
+    .lock-link { font: inherit; font-size: 14px; font-weight: 700; color: var(--ink-2); background: none; border: 0; padding: 10px 14px; cursor: pointer; }
+    .lock-link:focus-visible { outline: 2px solid var(--pk-knob); outline-offset: 2px; border-radius: 8px; }
     .chk-cb { border: 0; box-shadow: 0 3px 0 var(--edge); }
     .chk-cb:active { transform: translateY(3px); box-shadow: none; }
     .chk-cb.paid { transform: translateY(3px); box-shadow: none; }
@@ -2365,6 +2374,22 @@
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
+          <div class="row-card" id="applock-row" style="margin-top:10px;display:none">
+            <div class="rc-ic">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </div>
+            <div class="rc-main">
+              <div class="rc-title">App lock</div>
+              <div class="rc-sub" id="applock-sub"></div>
+            </div>
+            <label class="toggle-switch" aria-label="App lock">
+              <input type="checkbox" id="applock-toggle" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
           <div id="demo-reset-row" style="display:none;margin-top:10px">
             <button class="row-card" id="btn-demo-reset" type="button">
               <div class="rc-ic">
@@ -2801,6 +2826,14 @@
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
+
+  <div id="lock-screen" role="dialog" aria-modal="true" aria-labelledby="lock-title">
+    <img class="login-mark" src="favicon.svg" alt="" width="76" height="76" />
+    <div class="lock-title" id="lock-title">Expense Tracker is locked</div>
+    <div class="lock-sub" id="lock-msg">Use your fingerprint to continue.</div>
+    <button type="button" class="btn-save lock-btn" id="lock-unlock">Unlock</button>
+    <button type="button" class="lock-link" id="lock-signout">Sign out instead</button>
+  </div>
 
   <script type="module" src="js/app.js"></script>
 

@@ -12,7 +12,7 @@ This app holds private financial data. It is a static site (GitHub Pages) talkin
 3. **API key restriction** (Google Cloud Console): the browser key is restricted to HTTP referrers (the Pages site, the Firebase auth domains, localhost).
 4. **Content-Security-Policy** (meta tag in `index.html`): limits where scripts, frames and network calls can go. All third-party libraries are vendored in `vendor/` and served from the same origin.
 5. **Output escaping**: every piece of user data placed into an HTML template goes through `escapeHtml()` (`js/helpers.js`). `node scripts/check-escape.js` flags likely misses; run it before committing.
-6. **Client behaviour**: 15-minute idle sign-out, screen state cleared on sign-out and when the tab is hidden, audit log of writes.
+6. **Client behaviour**: 15-minute idle sign-out (skipped in the installed app while the fingerprint App lock is on), screen state cleared on sign-out and when the tab is hidden, audit log of writes.
 
 ## Installed app (PWA)
 

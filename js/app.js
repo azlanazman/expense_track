@@ -17,6 +17,7 @@ import { clearInsightsState } from './insights.js';
 import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 import { registerServiceWorker } from './pwa.js';
+import { appLockActive, lockOnAuth } from './applock.js';
 
 registerServiceWorker();   // installable app + offline shell (skipped on localhost, see pwa.js)
 
@@ -77,12 +78,17 @@ function resetIdleTimer() {
   clearTimeout(idleTimer);
   clearTimeout(warnTimer);
   if (!currentUser) return;
+  if (appLockActive()) return;   // installed app with the fingerprint lock on: stays signed in, the lock is the gate
   warnTimer = setTimeout(() => showToast('Session expiring in 60 s — tap to stay'), WARN_MS);
   idleTimer = setTimeout(() => { if (currentUser) signOut(auth); }, IDLE_MS);
 }
 
 ['mousemove', 'keydown', 'touchstart', 'click'].forEach(evt =>
   document.addEventListener(evt, resetIdleTimer, { passive: true }));
+
+// Turning the app lock on or off changes whether the idle sign-out applies; "Sign out instead" on the lock screen
+document.addEventListener('applock:changed', resetIdleTimer);
+document.addEventListener('applock:signout', () => signOut(auth));
 
 // ── Clear financial state from memory ────────────────────────────────────────
 
@@ -135,6 +141,7 @@ document.getElementById('btn-demo-signin').addEventListener('click', async () =>
 document.getElementById('btn-signout').addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
+  lockOnAuth(user);   // drops a lock that belongs to someone else, the demo account or a signed-out device
   if (user) {
     setCurrentUser(user);
     resetIdleTimer();

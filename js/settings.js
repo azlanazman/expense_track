@@ -5,6 +5,7 @@ import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData 
 import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
+import { isStandalone, lockSupported, isLockOn, enableLock, disableLock } from './applock.js';
 
 export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
@@ -12,11 +13,49 @@ export function renderSettings() {
   document.getElementById('salary-day-val').textContent   = ordinal(userSettings.salaryDay ?? 25);
   document.getElementById('savings-goal-val').textContent = (userSettings.savingsGoalPct ?? 20) + '%';
   syncThemeSeg();
+  syncAppLockRow();
   renderCatChips();
   renderPayChips();
   const resetRow = document.getElementById('demo-reset-row');
   if (resetRow) resetRow.style.display = currentUser?.email === DEMO_EMAIL ? '' : 'none';
 }
+
+// ── App lock (fingerprint when the installed app is opened) ─────────────────
+
+async function syncAppLockRow() {
+  const row = document.getElementById('applock-row');
+  if (!row) return;
+  if (!currentUser || currentUser.email === DEMO_EMAIL) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  const toggle = document.getElementById('applock-toggle'), sub = document.getElementById('applock-sub');
+  const on = isLockOn(currentUser);
+  toggle.checked = on;
+  if (!isStandalone() && !on) {
+    toggle.disabled = true;
+    sub.textContent = 'Available in the installed app: add it to your home screen first';
+  } else if (!on && !(await lockSupported())) {
+    toggle.disabled = true;
+    sub.textContent = 'Set up a fingerprint or screen lock on this phone first';
+  } else {
+    toggle.disabled = false;
+    sub.textContent = on ? 'Fingerprint needed each time you open the app. You stay signed in on this phone.'
+                         : 'Ask for your fingerprint when the app opens. Keeps you signed in on this phone.';
+  }
+}
+
+document.getElementById('applock-toggle').addEventListener('change', async (e) => {
+  const t = e.target;
+  t.disabled = true;
+  try {
+    if (t.checked) { await enableLock(currentUser); showToast('App lock is on'); }
+    else           { disableLock(); showToast('App lock is off'); }
+  } catch (err) {
+    t.checked = !t.checked;
+    showToast(err && err.name === 'NotAllowedError' ? 'Fingerprint setup was cancelled' : 'Could not set up the app lock');
+  } finally {
+    syncAppLockRow();
+  }
+});
 
 // ── Appearance (light / dark) ────────────────────────────────────────────────
 
