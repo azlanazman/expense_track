@@ -3,7 +3,7 @@
 import { currentUser, userSettings } from './state.js';
 import { fmt0, escapeHtml, parseLocalDate, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetTemplate, fetchBudgetMonth } from './db.js';
-import { openAnalysis } from './insights.js';
+import { openAnalysis } from './analysis.js';
 import { WORD, clamp, abbrev, iconFor, catStatus, tapeStrip } from './tape.js';
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];

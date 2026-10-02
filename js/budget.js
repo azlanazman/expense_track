@@ -3,7 +3,7 @@ import { fmt, fmt0, parseLocalDate, monthLabel, showToast, escapeHtml, todayStri
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
-import { openCategoryLimitSheet } from './insights.js';
+import { openCategoryLimitSheet } from './limit-sheet.js';
 import { clamp, catStatus, ratioTone, tapeStrip, ledBar, lcdStatic, iconFor } from './tape.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
