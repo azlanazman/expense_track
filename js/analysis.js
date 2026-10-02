@@ -131,10 +131,11 @@ async function load(uid) {
     for (let d = parseLocalDate(r.start), k = 0; dstr(d) <= r.end; d.setDate(d.getDate() + 1), k++) {
       const ds = dstr(d), b = byDate[ds] || { v: 0, cats: {}, nAll: 0 };
       p.days.push({ i: k, date: ds, d: new Date(d), wd: (d.getDay() + 6) % 7, v: ds > todayStr ? null : b.v, cats: b.cats, nAll: b.nAll,
-        hol: holidayOn(ds), trip: tags.some(t => t && t.from <= ds && ds <= t.to) });
+        hol: holidayOn(ds), trip: tags.find(t => t && t.from <= ds && ds <= t.to) || null });
     }
     p.holidays  = holidaysBetween(r.start, r.end);
-    p.trip      = (userSettings.periodTags || []).find(t => t && t.from <= r.end && t.to >= r.start) || null;
+    p.trips     = (userSettings.periodTags || []).filter(t => t && t.from <= r.end && t.to >= r.start);
+    p.trip      = p.trips[0] || null;
 
     if (p.current) {
       // Still running: project the period the way the Insights home does (planned bills, spending pace)
@@ -360,7 +361,7 @@ function plateDays({ periods }) {
       const d = p.days[i];
       if (!d) cells += '<i class="an-dc out"></i>';
       else if (d.v === null) cells += '<i class="an-dc out box"></i>';
-      else cells += `<i class="an-dc${d.i === pk ? ' pk' : ''}${d.hol ? ' hd' : ''}${dayPer === p.i && dayIdx === d.i ? ' sel' : ''}${d.v === 0 ? ' zero' : ''}" data-p="${p.i}" data-d="${d.i}" style="${d.v === 0 ? '' : 'background:' + heat(d.v / mx)}"></i>`;
+      else cells += `<i class="an-dc${d.i === pk ? ' pk' : ''}${d.hol ? ' hd' : ''}${d.trip ? ' tp' : ''}${dayPer === p.i && dayIdx === d.i ? ' sel' : ''}${d.v === 0 ? ' zero' : ''}" data-p="${p.i}" data-d="${d.i}" style="${d.v === 0 ? '' : 'background:' + heat(d.v / mx)}"></i>`;
     }
     h += `<button type="button" class="an-dvr${dayPer === p.i ? ' on' : ''}" data-p="${p.i}" aria-label="${escapeHtml(p.label)} period${p.current ? ' so far' : ''}, open its calendar">` +
       `<span class="an-rl${p.current ? ' cur' : ''}">${escapeHtml(p.label)}${p.trip ? house(9) : ''}</span><span class="an-dcells">${cells}</span></button>`;
@@ -368,7 +369,7 @@ function plateDays({ periods }) {
   h += '</div><div class="an-dax"><span></span><span class="an-axis">' +
     [1, 5, 10, 15, 20, 25, 30].map(n => `<b style="left:${((n - 0.5) / 31 * 100).toFixed(2)}%">${n}</b>`).join('') + '</span></div>';
   h += '<div class="an-legend"><span><i class="k zero"></i>no spend</span><span class="an-ramp"><i style="background:' + heat(0.2) + '"></i><i style="background:' + heat(0.6) + '"></i><i style="background:' + heat(1) + '"></i></span><span>more</span>' +
-    '<span><i class="k pkk"></i>peak day</span><span><i class="hd"></i>holiday</span></div></div>';
+    '<span><i class="k pkk"></i>peak day</span><span><i class="hd"></i>holiday</span>' + (periods.some(p => p.trips.length) ? '<span><i class="k tpk"></i>trip day</span>' : '') + '</div></div>';
   return h;
 }
 
@@ -398,7 +399,7 @@ function plateCalendar({ periods }) {
       if (i < 0 || !d) { h += '<div class="an-cd out"></div>'; continue; }
       if (d.v === null) { h += `<div class="an-cd out box"><span>${d.d.getDate()}</span></div>`; continue; }
       const cls = 'an-cd' + (d.v === 0 ? ' zero' : '') + (d.v / mx > 0.55 ? ' hot' : '') + (top && d === top ? ' hi' : '') + (low && d === low && low !== top ? ' lo' : '') + (dayIdx === d.i ? ' sel' : '');
-      const aria = dayName(d) + ', ' + (d.v ? rm(d.v) : 'no spending') + (d.hol ? ', ' + d.hol : '') + (d.trip ? ', trip' : '');
+      const aria = dayName(d) + ', ' + (d.v ? rm(d.v) : 'no spending') + (d.hol ? ', ' + d.hol : '') + (d.trip ? ', trip: ' + d.trip.name : '');
       h += `<button type="button" class="${cls}" data-day="${d.i}" aria-pressed="${dayIdx === d.i}" aria-label="${escapeHtml(aria)}" style="${d.v === 0 ? '' : 'background:' + heat(d.v / mx)}">` +
         `<span>${d.d.getDate()}</span>${d.v ? `<span class="v">${fmt0(d.v)}</span>` : ''}${d.hol ? '<i class="p"></i>' : ''}${d.trip ? '<i class="tr"></i>' : ''}</button>`;
     }
@@ -412,9 +413,33 @@ function plateCalendar({ periods }) {
     `<div><span class="pk-lab">Lowest</span><b>${low ? ds(low) : '—'}</b><small>${low ? rm(low.v) : ''}</small></div>` +
     `<div><span class="pk-lab">No-spend days</span><b>${zero}</b><small>${prevZero === null ? '' : (zero >= prevZero ? '+' : '−') + Math.abs(zero - prevZero) + ' vs ' + escapeHtml(prev.label)}</small></div></div>`;
   const hs = p.days.filter(d => d.hol).map(d => ds(d) + ' · ' + d.hol);
-  if (hs.length || p.trip) h += '<div class="an-ph">' + (hs.length ? 'Holidays: ' + escapeHtml(hs.join(', ')) + '. ' : '') + (p.trip ? 'Trip: ' + escapeHtml(p.trip.name) + ' (bar under the date).' : '') + '</div>';
+  if (hs.length) h += '<div class="an-ph">Holidays: ' + escapeHtml(hs.join(', ')) + '.</div>';
   if (prevTop) h += `<div class="an-ph">${escapeHtml(prev.label)} period peaked on ${ds(prevTop)} at ${rm(prevTop.v)}.</div>`;
-  h += '<div class="an-legend"><span><i class="k pkk"></i>highest</span><span><i class="k lowk"></i>lowest day with spend</span><span><i class="hd"></i>holiday</span></div></div>';
+  h += '<div class="an-legend"><span><i class="k pkk"></i>highest</span><span><i class="k lowk"></i>lowest day with spend</span><span><i class="hd"></i>holiday</span>' + (p.trips.length ? '<span><i class="k tpk"></i>trip day</span>' : '') + '</div>';
+  h += calTrips(p);
+  return h + '</div>';
+}
+
+// Trips that touch this period, with their days set against the rest of the period (the daily-trend cross-check)
+function calTrips(p) {
+  const past = p.days.filter(d => d.v !== null);
+  const other = past.filter(d => !d.trip);
+  const oavg = other.length ? other.reduce((s, d) => s + d.v, 0) / other.length : 0;
+  let h = '<div class="an-sub">Trips in this period</div>';
+  if (!p.trips.length) h += '<div class="an-ph" style="margin:0 0 8px">No trip tagged here. Tag one to see those days against the rest of the period.</div>';
+  p.trips.forEach(t => {
+    const td = past.filter(d => d.date >= t.from && d.date <= t.to);
+    const sum = td.reduce((s, d) => s + d.v, 0), avg = td.length ? sum / td.length : 0;
+    let note = 'No spending days recorded yet.';
+    if (td.length) {
+      note = td.length + ' day' + (td.length === 1 ? '' : 's') + ' here · ' + rm(sum) + ' (' + rm(avg) + '/day) vs ' + rm(oavg) + '/day on other days';
+      if (oavg > 0) note += ' · ' + (avg / oavg).toFixed(1).replace(/\.0$/, '') + '× a normal day';
+    }
+    h += `<div class="an-row"><span class="an-grow">${escapeHtml(t.name)}<small>${escapeHtml(shortRange(t.from, t.to))} · ${escapeHtml(note)}</small></span>` +
+      `<button type="button" class="chip" data-trip-edit="${escapeHtml(t.id)}" aria-label="${escapeHtml('Edit trip ' + t.name)}">Edit</button></div>`;
+  });
+  const sd = dayIdx !== null && p.days[dayIdx] ? p.days[dayIdx].date : '';
+  h += `<div class="an-chips" style="margin:10px 0 0"><button type="button" class="chip add" data-trip-add="1" data-from="${escapeHtml(sd)}" data-to="${escapeHtml(sd)}">+ Add a trip${sd ? ' from the selected day' : ''}</button></div>`;
   return h;
 }
 
@@ -425,7 +450,7 @@ function dayDetail(p) {
   const n = ent.length;
   let l2 = d.v === 0 ? 'No variable spending this day.' : n + ' categor' + (n > 1 ? 'ies' : 'y') + ', biggest is ' + ent[0][0] + ' (' + rm(ent[0][1]) + ').';
   if (d.hol) l2 += ' ' + d.hol + '.';
-  if (d.trip) l2 += ' During your trip.';
+  if (d.trip) l2 += ' During your trip: ' + d.trip.name + '.';
   let h = `<div class="an-dd"><div class="pk-lcd an-lcd" style="margin-top:12px"><div class="pk-l1"><span>${escapeHtml(dayName(d).toUpperCase())}</span><span>${rm(d.v)}</span></div><div class="an-l2">${escapeHtml(l2)}</div></div>`;
   if (ent.length) {
     h += '<div class="an-tps">' + ent.map(([c, amt], k) => tapeStrip({
@@ -665,7 +690,8 @@ document.getElementById('analysis-body').addEventListener('click', (e) => {
   if (cd) { const i = Number(cd.dataset.day); dayIdx = dayIdx === i ? null : i; render(_cache); return; }
   const tEdit = e.target.closest('[data-trip-edit]');
   if (tEdit) { const t = (userSettings.periodTags || []).find(x => x.id === tEdit.dataset.tripEdit); if (t) openTripSheet(t); return; }
-  if (e.target.closest('[data-trip-add]')) { openTripSheet(null); return; }
+  const tAdd = e.target.closest('[data-trip-add]');
+  if (tAdd) { openTripSheet(null, { from: tAdd.dataset.from || '', to: tAdd.dataset.to || '' }); return; }
   const sg = e.target.closest('[data-sug]');
   if (sg) {
     if (sg.dataset.sug === 'yes') openTripSheet(null, { name: 'Trip', from: sg.dataset.from, to: sg.dataset.to });
