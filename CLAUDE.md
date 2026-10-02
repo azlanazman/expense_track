@@ -4,7 +4,7 @@
 
 Mobile-first personal expense tracker. Google Sign-In (Firebase Auth), Firestore database, GitHub Pages hosting. No build step — plain HTML/CSS/vanilla JS with ES modules. `index.html` = HTML skeleton + ALL CSS; logic split into `js/` modules.
 
-Design (redesign in progress, locked in the project doc `09-redesign-decisions.md`): **cream plates with a hard bottom edge** ("Pocket + Tape"). Every card, chip, key and segmented control is a raised plate (`border:0; box-shadow:0 4px 0 var(--edge)`) on a `--screen-bg` page; chips press down 3px. Light is the default theme, Dark is an option (Settings › Appearance). The bottom nav is dark in both themes with a raised round yellow Add button. Accent = yellow (`--accent`), the only accent; orange is reserved for the new Insights (phase D). Selected chips/keys are ink-dark (`.chip.on` = `--ink` bg, `--screen-bg` text). Text on yellow fills always uses dark ink (`--on-accent`) — never white.
+Design (redesign in progress, locked in the project doc `09-redesign-decisions.md`): **cream plates with a hard bottom edge** ("Pocket + Tape"). Every card, chip, key and segmented control is a raised plate (`border:0; box-shadow:0 4px 0 var(--edge)`) on a `--screen-bg` page; chips press down 3px. Light is the default theme, Dark is an option (Settings › Appearance). The bottom nav is dark in both themes with a raised round yellow Add button. Accent = yellow (`--accent`), the only accent; orange is reserved for the Insights dial and Tape selection (`--pk-knob`). Selected chips/keys are ink-dark (`.chip.on` = `--ink` bg, `--screen-bg` text). Text on yellow fills always uses dark ink (`--on-accent`) — never white.
 
 ---
 
@@ -31,7 +31,8 @@ js/
   budget-templates.js   # Budget templates sub-page (Settings)
   accounts.js           # Budget → Accounts sub-tab + Transfer flow
   savings.js            # Budget → Savings sub-tab
-  insights.js           # Budget → Insights sub-page (3-lens dashboard)
+  pocket.js             # Insights home: dial + LCD + Tape strips for the current salary period (new in phase D)
+  insights.js           # Analysis sub-page (the old Insights, 3-lens dashboard), opened from Insights › Full analysis
 firestore.rules
 ```
 
@@ -126,7 +127,7 @@ If a checklist item is marked paid with amount = 0, no `expenses` doc is created
 
 **CSS variables** in `index.html :root`: `--ink`/`--ink-2`/`--ink-3` (text), `--line`/`--line-2` (borders), `--surface`/`--screen-bg` (fills), `--accent`/`--accent-soft`/`--accent-line`/`--accent-ink`/`--accent-shadow`/`--on-accent` (yellow — `on-accent` is dark ink, not white), `--comp`/`--comp-soft`/`--comp-line`/`--comp-ink` (dark navy), `--amber`/`--amber-soft`/`--amber-ink`/`--on-amber` (needs-entry), `--positive`/`--positive-soft`/`--positive-ink`/`--on-positive` (green), `--danger`/`--danger-soft`/`--danger-ink`, `--radius`/`--radius-sm`/`--radius-lg`, `--sp` (spacing multiplier).
 
-**Scoped radius override:** `#budget-insights-body` sets `--radius: 20px`, `--radius-sm: 12px`, `--radius-lg: 26px` — all child elements in Insights inherit these larger radii. Do not change the global `--radius` (12px) for Insights work.
+**Scoped radius override:** `#analysis-body` sets `--radius: 20px`, `--radius-sm: 12px`, `--radius-lg: 26px` — all child elements in Insights inherit these larger radii. Do not change the global `--radius` (12px) for Insights work.
 
 ### Typography scale
 
@@ -209,7 +210,8 @@ isIncome    true for entries synced from budgetMonths via syncIncomeExpense()
 categories          string[]   ordered variable category names
 paymentMethods      string[]   ordered payment method names
 salaryDay           number     default 25
-categoryLimits      object     { [categoryName]: number } — per-category spending limits (Insights)
+categoryLimits      object     { [categoryName]: number } — per-category spending limits (Insights strips, Analysis)
+savingsGoalPct      number     default 20 — share of income to keep (Settings › Savings goal); the Insights dial budgets income − bills − this
 onboardingComplete  boolean
 onboardingDate      string     ISO timestamp
 consentGiven        boolean    set on tour slide 2 CTA
@@ -268,16 +270,17 @@ Write-only — Firestore rules block all reads, updates, deletes. Never queried 
 
 ## Navigation
 
-Fixed dark bottom nav, safe-area aware (`env(safe-area-inset-bottom)`), five grid slots: [empty spacer] · Report · **round + (opens the Add sheet)** · Budget · Settings. The empty first slot (`.nav-spacer`) is temporary: phase D puts the new Insights tab there, so do not ship phase C to production on its own.
+Fixed dark bottom nav, safe-area aware (`env(safe-area-inset-bottom)`), five grid slots: Insights · Report · **round + (opens the Add sheet)** · Budget · Settings.
 
 | Tab      | Screen |
 |----------|--------|
+| Insights | `#screen-insights` (`js/pocket.js`); Analysis slides over it as a sub-page |
 | +        | Add expense bottom sheet (`js/add.js`), not a screen |
 | Report   | `#screen-report`, views Summary · Transactions (the old Log) |
-| Budget   | `#screen-budget` (sub-tabs: Overview · Accounts · Savings; Overview has an Insights sub-page) |
+| Budget   | `#screen-budget` (sub-tabs: Overview · Accounts · Savings) |
 | Settings | `#screen-settings` |
 
-Active: `.nav-item.on`. Budget and Report maintain **independent** period state. The default screen is Report.
+Active: `.nav-item.on`. Budget and Report maintain **independent** period state. The default screen is Insights.
 
 **Screen persistence:** `showScreen(name)` → `sessionStorage('activeScreen')`. Restored on `onAuthStateChanged` (including refresh). Cleared on signOut.
 
@@ -315,7 +318,9 @@ Active: `.nav-item.on`. Budget and Report maintain **independent** period state.
 
 **Export to Sheets (`export.js`):** 4 sheets — Variable, Fixed, Combined, Income. Income sheet fetches `budgetMonths` for every calendar month overlapping the export range.
 
-**Budget Insights (`insights.js`):** Sub-page inside Budget → Overview. Opened via an "Insights" button in the overview header; renders into `#budget-insights-body`.
+**Insights home (`pocket.js`):** reads only the current salary period (day n of N). Variable budget = income − planned bills (template amounts) − income × `savingsGoalPct`; pointer = variable spent ÷ budget; today tick = day ÷ total days; per category used = spent ÷ limit, pace = used ÷ time elapsed (Over if used ≥ 1 or pace > 1.3, Watch if pace > 1.05, else On track; no limit = Not set); overall verdict from the projected saving rate (On track ≥ goal, Watch ≥ 10%, else Over; no income = Awaiting input). Before day 4 the verdict reads "Too early" and per-category pace is ignored. Strips are the user's own categories (any number) plus Bills (paid ÷ total from the checklist) and Save. Tapping a strip selects it and fills the LCD; tapping again clears. `refreshPocket(category)` runs on `expenses:changed` and selects the category just saved. Pocket colours are `--pk-*` tokens (light and dark); category icons come from `ICON_BY_NAME` with a tag fallback. Limits are set in Analysis › Spending (a limit change dispatches `expenses:changed`).
+
+**Analysis (`insights.js`, formerly Budget Insights):** Sub-page opened by `openAnalysis()` (Insights › Full analysis; it pushes a history entry so the phone back button closes it); renders into `#analysis-body`.
 
 - **Time model:** All 12 buckets are **salary periods**, not calendar months. `periodRefs` = array of `{ year, month, start, end }` where `start`/`end` are `"YYYY-MM-DD"`. Current period is always `periodRefs[11]`. All date filters use `e.date >= start && e.date <= end` — never `startsWith`.
 - **Data loading:** `loadData()` fetches expenses, template, accounts, pots, transfers, potTxns, and 12 `budgetMonths` docs in one `Promise.all`. Result cached in `_cache`; nulled when a category limit changes.

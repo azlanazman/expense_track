@@ -1919,10 +1919,10 @@
       .ob-dot, .ob-prog-fill, .ob-day, .ob-chip { transition: none; }
     }
 
-    /* ── Insights sub-page ── */
+    /* ── Analysis sub-page (old Insights) ── */
 
     /* Scoped radius: 20px inside insights body */
-    #budget-insights-body {
+    #analysis-body {
       --radius: 20px;
       --radius-sm: 12px;
       --radius-lg: 26px;
@@ -2155,7 +2155,72 @@
     .custom-dates input[type="date"]::-webkit-datetime-edit { padding: 0; min-width: 0; overflow: hidden; flex: 1; }
     @media (max-width: 340px) { .custom-dates { flex-direction: column; gap: 8px; } }
     @media (max-width: 380px) { #rpt-stats .stat-val { font-size: 19px !important; white-space: nowrap; } }   /* keep "RM 1,234.50" on one line at 360px */
-    .nav-spacer { display: block; min-height: 44px; }   /* empty first slot until Insights arrives in phase D; keeps + centred */
+
+    /* ── Redesign, phase D: Insights home ("Pocket": dial + LCD + Tape) and Analysis ── */
+    :root {
+      --pk-knob: #FF5A1F; --pk-tickoff: #BDB7A6; --pk-lcd: #D6E5A8; --pk-lcdink: #1F2A0E; --pk-lcdedge: #1C1C1C;
+      --pk-tape: #1C1C1C; --pk-tapeink: #F4F1E8; --pk-tapeoff: #3A3A3A; --pk-tapeedge: #0B0B0B; --pk-tpin: transparent;
+      --pk-good: #22C772; --pk-warn: #FFB000; --pk-bad: #FF3B30; --pk-none: #BDB7A6;
+    }
+    :root[data-theme="dark"] {
+      --pk-knob: #FF6A33; --pk-tickoff: #4A4B52; --pk-lcd: #34401F; --pk-lcdink: #D9F28F; --pk-lcdedge: #070708;
+      --pk-tape: #2B2C31; --pk-tapeink: #F2EFE8; --pk-tapeoff: #45464D; --pk-tapeedge: #070708; --pk-tpin: rgba(255, 255, 255, 0.06);
+      --pk-good: #2BE084; --pk-warn: #FFC21F; --pk-bad: #FF5A4F; --pk-none: #5A5B62;
+    }
+    .pk-body { padding: calc(14px + env(safe-area-inset-top, 0px)) 24px 0; display: flex; flex-direction: column; }
+    .pk-st-good { --c: var(--pk-good); } .pk-st-warn { --c: var(--pk-warn); } .pk-st-bad { --c: var(--pk-bad); }
+    .pk-st-none, .pk-st-early { --c: var(--pk-none); }
+    .pk-top { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin: 4px 0 10px; color: var(--ink-2); }
+    .pk-top b { font-size: 13px; letter-spacing: .14em; color: var(--ink); }
+    .pk-dial { background: var(--surface); border-radius: 28px; box-shadow: 0 6px 0 var(--edge); padding: 12px 8px; margin-bottom: 18px; }
+    .pk-dial svg { display: block; width: 100%; height: auto; }
+    .pk-dial text { font-family: inherit; fill: var(--ink); pointer-events: none; }
+    .pk-dial text.pk-onknob { fill: #1C1C1C; }
+    .pk-dial text.pk-dim { fill: var(--ink-3); }
+    .pk-tk-p { stroke: var(--ink); } .pk-tk-f { stroke: var(--pk-tickoff); }
+    .pk-knob { fill: var(--pk-knob); } .pk-knob.none { fill: var(--pk-none); }
+    .pk-rim { fill: #0B0B0C; }
+    .pk-gap { stroke: var(--c); animation: pk-fade 0.9s ease both; }
+    .pk-stat { display: flex; justify-content: space-between; align-items: center; padding: 2px 14px 0; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    .pk-stat b { display: flex; align-items: center; gap: 8px; } .pk-stat span:last-child { opacity: .6; }
+    .pk-led { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--ink); display: inline-block; margin-left: 2px; animation: pk-led 2.2s ease-in-out infinite; }
+    .pk-lcd { background: var(--pk-lcd); border-radius: 16px; box-shadow: inset 0 3px 0 rgba(0, 0, 0, .16), 0 0 0 3px var(--pk-lcdedge); padding: 9px 14px 10px; margin: 0 4px 18px; min-height: 76px; color: var(--pk-lcdink); }
+    .pk-l1 { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1.5px dashed currentColor; padding-bottom: 5px; opacity: .9; }
+    .pk-l1 span:last-child { text-align: right; }
+    .pk-l2 { font-size: 12.5px; font-weight: 700; line-height: 1.45; min-height: 36px; letter-spacing: .01em; overflow-wrap: anywhere; }
+    .pk-l2::after { content: '▌'; animation: pk-blink 1s steps(1) infinite; }
+    .pk-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .pk-empty { font-size: 13px; font-weight: 600; color: var(--ink-3); text-align: center; padding: 18px 0; }
+    .pk-tp { display: grid; grid-template-columns: 22px 80px 1fr auto 20px; align-items: center; gap: 8px; width: 100%; text-align: left; background: var(--pk-tape); color: var(--pk-tapeink); border: 0; border-radius: 9px; padding: 0 9px; height: 40px; cursor: pointer; box-shadow: 0 3px 0 var(--pk-tapeedge), inset 0 0 0 1px var(--pk-tpin); position: relative; transition: transform .12s, box-shadow .12s, opacity .25s, background .2s; animation: pk-tpin .42s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(var(--i, 0) * 45ms); font: inherit; }
+    .pk-tp::before { content: ''; position: absolute; inset: 0; border-radius: 9px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px); pointer-events: none; }
+    .pk-tp:active, .pk-tp.sel { transform: translateY(3px); box-shadow: 0 0 0 var(--pk-tapeedge); }
+    .pk-tp.sel { background: var(--pk-knob); color: #1C1C1C; }
+    .pk-tp.sel .pk-bar i { background: rgba(28, 28, 28, .25); } .pk-tp.sel .pk-bar i.on { background: #1C1C1C; }
+    .pk-tp:focus-visible { outline: 3px solid var(--pk-knob); outline-offset: 2px; }
+    .has-sel .pk-tp:not(.sel) { opacity: .62; }
+    .pk-tp-ic { display: grid; place-items: center; }
+    .pk-tp-nm { font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+    .pk-bar { position: relative; display: flex; gap: 2px; height: 14px; align-items: stretch; min-width: 0; }
+    .pk-bar i { flex: 1; border-radius: 2px; background: var(--pk-tapeoff); }
+    .pk-bar i.on { background: var(--c); animation: pk-seg .3s ease both; animation-delay: calc(var(--k) * 22ms + 300ms); }
+    .pk-bar u { position: absolute; bottom: -5px; width: 0; height: 0; margin-left: -4px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--pk-knob); }
+    .pk-tp.sel .pk-bar u { border-bottom-color: #F4F1E8; }
+    .pk-tp-v { font-size: 13px; font-weight: 800; letter-spacing: -.02em; text-align: right; min-width: 34px; font-variant-numeric: tabular-nums; }
+    .pk-glyph { font-size: 10px; font-weight: 800; width: 20px; height: 20px; border-radius: 5px; background: var(--c); color: #1C1C1C; display: grid; place-items: center; flex-shrink: 0; }
+    .pk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+    .pk-tp.half { grid-template-columns: 22px 1fr auto 20px; grid-template-rows: 1fr auto; height: 54px; padding: 5px 9px 6px; row-gap: 3px; }
+    .pk-tp.half .pk-bar { grid-column: 1 / -1; height: 10px; } .pk-tp.half .pk-bar u { bottom: -4px; }
+    .pk-more-row { display: flex; justify-content: center; padding-bottom: 8px; }
+    .pk-more { font: inherit; font-size: 13px; font-weight: 800; color: var(--ink); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; background: none; border: 0; padding: 8px 4px; }
+    .pk-more:focus-visible { outline: 2px solid var(--pk-knob); outline-offset: 2px; border-radius: 8px; }
+    .pk-body.still .pk-tp, .pk-body.still .pk-bar i.on, .pk-body.still .pk-gap { animation: none; }
+    @keyframes pk-tpin { from { opacity: 0; transform: translateX(-18px); } }
+    @keyframes pk-seg { from { background: var(--pk-tapeoff); transform: scaleY(.4); } }
+    @keyframes pk-fade { from { opacity: 0; } }
+    @keyframes pk-led { 50% { opacity: .4; } }
+    @keyframes pk-blink { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .pk-tp, .pk-bar i.on, .pk-gap, .pk-led, .pk-l2::after { animation: none !important; } .pk-tp { transition: none; } }
+    @media (max-width: 360px) { .pk-tp { grid-template-columns: 20px 68px 1fr auto 20px; gap: 6px; } }
   </style>
 </head>
 
@@ -2191,6 +2256,11 @@
 
     <!-- Onboarding overlay (content injected by onboarding.js) -->
     <div id="onboarding-overlay"></div>
+
+    <!-- Screen: Insights home (dial + LCD + Tape strips, js/pocket.js) -->
+    <div id="screen-insights" class="screen" style="display:none">
+      <div class="pk-body" id="pk-body"></div>
+    </div>
 
     <!-- Screen: Report (Summary | Transactions) -->
     <div id="screen-report" class="screen" style="display:none">
@@ -2323,6 +2393,19 @@
             </div>
             <span class="rc-val" id="salary-day-val">25th</span>
           </button>
+          <button class="row-card" id="btn-savings-goal" type="button" style="margin-top:10px">
+            <div class="rc-ic">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21v-8" /><path d="M12 13c-4 0-6-2.5-6-6 3.5 0 6 2 6 6zM12 13c4 0 6-2.5 6-6-3.5 0-6 2-6 6z" />
+              </svg>
+            </div>
+            <div class="rc-main">
+              <div class="rc-title">Savings goal</div>
+              <div class="rc-sub">Share of income to keep each period</div>
+            </div>
+            <span class="rc-val" id="savings-goal-val">20%</span>
+          </button>
         </section>
         <section>
           <span class="block-label">Account</span>
@@ -2439,18 +2522,18 @@
       <div id="budget-checklist-body" style="padding:0 24px 40px"></div>
     </div>
 
-    <!-- Budget Insights sub-page -->
-    <div class="sub-page" id="budget-insights-page">
+    <!-- Analysis sub-page (the old Insights; opened from Insights › Full analysis) -->
+    <div class="sub-page" id="analysis-page">
       <div class="sub-page-hdr">
-        <button class="back-btn" id="budget-insights-back" type="button" aria-label="Back">
+        <button class="back-btn" id="analysis-back" type="button" aria-label="Back">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span class="sub-page-title">Insights</span>
+        <span class="sub-page-title">Analysis</span>
       </div>
-      <div class="screen-body" id="budget-insights-body" style="padding-bottom:48px"></div>
+      <div class="screen-body" id="analysis-body" style="padding-bottom:48px"></div>
     </div>
 
     <!-- Budget templates sub-page (slides in from right, Task 9 will fill content) -->
@@ -2521,6 +2604,12 @@
       <div class="sheet-title">Salary day</div>
       <div class="sheet-sub">Choose the day your salary arrives each month</div>
       <div class="day-grid" id="day-picker-grid"></div>
+    </div>
+    <!-- Savings goal bottom sheet -->
+    <div class="bottom-sheet" id="goal-sheet">
+      <div class="sheet-title">Savings goal</div>
+      <div class="sheet-sub">The share of your income you want to keep. The Insights dial budgets what is left after bills and this goal.</div>
+      <div class="day-grid" id="goal-picker-grid"></div>
     </div>
     <!-- Account add/edit sheet -->
     <div class="bottom-sheet" id="acc-sheet" style="max-height:85dvh;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">
@@ -2691,7 +2780,13 @@
 
     <!-- Bottom navigation -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
-      <span class="nav-spacer" aria-hidden="true"></span>
+      <button class="nav-item" id="nav-insights" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        Insights
+      </button>
       <button class="nav-item" id="nav-report" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">

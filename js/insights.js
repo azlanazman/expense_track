@@ -22,8 +22,19 @@ export function clearInsightsState() {
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
+// Slide the Analysis page in (opened from Insights › Full analysis); the back button and the phone's back button close it
+export function openAnalysis() {
+  document.getElementById('analysis-page').classList.add('active');
+  history.pushState(null, '');
+  initInsights();
+}
+
+document.getElementById('analysis-back').addEventListener('click', () => {
+  document.getElementById('analysis-page').classList.remove('active');
+});
+
 export async function initInsights() {
-  const body = document.getElementById('budget-insights-body');
+  const body = document.getElementById('analysis-body');
   destroyCharts();
   body.innerHTML = '<div class="insights-loading">Loading insights…</div>';
   try {
@@ -209,8 +220,8 @@ function makeDetailsExpander(label) {
 // ── Narrative copy ─────────────────────────────────────────────────────────────
 
 function heroVerdict(kpi) {
-  const sr = kpi.savingsRate;
-  if (sr >= 20) return { pill: 'On track', tone: 'good', line: `Saving ${Math.round(sr)}% of income — comfortably above your 20% goal.` };
+  const sr = kpi.savingsRate, goal = userSettings.savingsGoalPct ?? 20;
+  if (sr >= goal) return { pill: 'On track', tone: 'good', line: `Saving ${Math.round(sr)}% of income — at or above your ${goal}% goal.` };
   if (sr >= 10) return { pill: 'Watch',    tone: 'warn', line: `Saving ${Math.round(sr)}% — okay, but variable spend is creeping up.` };
   return           { pill: 'Over',     tone: 'bad',  line: `Only ${Math.round(sr)}% saved this period — spending is running hot.` };
 }
@@ -1114,6 +1125,7 @@ function openCategoryLimitSheet(cat) {
     try { await updateUserSettings(currentUser.uid, { categoryLimits: limits }); } catch (e) { console.error(e); }
     _cache = null;
     initInsights();
+    document.dispatchEvent(new CustomEvent('expenses:changed'));   // the Insights strips use these limits
   }
 }
 
