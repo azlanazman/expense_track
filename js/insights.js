@@ -1062,10 +1062,10 @@ export function openCategoryLimitSheet(cat) {
   const existing = (userSettings.categoryLimits || {})[cat] || 0;
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.48);z-index:200;display:flex;flex-direction:column;justify-content:flex-end;';
+  overlay.className = 'lim-overlay';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--surface);border-radius:20px 20px 0 0;padding:16px 24px calc(28px + env(safe-area-inset-bottom,0px));';
+  sheet.className = 'lim-sheet';
 
   const grabber = document.createElement('div');
   grabber.className = 'export-grabber';
@@ -1074,31 +1074,33 @@ export function openCategoryLimitSheet(cat) {
   titleEl.className = 'sheet-title';
   titleEl.textContent = `${cat} — spending limit`;
 
+  const subEl = document.createElement('div');
+  subEl.className = 'sheet-sub';
+  subEl.textContent = 'Per salary period. Leave empty or remove to switch the limit off.';
+
   const field = document.createElement('div');
-  field.className = 'field';
-  field.style.marginTop = '16px';
+  field.className = 'as-amt sm';
 
   const pfx = document.createElement('span');
-  pfx.className = 'field-prefix';
+  pfx.className = 'rm';
   pfx.textContent = 'RM';
 
   const inp = document.createElement('input');
-  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00';
-  inp.style.fontVariantNumeric = 'tabular-nums';
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00'; inp.autocomplete = 'off';
+  inp.setAttribute('aria-label', `${cat} spending limit in ringgit`);
   if (existing > 0) inp.value = String(existing);
   field.appendChild(pfx); field.appendChild(inp);
 
   const saveBtn = document.createElement('button');
-  saveBtn.type = 'button'; saveBtn.className = 'cta-btn';
-  saveBtn.style.marginTop = '16px'; saveBtn.textContent = 'Set limit';
+  saveBtn.type = 'button'; saveBtn.className = 'btn-save'; saveBtn.textContent = 'Set limit';
 
-  sheet.appendChild(grabber); sheet.appendChild(titleEl);
+  sheet.appendChild(grabber); sheet.appendChild(titleEl); sheet.appendChild(subEl);
   sheet.appendChild(field);  sheet.appendChild(saveBtn);
 
   if (existing > 0) {
     const rmBtn = document.createElement('button');
     rmBtn.type = 'button';
-    rmBtn.style.cssText = 'width:100%;text-align:center;padding:12px;font:inherit;font-size:14px;font-weight:600;color:var(--danger);background:none;border:none;cursor:pointer;margin-top:4px;';
+    rmBtn.className = 'lim-remove';
     rmBtn.textContent = 'Remove limit';
     rmBtn.addEventListener('click', () => persistLimit(0));
     sheet.appendChild(rmBtn);

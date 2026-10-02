@@ -2146,11 +2146,19 @@
     .pot-bar-wrap { height: auto; background: none; overflow: visible; }
     .pot-bar-wrap .pk-ledbar i:not(.on) { background: var(--inset); }
     .chk-plate { margin: 12px 0 6px; }
+
+    /* Category limit sheet (opened from Budget and Analysis) */
+    .lim-overlay { position: fixed; inset: 0; background: oklch(0.1 0 0 / 0.40); z-index: 200; display: flex; flex-direction: column; justify-content: flex-end; }
+    .lim-sheet { background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 16px 24px calc(28px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 40px -8px oklch(0.3 0.02 265 / 0.22); }
+    .lim-sheet .sheet-sub { margin-bottom: 16px; }
+    .lim-sheet .btn-save { margin-top: 0; }
+    .as-amt.sm input { font-size: 32px; }
+    .lim-remove { width: 100%; text-align: center; padding: 14px 12px 2px; font: inherit; font-size: 14px; font-weight: 700; color: var(--danger); background: none; border: 0; cursor: pointer; }
+    .login-mark { display: block; width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 5px 0 var(--edge), 0 0 0 1px rgba(255, 255, 255, 0.10); margin-bottom: -12px; }
     .chk-cb { border: 0; box-shadow: 0 3px 0 var(--edge); }
     .chk-cb:active { transform: translateY(3px); box-shadow: none; }
     .chk-cb.paid { transform: translateY(3px); box-shadow: none; }
     .chk-cb.needs, .chk-cb.calc-cb { box-shadow: none; }
-    .login-mark { width: 64px; height: 64px; border-radius: 18px; background: var(--accent); color: #1C1C1C; font-size: 34px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 5px 0 var(--yel-edge); margin-bottom: -12px; }
   </style>
 </head>
 
@@ -2158,7 +2166,7 @@
 
   <!-- Screen 0: Login -->
   <div id="screen-login" class="login-screen" style="display:none">
-    <div class="login-mark" aria-hidden="true">T</div>
+    <img class="login-mark" src="favicon.svg" alt="" width="76" height="76" />
     <div class="login-title">Expense Tracker</div>
     <div class="login-sub">Track your daily spending, simply.</div>
     <button id="btn-google-signin" class="btn-google">
