@@ -109,3 +109,16 @@ export function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
+
+// ── Theme (light default, dark optional) ─────────────────────────────────────
+export function getTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+
+export function setTheme(theme) {
+  const t = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('theme', t); } catch (_) { /* storage blocked: applies for this visit only */ }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#121315' : '#E8E4DA');
+}

@@ -1,6 +1,6 @@
 import { signOut } from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
 import { currentUser, userSettings, setUserSettings } from './state.js';
-import { catColor, showToast, escapeHtml } from './helpers.js';
+import { catColor, showToast, escapeHtml, getTheme, setTheme } from './helpers.js';
 import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData } from './db.js';
 import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
@@ -10,11 +10,29 @@ export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
   document.getElementById('account-email').textContent    = currentUser?.email || '';
   document.getElementById('salary-day-val').textContent   = ordinal(userSettings.salaryDay ?? 25);
+  syncThemeSeg();
   renderCatChips();
   renderPayChips();
   const resetRow = document.getElementById('demo-reset-row');
   if (resetRow) resetRow.style.display = currentUser?.email === DEMO_EMAIL ? '' : 'none';
 }
+
+// ── Appearance (light / dark) ────────────────────────────────────────────────
+
+function syncThemeSeg() {
+  const current = getTheme();
+  document.querySelectorAll('#theme-seg [data-theme-opt]').forEach(b => {
+    const on = b.dataset.themeOpt === current;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+document.getElementById('theme-seg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-theme-opt]');
+  if (!b) return;
+  setTheme(b.dataset.themeOpt);
+  syncThemeSeg();
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
