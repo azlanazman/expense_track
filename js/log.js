@@ -1,6 +1,6 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, displayDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
-import { fetchExpenses, updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
+import { fmt, displayDate, catColor, showToast, escapeHtml } from './helpers.js';
+import { updateExpense, deleteExpense, fetchTransfersByMonth, fetchAccounts } from './db.js';
 
 const PAGE_SIZE   = 10;
 const SHEETJS_URL = 'vendor/xlsx-0.18.5.full.min.js';
@@ -12,68 +12,74 @@ const EDIT_SVG  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" s
 
 const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 
+// The Transactions view of the Report screen. report.js owns the period and the entries; it hands them
+// over with setLogData(). This module adds the account list and transfers for the same dates, and the
+// per-row edit / delete. A change dispatches `expenses:changed`, and report.js reloads and calls setLogData again.
+
 let logState = {
-  year: new Date().getFullYear(), month: new Date().getMonth() + 1,
   startDate: '', endDate: '',
   filter: 'All', entries: [], transfers: [], accounts: [], openId: null,
   showTransfers: false, page: 1,
+  extrasKey: '',   // period the transfers / accounts were loaded for
 };
 
 export function clearLogState() {
   logState.entries = [];
   logState.transfers = [];
   logState.accounts = [];
+  logState.extrasKey = '';
 }
 
-export async function initLog() {
-  const { year, month } = salaryPeriodMonth(userSettings.salaryDay);
-  logState.year          = year;
-  logState.month         = month;
-  logState.filter        = 'All';
-  logState.openId        = null;
-  logState.showTransfers = false;
-  logState.page          = 1;
-  _updateLogDates();
-  await loadLog();
+const isActive = () => document.getElementById('rpt-pane-tx').style.display !== 'none';
+
+// Called by report.js every time it (re)loads. A new period resets the filters; a refresh of the same period keeps them.
+export function setLogData(entries, startDate, endDate) {
+  const changed = startDate !== logState.startDate || endDate !== logState.endDate;
+  logState.entries   = entries;
+  logState.startDate = startDate;
+  logState.endDate   = endDate;
+  if (changed) {
+    logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
+  }
+  if (isActive()) activateLog();
 }
 
-function _updateLogDates() {
-  const sd = userSettings.salaryDay;
-  logState.startDate = salaryStartForMonth(sd, logState.year, logState.month);
-  logState.endDate   = salaryEndForMonth(sd, logState.year, logState.month);
+// The Transactions view was opened (or its data changed while open): load what is missing and draw it
+export async function activateLog() {
+  const { startDate, endDate } = logState;
+  const key = startDate + '|' + endDate;
+  if (logState.extrasKey !== key) {
+    const uid = currentUser.uid;
+    logState.accounts = await fetchAccounts(uid).catch(() => []);
+    try {
+      logState.transfers = await fetchTransfersByMonth(uid, startDate, endDate);
+    } catch {
+      logState.transfers = [];
+    }
+    if (startDate !== logState.startDate || endDate !== logState.endDate) return;   // period moved on while loading
+    logState.extrasKey = key;
+  }
+  renderLog();
 }
 
 export function showLogTransfers() {
   logState.showTransfers = true;
   logState.filter        = 'All';
   logState.page          = 1;
-  loadLog();
+  if (isActive()) activateLog();
 }
 
-// Reload the entries for the period and filter already on screen (after an expense is saved elsewhere)
-export async function refreshLog() {
-  if (logState.startDate) await loadLog();
-}
-
-async function loadLog() {
-  const { startDate, endDate } = logState;
-  const uid = currentUser.uid;
-  [logState.entries, logState.accounts] = await Promise.all([
-    fetchExpenses(uid, startDate, endDate),
-    fetchAccounts(uid).catch(() => []),
-  ]);
-  try {
-    logState.transfers = await fetchTransfersByMonth(uid, startDate, endDate);
-  } catch {
-    logState.transfers = [];
-  }
-  renderLog();
+function changed() {
+  document.dispatchEvent(new CustomEvent('expenses:changed'));   // app.js / report.js reload the period
 }
 
 function renderLog() {
-  const { entries, filter, year, month, startDate, endDate, showTransfers, transfers, page } = logState;
-  document.getElementById('log-eyebrow').textContent     = monthLabel(year, month);
-  document.getElementById('log-month-title').textContent = salaryPeriodLabel(startDate, endDate);
+  const { entries, filter, showTransfers, transfers } = logState;
+  // a delete can leave the current page empty: step back to the last page that still has rows
+  const rowCount = showTransfers ? transfers.length
+    : entries.filter(e => !e.isIncome && (filter === 'All' || e.paymentMethod === filter)).length;
+  logState.page = Math.max(1, Math.min(logState.page, Math.ceil(rowCount / PAGE_SIZE) || 1));
+  const page = logState.page;
 
   if (showTransfers) {
     const sorted     = transfers.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -84,7 +90,7 @@ function renderLog() {
     renderFilterChips();
     const list = document.getElementById('log-list');
     if (sorted.length === 0) {
-      list.innerHTML = '<div class="list-hint">No transfers this month</div>';
+      list.innerHTML = '<div class="list-hint">No transfers in this period</div>';
     } else {
       list.innerHTML = '';
       pageItems.forEach(tf => list.appendChild(buildTransferLogRow(tf)));
@@ -106,7 +112,7 @@ function renderLog() {
 
   const list = document.getElementById('log-list');
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="list-hint">No expenses this month</div>';
+    list.innerHTML = '<div class="list-hint">No expenses in this period</div>';
     return;
   }
   list.innerHTML = '';
@@ -334,8 +340,8 @@ function buildEditForm(entry) {
     try {
       await updateExpense(id, { amount, date: editDate, category: editCat, paymentMethod: editPay, notes: wrap.querySelector(`#en-${id}`).value.trim() });
       logState.openId = null;
-      await loadLog();
       showToast('Updated!');
+      changed();
     } catch (e) { console.error(e); showToast('Error updating'); }
   });
 
@@ -345,8 +351,8 @@ function buildEditForm(entry) {
     try {
       await deleteExpense(id);
       logState.openId = null;
-      await loadLog();
       showToast('Deleted');
+      changed();
     } catch (e) { console.error(e); showToast('Error deleting'); }
   });
 
@@ -411,20 +417,3 @@ async function exportLog() {
 }
 
 document.getElementById('log-export-btn').addEventListener('click', exportLog);
-
-// ── Month nav ────────────────────────────────────────────────────────────────
-
-document.getElementById('log-prev-month').addEventListener('click', async () => {
-  logState.month--;
-  if (logState.month < 1) { logState.month = 12; logState.year--; }
-  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
-  _updateLogDates();
-  await loadLog();
-});
-document.getElementById('log-next-month').addEventListener('click', async () => {
-  logState.month++;
-  if (logState.month > 12) { logState.month = 1; logState.year++; }
-  logState.filter = 'All'; logState.openId = null; logState.showTransfers = false; logState.page = 1;
-  _updateLogDates();
-  await loadLog();
-});

@@ -2,6 +2,7 @@ import { currentUser, userSettings } from './state.js';
 import { fmt, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
+import { setLogData, activateLog, showLogTransfers } from './log.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,7 @@ const SHARED_CATS = ['Family', 'Subs', 'Car Maintenance'];
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let rptState = {
+  view:      'summary',   // 'summary' | 'tx' (Transactions, js/log.js)
   period:    'monthly',
   year:      new Date().getFullYear(),
   month:     new Date().getMonth() + 1,
@@ -32,6 +34,7 @@ export function clearReportState() {
 
 export async function initReport() {
   const now = new Date();
+  rptState.view     = 'summary';
   rptState.period   = 'salary';
   rptState.year     = now.getFullYear();
   rptState.month    = now.getMonth() + 1;
@@ -99,13 +102,44 @@ export async function refreshReport() {
 async function loadReport() {
   rptState.entries  = await fetchExpenses(currentUser.uid, rptState.startDate, rptState.endDate);
   rptState.expanded = new Set();
+  setLogData(rptState.entries, rptState.startDate, rptState.endDate);   // Transactions reads the same period and entries
   renderReport();
 }
+
+// Open the Report straight on Transactions (used by "See all" on the Accounts card)
+export async function openTransactions({ transfers = false } = {}) {
+  await initReport();
+  setView('tx');
+  if (transfers) showLogTransfers();
+}
+
+function setView(view) {
+  rptState.view = view;
+  renderViewSwitch();
+  if (view === 'tx') activateLog();
+}
+
+function renderViewSwitch() {
+  const tx = rptState.view === 'tx';
+  document.getElementById('rpt-pane-summary').style.display = tx ? 'none' : '';
+  document.getElementById('rpt-pane-tx').style.display      = tx ? '' : 'none';
+  document.querySelectorAll('#rpt-view .seg-btn').forEach(b => {
+    const on = b.dataset.view === rptState.view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+document.getElementById('rpt-view').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (btn && btn.dataset.view !== rptState.view) setView(btn.dataset.view);
+});
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderReport() {
   const { period, year, month, startDate, endDate, selected, tab, entries } = rptState;
+  renderViewSwitch();
 
   // Header title + month nav arrows
   const titleEl  = document.getElementById('rpt-range-title');

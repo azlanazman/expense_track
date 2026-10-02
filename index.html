@@ -2135,6 +2135,27 @@
     .add-sheet [hidden] { display: none !important; }
     .add-open .toast { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }   /* keep the toast clear of the sheet's Save button */
     @media (prefers-reduced-motion: reduce) { .add-sheet { transition: none; } .as-amt.shake { animation: none; } }
+
+    /* ── Redesign, phase C: clean bottom edge ──
+       A closed bottom sheet sits just below the screen with its soft upward shadow, which showed as a grey haze
+       over the bottom nav. Closed sheets now have no shadow and are hidden (also out of the tab order). */
+    .bottom-sheet { box-shadow: none; visibility: hidden; transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.22s; }
+    .bottom-sheet.active { box-shadow: 0 -8px 40px -8px oklch(0.3 0.02 265 / 0.22); visibility: visible; transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s; }
+    .add-sheet.dragging { transition: none; }
+
+    /* ── Redesign, phase C: Log lives under Report as Summary | Transactions ── */
+    .rpt-view { margin: 0 24px 14px; }
+    .rpt-pane { display: flex; flex-direction: column; flex: 1; }
+    .tx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 24px 12px; }
+    .tx-head .hdr-total { margin-top: 0; }
+    /* Custom range: two date fields must share the row on narrow phones (360px and below) */
+    .custom-dates .field { flex: 1 1 0; min-width: 0; }
+    .custom-dates input[type="date"] { width: 100%; min-width: 0; box-sizing: border-box; padding: 13px 10px 13px 12px; font-size: 14px; font-weight: 600; gap: 4px; }
+    .custom-dates input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; padding: 0; width: 16px; flex: none; }
+    .custom-dates input[type="date"]::-webkit-datetime-edit { padding: 0; min-width: 0; overflow: hidden; flex: 1; }
+    @media (max-width: 340px) { .custom-dates { flex-direction: column; gap: 8px; } }
+    @media (max-width: 380px) { #rpt-stats .stat-val { font-size: 19px !important; white-space: nowrap; } }   /* keep "RM 1,234.50" on one line at 360px */
+    .nav-spacer { display: block; min-height: 44px; }   /* empty first slot until Insights arrives in phase D; keeps + centred */
   </style>
 </head>
 
@@ -2171,40 +2192,7 @@
     <!-- Onboarding overlay (content injected by onboarding.js) -->
     <div id="onboarding-overlay"></div>
 
-    <!-- Screen 1: Add Expense -->
-    <!-- Screen 2: Expense Log -->
-    <div id="screen-log" class="screen" style="display:none">
-      <div class="hdr">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-          <div class="hdr-eyebrow" id="log-eyebrow" style="margin-bottom:0"></div>
-          <button class="log-export-btn" id="log-export-btn" type="button" title="Export to Excel">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </button>
-        </div>
-        <div class="report-hdr">
-          <button class="month-nav" id="log-prev-month" type="button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div class="month-title">
-            <h1 id="log-month-title"></h1>
-          </div>
-          <button class="month-nav" id="log-next-month" type="button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-              stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
-        <div class="hdr-total" id="log-total"></div>
-      </div>
-      <div class="filter-row" id="log-filter-row"></div>
-      <div class="screen-body list" id="log-list"></div>
-    </div>
-
-    <!-- Screen 3: Report -->
+    <!-- Screen: Report (Summary | Transactions) -->
     <div id="screen-report" class="screen" style="display:none">
       <div class="hdr">
         <div class="hdr-eyebrow">Report</div>
@@ -2235,6 +2223,13 @@
           <input type="date" class="input-row note" id="rpt-to-date" />
         </div>
       </div>
+      <div class="seg seg-2 rpt-view" id="rpt-view" role="group" aria-label="Report view">
+        <button class="seg-btn on" data-view="summary" type="button" aria-pressed="true">Summary</button>
+        <button class="seg-btn" data-view="tx" type="button" aria-pressed="false">Transactions</button>
+      </div>
+
+      <!-- Summary: the existing report -->
+      <div class="rpt-pane" id="rpt-pane-summary">
       <div class="rpt-tab-bar" id="rpt-tab-bar"></div>
       <div class="filter-row" id="rpt-filter-row"></div>
       <div class="screen-body" id="rpt-body">
@@ -2250,6 +2245,19 @@
           </div>
           <div id="rpt-footnote" style="padding-top:8px"></div>
         </div>
+      </div>
+      </div>
+
+      <!-- Transactions: the old Log, now on the same period as the Summary (js/log.js) -->
+      <div class="rpt-pane" id="rpt-pane-tx" style="display:none">
+        <div class="tx-head">
+          <div class="hdr-total" id="log-total"></div>
+          <button class="log-export-btn" id="log-export-btn" type="button" title="Export to Excel" aria-label="Export to Excel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+        </div>
+        <div class="filter-row" id="log-filter-row"></div>
+        <div class="screen-body list" id="log-list"></div>
       </div>
     </div>
 
@@ -2683,18 +2691,7 @@
 
     <!-- Bottom navigation -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
-      <button class="nav-item" id="nav-log" type="button">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
-        </svg>
-        Log
-      </button>
+      <span class="nav-spacer" aria-hidden="true"></span>
       <button class="nav-item" id="nav-report" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">

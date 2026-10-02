@@ -222,7 +222,7 @@ async function save(another) {
   try { localStorage.setItem(LAST_KEY, JSON.stringify({ c: st.category, p: st.payment })); } catch (_) { /* ignore */ }
   saveBtn.classList.add('done');   // button morphs to a tick
   showToast(`Saved RM ${fmt(amount)} · ${st.category}`);
-  document.dispatchEvent(new CustomEvent('expense:saved'));   // app.js refreshes the screen underneath
+  document.dispatchEvent(new CustomEvent('expenses:changed'));   // app.js refreshes the screen underneath
 
   setTimeout(() => {
     if (another) {
