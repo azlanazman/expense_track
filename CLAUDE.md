@@ -33,7 +33,8 @@ js/
   savings.js            # Budget → Savings sub-tab
   tape.js               # Shared Tape pieces: strips, LED bar, static LCD, category icons, on-track/watch/over rule (phase E)
   pocket.js             # Insights home: dial + LCD + Tape strips for the current salary period (new in phase D)
-  insights.js           # Analysis sub-page (the old Insights, 3-lens dashboard), opened from Insights › Full analysis
+  analysis.js           # Analysis sub-page (plates; phase A = Am I improving?), opened from Insights › Full analysis
+  limit-sheet.js        # Category limit sheet (opened from Budget strips)
 firestore.rules
 ```
 
@@ -322,66 +323,20 @@ Active: `.nav-item.on`. Budget and Report maintain **independent** period state.
 
 **Insights home (`pocket.js`):** reads only the current salary period (day n of N). Variable budget = income − planned bills (template amounts) − income × `savingsGoalPct`; pointer = variable spent ÷ budget; today tick = day ÷ total days; per category used = spent ÷ limit, pace = used ÷ time elapsed (Over if used ≥ 1 or pace > 1.3, Watch if pace > 1.05, else On track; no limit = Not set); overall verdict from the projected saving rate (On track ≥ goal, Watch ≥ 10%, else Over; no income = Awaiting input). Before day 4 the verdict reads "Too early" and per-category pace is ignored. Strips are the user's own categories (any number) plus Bills (paid ÷ total from the checklist) and Save. Tapping a strip selects it and fills the LCD; tapping again clears. `refreshPocket(category)` runs on `expenses:changed` and selects the category just saved. Pocket colours are `--pk-*` tokens (light and dark); category icons come from `ICON_BY_NAME` with a tag fallback. Limits are set in Analysis › Spending (a limit change dispatches `expenses:changed`).
 
-**Tape on other screens (phase E, `tape.js`):** Budget overview = income plate, `.pk-three` plate (Income / Fixed / Save goal), static LCD net balance (income − fixed paid − variable), "Bills paid" LED-bar plate (tone from `ratioTone`) and Category limits as Tape strips (tap a strip → `openCategoryLimitSheet`, exported from `insights.js`; a limit change always dispatches `expenses:changed`, and re-runs `initInsights()` only while `#analysis-page` is open). Accounts/Savings totals are static LCDs (`lcdStatic`); savings pots use `ledBar` with the pot colour. Report › Summary = static LCD total (+ daily average) and neutral Tape strips (`isStatic`, tone `n`, bar = share of the biggest category, `%` of total, all categories high→low). Checklist progress is an LED-bar plate. Onboarding account-type badges use `--tb-*` tokens (light/dark). Chart gridlines come from `GRID()` in `insights.js`. Use `lcdStatic`/`tapeStrip`/`ledBar` for any new readout rather than new card styles.
+**Tape on other screens (phase E, `tape.js`):** Budget overview = income plate, `.pk-three` plate (Income / Fixed / Save goal), static LCD net balance (income − fixed paid − variable), "Bills paid" LED-bar plate (tone from `ratioTone`) and Category limits as Tape strips (tap a strip → `openCategoryLimitSheet`, exported from `limit-sheet.js`; a limit change always dispatches `expenses:changed`). Accounts/Savings totals are static LCDs (`lcdStatic`); savings pots use `ledBar` with the pot colour. Report › Summary = static LCD total (+ daily average) and neutral Tape strips (`isStatic`, tone `n`, bar = share of the biggest category, `%` of total, all categories high→low). Checklist progress is an LED-bar plate. Onboarding account-type badges use `--tb-*` tokens (light/dark). Use `lcdStatic`/`tapeStrip`/`ledBar` for any new readout rather than new card styles.
 
-**Category limit sheet:** `openCategoryLimitSheet(cat)` (exported from `insights.js`, opened from Budget strips and Analysis rows) builds `.lim-overlay` / `.lim-sheet` with an `.as-amt.sm` amount trough and a `.btn-save` key (same look as the Add sheet).
+**Category limit sheet:** `openCategoryLimitSheet(cat)` (exported from `limit-sheet.js`, opened from Budget strips) builds `.lim-overlay` / `.lim-sheet` with an `.as-amt.sm` amount trough and a `.btn-save` key (same look as the Add sheet).
 
-**Analysis (`insights.js`, formerly Budget Insights):** Sub-page opened by `openAnalysis()` (Insights › Full analysis; it pushes a history entry so the phone back button closes it); renders into `#analysis-body`.
+**Analysis (`analysis.js`, redesign phase A; locked spec = project doc `12-analysis-redesign-decisions.md`):** Sub-page opened by `openAnalysis()` (Insights › Full analysis; pushes a history entry so the phone back button closes it); renders "plates" (one per question) into `#analysis-body`. `js/insights.js` (old 3-lens dashboard, Chart.js/treemap) is retired.
 
-- **Time model:** All 12 buckets are **salary periods**, not calendar months. `periodRefs` = array of `{ year, month, start, end }` where `start`/`end` are `"YYYY-MM-DD"`. Current period is always `periodRefs[11]`. All date filters use `e.date >= start && e.date <= end` — never `startsWith`.
-- **Data loading:** `loadData()` fetches expenses, template, accounts, pots, transfers, potTxns, and 12 `budgetMonths` docs in one `Promise.all`. Result cached in `_cache`; nulled when a category limit changes.
-- **Hero block:** net balance (38px, green/coral), verdict pill (`On track` ≥20% / `Watch` ≥10% / `Over` <10% savings rate), one-line narrative, 4-KPI strip (saved % · fixed % · variable % · RM/day), bills-paid progress bar.
-- **Lens switcher:** sticky segmented control (Spending · Habits · Savings). Active lens persisted to `localStorage` under key `'insights-lens'`. Switching calls `destroyCharts()` then re-renders.
-- **Details expanders:** treemap, payment-flow table, contribution chart are inside collapsible `.details` elements. Content is **lazy-rendered** — Chart.js instances created only when the expander opens (Chart.js needs a visible DOM to compute dimensions). The `makeDetailsExpander(label)` helper exposes `.setContent(fn)` to register the render callback.
-- **Limit bars:** CSS-based horizontal bars (not Chart.js). Each row is a `<button>` — clicking opens `openCategoryLimitSheet(cat)` which saves to `userSettings.categoryLimits` via `updateUserSettings` and nulls `_cache` before re-running `initInsights()`.
-- **`.ins-block`** is the Insights card class (white surface, border, `border-radius: var(--radius-lg)`). Do not confuse with the global `.block-label` (which is reused inside `.ins-block`).
-
----
-
-## Onboarding flow
-
-Triggered once after Sign-In if `onboardingComplete !== true`. Overlay mounts inside `#app` with `position:absolute` (not `fixed` — avoids viewport/iframe height collapse). Removed from DOM on completion (not hidden). Dispatches `nav:go-add` (circular import guard — can't import `showScreen`).
-
-**Tour (3 slides):** slides 0–1 have "Skip tour" → jumps to Setup Step 0. Slide 2 (Security/consent) has no skip — CTA writes `consentGiven:true`.
-
-**Setup (5 steps):**
-
-| Step | Topic | Firestore write |
-|------|-------|-----------------|
-| 0 | Salary day (grid 1–31; Continue disabled until tapped) | `updateDoc userSettings { salaryDay }` |
-| 1 | Categories (`General ✓ / Start blank` presets) | `updateDoc userSettings { categories }` |
-| 2 | Payment methods (type badges cycle `bank→ewallet→card→savings`) | `updateDoc userSettings { paymentMethods }` + `setDoc accounts/{uid}` |
-| 3 | Opening balances (RM prefix + decimal per account) | `setDoc accounts/{uid}` |
-| 4 | Monthly income (Salary + Claim, neither enforced) | `setDoc budgetMonths/{uid}_{YYYY-MM} { income } { merge:true }` |
-
-**Final screen:** writes `onboardingComplete:true` + `onboardingDate`, removes overlay, dispatches `nav:go-add`.
-
-**Re-trigger:**
-```js
-await updateDoc(doc(db, 'userSettings', currentUser.uid), { onboardingComplete: false });
-location.reload();
-```
-
----
-
-## Key invariants
-
-- **Negative money:** always `−RM ${fmt(Math.abs(n))}` — en-dash, never locale negative. Everywhere.
-- **XSS:** every user-supplied string in `innerHTML` must be wrapped in `escapeHtml()`. Never skip this.
-- **Sanitisation:** `sanitiseAmount` / `sanitiseDate` / `sanitiseText` are called inside `db.js` — do not duplicate in screen modules, but do not bypass `db.js` either.
-- **Income sync:** `syncIncomeExpense()` in `budget.js` creates/updates/deletes `expenses` doc (`isIncome:true, type:'income'`) when income amount or account changes. Stores `expenseId` back on income entry.
-- **Budget counts:** filter payments to current template `itemId`s in both `renderBudget` and `renderChecklist` — never count orphaned records.
-- **Transfer FAB:** hidden via `classList.remove('show')` in `showScreen()`. Re-shown by `switchSubTab('accounts')`.
-- **Budget sub-tab wiring:** uses `btn.onclick =` (not `addEventListener`) — prevents stacked handlers on repeated `initBudget()` calls.
-- **Accounts no delete:** edit name + opening balance only — deleting orphans transfers and pot links.
-- **Accounts double-seed guard:** skip seed if `accounts` array exists and non-empty.
+- **Time model:** 12 salary periods (`refs` = `{ year, month, start, end }`, current = last). Date filters use `e.date >= start && e.date <= end`, never `startsWith`. Periods are labelled by the month they END in (28 Feb – 27 Mar = "Mar") via the single function `periodLabel`.
+- **Data:** `load()` fetches 12 periods of expenses, the template and 12 `budgetMonths`; cached in `_cache`, cleared by `clearAnalysisState()` and on `expenses:changed` (redraws if the page is open). Per period: income (budgetMonths income lines), fixed and variable expenses (`type`), `saved = income − fixed − variable`, `goal = income × savingsGoalPct`. A period with income 0 is "no data" and ignored in the stats. The current period is projected like the Insights home (planned fixed from the template + variable ÷ share of period gone; "too early" under 4 days).
+- **Plates:** `PLATES` array in `analysis.js` (add new plates there). Phase A has "Am I improving?": 12 bars (solid = goal met, faded = below, dashed = current projected, green tick = that period's goal), tap a bar for the LCD detail, stats goal met / in a row / best. Styles are `.an-*` in `index.html` (plates reuse `.pk-plate`, `.pk-lcd`, `.pk-three`). Chart.js is no longer loaded by Analysis.
+- **Category limit sheet:** `openCategoryLimitSheet(cat)` now lives in `js/limit-sheet.js` (imported by `budget.js`); it saves to `userSettings.categoryLimits` and dispatches `expenses:changed`.
+- **Pending cleanup:** old Analysis CSS in `index.html` (`.hero*`, `.kpi*`, `.verdict`, `.lens`, `.ins-block`, `.details*`, `.lb-*`, `.hm-*`, `.flow-*`, `.pot-grid`, chart wrappers) and `vendor/` Chart.js + treemap files are unused once all phases land; keep `.delta`, `.bills`, `.block-label`, `.summary`, `.sw`, `.chip-dot`, `.pot-card`, `.seg`, `.seg-btn` (used elsewhere).
 - **ES module listeners:** buttons in dynamically injected HTML must use `addEventListener` after injection — module functions are not on `window`.
 - **Transfer From ≠ To:** enforced with toast on confirm (not a disabled button).
 - **Monthly recurring toggle** on pots = reminder label only; contributions always manual.
-- **Insights chart lazy-render:** never render Chart.js charts into hidden containers. Expander charts (treemap, payment flow, contributions) must be rendered inside `.setContent(fn)` callbacks — they only fire when the expander opens and the canvas is visible.
-- **Insights `_cache` invalidation:** set `_cache = null` before calling `initInsights()` whenever data that affects the dashboard changes (currently: only `categoryLimits`). Do not bust the cache on every navigation — it's intentionally persistent across lens switches.
-- **`.ins-block` vs `.block`:** Insights block cards use `.ins-block` (not `.block`) to avoid CSS conflicts with other screens. Always use `.ins-block` for new card containers in `insights.js`.
-- **Insights salary-period dates:** `periodRefs[11]` is always the current period. Do not use `findIndex` to locate it. Do not use `startsWith` for date filtering — use `>=`/`<=` string comparison on `"YYYY-MM-DD"`.
 - **`pot-eta` variants in Insights:** `.ok` (yellow — in progress), `.done` (green — goal reached), `.warn` (coral — no recent contributions). The global savings screen uses different class names for its pot cards — do not share these styles.
 
 ---
