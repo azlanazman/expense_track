@@ -10,6 +10,7 @@ export function renderSettings() {
   document.getElementById('settings-eyebrow').textContent = currentUser?.email || '';
   document.getElementById('account-email').textContent    = currentUser?.email || '';
   document.getElementById('salary-day-val').textContent   = ordinal(userSettings.salaryDay ?? 25);
+  document.getElementById('savings-goal-val').textContent = (userSettings.savingsGoalPct ?? 20) + '%';
   syncThemeSeg();
   renderCatChips();
   renderPayChips();
@@ -90,6 +91,33 @@ sheetBackdrop.addEventListener('click', () => {
   deleteStep = 0;
 });
 document.getElementById('btn-salary-day').addEventListener('click', openSalarySheet);
+
+// ── Savings goal bottom sheet (the Insights dial budgets what is left after bills and this share) ──
+
+const GOAL_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50];
+const goalSheet = document.getElementById('goal-sheet');
+
+function openGoalSheet() {
+  const current = userSettings.savingsGoalPct ?? 20;
+  const grid = document.getElementById('goal-picker-grid');
+  grid.innerHTML = GOAL_OPTIONS.map(p =>
+    '<button class="day-btn' + (p === current ? ' on' : '') + '" data-pct="' + p + '" type="button">' + p + '%</button>'
+  ).join('');   // p is one of the fixed numbers above
+  grid.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pct = parseInt(btn.dataset.pct, 10);
+      const updated = { ...userSettings, savingsGoalPct: pct };
+      setUserSettings(updated);
+      goalSheet.classList.remove('active');
+      sheetBackdrop.classList.remove('active');
+      document.getElementById('savings-goal-val').textContent = pct + '%';
+      try { await persistUserSettings(currentUser.uid, updated); } catch (e) { console.error(e); showToast('Could not save — please try again'); }
+    });
+  });
+  goalSheet.classList.add('active');
+  sheetBackdrop.classList.add('active');
+}
+document.getElementById('btn-savings-goal').addEventListener('click', openGoalSheet);
 
 // ── Google account sheet ──────────────────────────────────────────────────────
 

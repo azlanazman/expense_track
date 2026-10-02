@@ -2,6 +2,7 @@ import { currentUser, userSettings, setUserSettings } from './state.js';
 import { fmt, todayString, displayDate, showToast, escapeHtml } from './helpers.js';
 import { fetchAccounts, persistAccounts, persistUserSettings, addTransfer, fetchAllTransfers, fetchAllExpenses, fetchPotTransactions } from './db.js';
 import { computeAccountBalance } from './balance.js';
+import { lcdStatic } from './tape.js';
 
 const ACCOUNT_TYPE_ICONS = {
   bank:    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>`,
@@ -88,13 +89,11 @@ export function renderAccounts() {
 
   const total = accState.accounts.reduce((s, a) => s + calcBalance(a), 0);
 
-  // Total card
+  // Total readout (static LCD)
+  const n = accState.accounts.length;
   const totalCard = document.createElement('div');
-  totalCard.className = 'acc-total-card';
-  totalCard.innerHTML = `
-    <div class="acc-total-label">Total across accounts</div>
-    <div class="acc-total-val">${total < 0 ? '−' : ''}RM ${fmt(Math.abs(total))}</div>`;
-  body.appendChild(totalCard);
+  totalCard.innerHTML = lcdStatic('Total balance', n + (n === 1 ? ' account' : ' accounts'), total, '');
+  body.appendChild(totalCard.firstElementChild);
 
   // Account list
   const listSec = document.createElement('section');

@@ -6,8 +6,9 @@ import { currentUser, setCurrentUser, setUserSettings } from './state.js';
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, showToast } from './helpers.js';
 import { fetchUserSettings, persistUserSettings } from './db.js';
 import { openAddSheet, closeAddSheet, isAddSheetOpen, clearAddState } from './add.js';
-import { initLog, refreshLog, showLogTransfers, clearLogState } from './log.js';
-import { initReport, refreshReport, clearReportState } from './report.js';
+import { clearLogState } from './log.js';
+import { initPocket, refreshPocket, clearPocketState } from './pocket.js';
+import { initReport, refreshReport, openTransactions, clearReportState } from './report.js';
 import { renderSettings } from './settings.js';
 import { initBudget, refreshBudget, clearBudgetState } from './budget.js';
 import { clearAccountsState } from './accounts.js';
@@ -27,7 +28,7 @@ if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
 // ── Navigation ──────────────────────────────────────────────────────────────
 
 export function showScreen(name) {
-  ['log', 'report', 'budget', 'settings'].forEach(s => {
+  ['insights', 'report', 'budget', 'settings'].forEach(s => {
     document.getElementById(`screen-${s}`).style.display = s === name ? '' : 'none';
     document.getElementById(`nav-${s}`).classList.toggle('on', s === name);
   });
@@ -36,7 +37,7 @@ export function showScreen(name) {
 }
 
 document.getElementById('nav-add').addEventListener('click', () => openAddSheet());
-document.getElementById('nav-log').addEventListener('click', () => { initLog(); showScreen('log'); });
+document.getElementById('nav-insights').addEventListener('click', () => { initPocket(); showScreen('insights'); });
 document.getElementById('nav-report').addEventListener('click', () => { initReport(); showScreen('report'); });
 document.getElementById('nav-budget').addEventListener('click', () => { initBudget(); showScreen('budget'); });
 document.getElementById('nav-settings').addEventListener('click', () => { renderSettings(); showScreen('settings'); });
@@ -49,21 +50,21 @@ window.addEventListener('popstate', () => {
 });
 
 document.addEventListener('nav:show-log-transfers', () => {
-  showScreen('log');
-  initLog().then(() => showLogTransfers());
+  showScreen('report');
+  openTransactions({ transfers: true });
 });
 
 document.addEventListener('nav:go-home', () => {
-  initLog();
-  showScreen('log');
+  initPocket();
+  showScreen('insights');
 });
 
-// An expense was saved from the Add sheet: refresh whichever screen is underneath (keeps its filters and period)
-document.addEventListener('expense:saved', () => {
+// An expense was saved, edited or deleted: refresh whichever screen is underneath (keeps its filters and period)
+document.addEventListener('expenses:changed', (e) => {
   const screen = sessionStorage.getItem('activeScreen');
-  if      (screen === 'log')    refreshLog();
-  else if (screen === 'report') refreshReport();
-  else if (screen === 'budget') refreshBudget();
+  if      (screen === 'insights') refreshPocket(e.detail?.category);
+  else if (screen === 'report')   refreshReport();
+  else if (screen === 'budget')   refreshBudget();
 });
 
 // ── 15-minute idle session timeout (C2) ─────────────────────────────────────
@@ -88,6 +89,7 @@ function resetIdleTimer() {
 function clearAllFinancialState() {
   clearAddState();
   clearLogState();
+  clearPocketState();
   clearBudgetState();
   clearReportState();
   clearAccountsState();
@@ -102,10 +104,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearAllFinancialState();
   } else {
-    const screen = sessionStorage.getItem('activeScreen') || 'log';
-    if      (screen === 'log')    initLog();
-    else if (screen === 'report') initReport();
-    else if (screen === 'budget') initBudget();
+    const screen = sessionStorage.getItem('activeScreen');
+    if      (screen === 'budget')   initBudget();
+    else if (screen === 'report')   initReport();
+    else if (screen === 'insights') initPocket();
   }
 });
 
@@ -160,11 +162,11 @@ onAuthStateChanged(auth, async (user) => {
       throw e;
     }
     if (settings?.onboardingComplete) {
-      const saved = sessionStorage.getItem('activeScreen') || 'log';
-      if      (saved === 'report')   { initReport();     showScreen('report'); }
-      else if (saved === 'budget')   { initBudget();     showScreen('budget'); }
+      const saved = sessionStorage.getItem('activeScreen');
+      if      (saved === 'budget')   { initBudget();     showScreen('budget'); }
       else if (saved === 'settings') { renderSettings(); showScreen('settings'); }
-      else                           { initLog();        showScreen('log'); }
+      else if (saved === 'report')   { initReport();     showScreen('report'); }
+      else                           { initPocket();     showScreen('insights'); }
     } else {
       document.getElementById('onboarding-overlay').style.display = 'flex';
       initOnboarding(user.uid);

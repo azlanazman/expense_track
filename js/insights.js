@@ -22,8 +22,19 @@ export function clearInsightsState() {
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
+// Slide the Analysis page in (opened from Insights › Full analysis); the back button and the phone's back button close it
+export function openAnalysis() {
+  document.getElementById('analysis-page').classList.add('active');
+  history.pushState(null, '');
+  initInsights();
+}
+
+document.getElementById('analysis-back').addEventListener('click', () => {
+  document.getElementById('analysis-page').classList.remove('active');
+});
+
 export async function initInsights() {
-  const body = document.getElementById('budget-insights-body');
+  const body = document.getElementById('analysis-body');
   destroyCharts();
   body.innerHTML = '<div class="insights-loading">Loading insights…</div>';
   try {
@@ -209,8 +220,8 @@ function makeDetailsExpander(label) {
 // ── Narrative copy ─────────────────────────────────────────────────────────────
 
 function heroVerdict(kpi) {
-  const sr = kpi.savingsRate;
-  if (sr >= 20) return { pill: 'On track', tone: 'good', line: `Saving ${Math.round(sr)}% of income — comfortably above your 20% goal.` };
+  const sr = kpi.savingsRate, goal = userSettings.savingsGoalPct ?? 20;
+  if (sr >= goal) return { pill: 'On track', tone: 'good', line: `Saving ${Math.round(sr)}% of income — at or above your ${goal}% goal.` };
   if (sr >= 10) return { pill: 'Watch',    tone: 'warn', line: `Saving ${Math.round(sr)}% — okay, but variable spend is creeping up.` };
   return           { pill: 'Over',     tone: 'bad',  line: `Only ${Math.round(sr)}% saved this period — spending is running hot.` };
 }
@@ -583,7 +594,7 @@ function renderSavingsLens(container, data) {
           scales: {
             x: { stacked: true, grid: { display: false }, border: { display: false },
               ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-            y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+            y: { stacked: true, grid: { color: GRID() }, border: { display: false },
               ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 4 } },
           },
         },
@@ -636,7 +647,7 @@ function renderTrendChart(container, { monthly }) {
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
-        y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+        y:{ beginAtZero:true, grid:{color:GRID()}, border:{display:false},
           ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
       },
     },
@@ -808,7 +819,7 @@ function renderCategoryLines(container, varExp, periodRefs) {
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
-        y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+        y:{ beginAtZero:true, grid:{color:GRID()}, border:{display:false},
           ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
       },
     },
@@ -999,7 +1010,7 @@ function renderNetWorthChart(container, { accounts, expenses, transfers, potTxns
       scales: {
         x: { grid: { display: false }, border: { display: false },
           ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+        y: { stacked: true, grid: { color: GRID() }, border: { display: false },
           ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 5 } },
       },
     },
@@ -1047,14 +1058,14 @@ function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
 
 // ── Category limit sheet ───────────────────────────────────────────────────────
 
-function openCategoryLimitSheet(cat) {
+export function openCategoryLimitSheet(cat) {
   const existing = (userSettings.categoryLimits || {})[cat] || 0;
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.48);z-index:200;display:flex;flex-direction:column;justify-content:flex-end;';
+  overlay.className = 'lim-overlay';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--surface);border-radius:20px 20px 0 0;padding:16px 24px calc(28px + env(safe-area-inset-bottom,0px));';
+  sheet.className = 'lim-sheet';
 
   const grabber = document.createElement('div');
   grabber.className = 'export-grabber';
@@ -1063,31 +1074,33 @@ function openCategoryLimitSheet(cat) {
   titleEl.className = 'sheet-title';
   titleEl.textContent = `${cat} — spending limit`;
 
+  const subEl = document.createElement('div');
+  subEl.className = 'sheet-sub';
+  subEl.textContent = 'Per salary period. Leave empty or remove to switch the limit off.';
+
   const field = document.createElement('div');
-  field.className = 'field';
-  field.style.marginTop = '16px';
+  field.className = 'as-amt sm';
 
   const pfx = document.createElement('span');
-  pfx.className = 'field-prefix';
+  pfx.className = 'rm';
   pfx.textContent = 'RM';
 
   const inp = document.createElement('input');
-  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00';
-  inp.style.fontVariantNumeric = 'tabular-nums';
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00'; inp.autocomplete = 'off';
+  inp.setAttribute('aria-label', `${cat} spending limit in ringgit`);
   if (existing > 0) inp.value = String(existing);
   field.appendChild(pfx); field.appendChild(inp);
 
   const saveBtn = document.createElement('button');
-  saveBtn.type = 'button'; saveBtn.className = 'cta-btn';
-  saveBtn.style.marginTop = '16px'; saveBtn.textContent = 'Set limit';
+  saveBtn.type = 'button'; saveBtn.className = 'btn-save'; saveBtn.textContent = 'Set limit';
 
-  sheet.appendChild(grabber); sheet.appendChild(titleEl);
+  sheet.appendChild(grabber); sheet.appendChild(titleEl); sheet.appendChild(subEl);
   sheet.appendChild(field);  sheet.appendChild(saveBtn);
 
   if (existing > 0) {
     const rmBtn = document.createElement('button');
     rmBtn.type = 'button';
-    rmBtn.style.cssText = 'width:100%;text-align:center;padding:12px;font:inherit;font-size:14px;font-weight:600;color:var(--danger);background:none;border:none;cursor:pointer;margin-top:4px;';
+    rmBtn.className = 'lim-remove';
     rmBtn.textContent = 'Remove limit';
     rmBtn.addEventListener('click', () => persistLimit(0));
     sheet.appendChild(rmBtn);
@@ -1113,7 +1126,9 @@ function openCategoryLimitSheet(cat) {
     setUserSettings({ ...userSettings, categoryLimits: limits });
     try { await updateUserSettings(currentUser.uid, { categoryLimits: limits }); } catch (e) { console.error(e); }
     _cache = null;
-    initInsights();
+    const ap = document.getElementById('analysis-page');
+    if (ap && ap.classList.contains('active')) initInsights();   // only redraw Analysis while it is open
+    document.dispatchEvent(new CustomEvent('expenses:changed'));   // Insights, Budget and Report strips use these limits
   }
 }
 
@@ -1146,6 +1161,9 @@ function tintOklch(colorStr, deltaL) {
 const abbrev = (s, max = 10) => s.length > max ? s.slice(0, max - 1) + '.' : s;
 
 // ── Chart helpers & palette ────────────────────────────────────────────────────
+
+// Chart gridlines: faint dark on the light theme, faint light on the dark one (read when a chart is drawn)
+const GRID = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)';
 
 const FONT = (size, weight = '500') => ({ family:"'Plus Jakarta Sans', sans-serif", size, weight });
 

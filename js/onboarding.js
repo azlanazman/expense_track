@@ -14,9 +14,9 @@ const TYPE_ICONS   = { bank: ICON_BANK, ewallet: ICON_EWALLET, card: ICON_CARD, 
 const TYPE_CYCLE = ['bank', 'ewallet', 'card', 'savings'];
 const TYPE_BADGE_STYLE = {
   bank:    'background:var(--accent-soft);color:var(--accent-ink)',
-  ewallet: 'background:#fff8e8;color:#854F0B',
-  card:    'background:#f0f7ff;color:#185FA5',
-  savings: 'background:#f0fff8;color:#0F6E56',
+  ewallet: 'background:var(--tb-ew-bg);color:var(--tb-ew-ink)',
+  card:    'background:var(--tb-cd-bg);color:var(--tb-cd-ink)',
+  savings: 'background:var(--tb-sv-bg);color:var(--tb-sv-ink)',
 };
 
 // ── State ──────────────────────────────────────────────────────────────────────

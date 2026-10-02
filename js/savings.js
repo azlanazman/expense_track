@@ -1,5 +1,6 @@
 import { currentUser } from './state.js';
 import { fmt, todayString, showToast, escapeHtml } from './helpers.js';
+import { lcdStatic, ledBar } from './tape.js';
 import { fetchSavingsPots, persistSavingsPots, addPotTransaction, deletePotTransactionsByPot, fetchAccounts } from './db.js';
 
 const POT_COLOURS = [
@@ -52,12 +53,10 @@ export function renderSavings() {
 
   const total = savState.pots.reduce((s, p) => s + (p.currentBalance || 0), 0);
 
+  const np = savState.pots.length;
   const totalCard = document.createElement('div');
-  totalCard.className = 'sav-total-card';
-  totalCard.innerHTML = `
-    <div class="acc-total-label">Total saved</div>
-    <div class="acc-total-val">RM ${fmt(total)}</div>`;
-  body.appendChild(totalCard);
+  totalCard.innerHTML = lcdStatic('Total saved', np + (np === 1 ? ' pot' : ' pots'), total, '');
+  body.appendChild(totalCard.firstElementChild);
 
   const potsSec = document.createElement('section');
   potsSec.innerHTML = '<span class="block-label">Savings pots</span>';
@@ -97,9 +96,7 @@ function buildPotCard(pot) {
       <button class="pot-name-btn" type="button">${escapeHtml(pot.name)}</button>
       ${acc ? `<span class="pot-acc-lbl">${escapeHtml(acc.name)}</span>` : ''}
     </div>
-    <div class="pot-bar-wrap">
-      <div class="pot-bar-fill" style="width:${pct.toFixed(1)}%;background:${escapeHtml(colour)}"></div>
-    </div>
+    <div class="pot-bar-wrap">${ledBar(Math.round(pct / 100 * 20), 20, 'good', colour)}</div>
     <div class="pot-bal-row">
       <span class="pot-bal-val">RM ${fmt(bal)}</span>
       ${target > 0 ? `<span class="pot-bal-goal">goal RM ${fmt(target)}</span>` : ''}

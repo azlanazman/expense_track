@@ -4,7 +4,7 @@
 
 Mobile-first personal expense tracker. Google Sign-In (Firebase Auth), Firestore database, GitHub Pages hosting. No build step — plain HTML/CSS/vanilla JS with ES modules. `index.html` = HTML skeleton + ALL CSS; logic split into `js/` modules.
 
-Design: **colour blocking, bold, pop-up feel** — solid fills, strong coloured shadows, elevated cards. Accent = yellow (`--accent`, `oklch(0.84 0.18 86)`), complement = dark/navy (`--comp`). Text on yellow fills always uses dark ink (`--on-accent: oklch(0.28 0.05 86)`) — never white.
+Design (redesign in progress, locked in the project doc `09-redesign-decisions.md`): **cream plates with a hard bottom edge** ("Pocket + Tape"). Every card, chip, key and segmented control is a raised plate (`border:0; box-shadow:0 4px 0 var(--edge)`) on a `--screen-bg` page; chips press down 3px. Light is the default theme, Dark is an option (Settings › Appearance). The bottom nav is dark in both themes with a raised round yellow Add button. Accent = yellow (`--accent`), the only accent; orange is reserved for the Insights dial and Tape selection (`--pk-knob`). Selected chips/keys are ink-dark (`.chip.on` = `--ink` bg, `--screen-bg` text). Text on yellow fills always uses dark ink (`--on-accent`) — never white.
 
 ---
 
@@ -22,23 +22,27 @@ js/
   db.js                 # All Firestore operations + audit log
   export.js             # Report → Export to Sheets (.xlsx via vendored SheetJS, lazy-loaded)
   onboarding.js         # New-user onboarding overlay
-  add.js                # Screen 1 — Add Expense
-  log.js                # Screen 2 — Expense Log (+ Transfers chip)
-  report.js             # Screen 3 — Report
+  theme.js              # Plain (non-module) script in <head>: sets data-theme from localStorage('theme') before first paint
+  add.js                # Add Expense bottom sheet (opened by the round + in the nav; not a screen)
+  log.js                # Transactions view of the Report (was the Log screen): list, edit/delete, Transfers chip, export
+  report.js             # Report screen: period + Summary | Transactions switch; owns the period and entries
   settings.js           # Screen 4 — Settings
   budget.js             # Screen 5 — Budget overview/checklist + sub-tab routing
   budget-templates.js   # Budget templates sub-page (Settings)
   accounts.js           # Budget → Accounts sub-tab + Transfer flow
   savings.js            # Budget → Savings sub-tab
-  insights.js           # Budget → Insights sub-page (3-lens dashboard)
+  tape.js               # Shared Tape pieces: strips, LED bar, static LCD, category icons, on-track/watch/over rule (phase E)
+  pocket.js             # Insights home: dial + LCD + Tape strips for the current salary period (new in phase D)
+  insights.js           # Analysis sub-page (the old Insights, 3-lens dashboard), opened from Insights › Full analysis
 firestore.rules
 ```
 
 `init*()` / `render*()` called from `app.js` nav handlers. Module-level event listeners wired at import time.
 
 **Cross-tab navigation** (avoids circular imports) — custom DOM events in `app.js`:
-- `nav:show-log-transfers` — accounts.js dispatches; app.js activates Transfers chip in log
-- `nav:go-add` — onboarding.js dispatches on completion
+- `nav:show-log-transfers` — accounts.js dispatches; app.js opens Report › Transactions with the Transfers chip on (`openTransactions({transfers:true})`)
+- `nav:go-home` — onboarding.js dispatches on completion; app.js opens the Report
+- `expenses:changed` — add.js (after a save) and log.js (after an edit/delete) dispatch; app.js reloads the screen underneath (`refreshReport` / `refreshBudget`), keeping its period and filters
 
 ---
 
@@ -120,9 +124,11 @@ If a checklist item is marked paid with amount = 0, no `expenses` doc is created
 
 **Global form element reset** in `index.html`: `button, input, select, textarea { font: inherit; }` — ensures all form elements use Plus Jakarta Sans.
 
+**Theme tokens:** `:root` holds the light set (page `--screen-bg #E8E4DA`, plate `--surface #F4F1E8`, `--edge #C9C3B1`, `--inset #D9D4C6`, `--nav #181B1F`); `:root[data-theme="dark"]` overrides them (page `#121315`, plate `#1D1E22`, edge `#070708`, inset `#0E0F11`, nav `#08080A`). Keep using the old variable names below — they are remapped to the new palette. New work uses `var(--edge)` for the hard bottom edge and `var(--inset)` for troughs. Never hard-code a colour that must differ between themes. The redesign CSS is appended in labelled blocks near the end of the `<style>` (`Redesign, phase A/B/C`) and overrides the older rules above it.
+
 **CSS variables** in `index.html :root`: `--ink`/`--ink-2`/`--ink-3` (text), `--line`/`--line-2` (borders), `--surface`/`--screen-bg` (fills), `--accent`/`--accent-soft`/`--accent-line`/`--accent-ink`/`--accent-shadow`/`--on-accent` (yellow — `on-accent` is dark ink, not white), `--comp`/`--comp-soft`/`--comp-line`/`--comp-ink` (dark navy), `--amber`/`--amber-soft`/`--amber-ink`/`--on-amber` (needs-entry), `--positive`/`--positive-soft`/`--positive-ink`/`--on-positive` (green), `--danger`/`--danger-soft`/`--danger-ink`, `--radius`/`--radius-sm`/`--radius-lg`, `--sp` (spacing multiplier).
 
-**Scoped radius override:** `#budget-insights-body` sets `--radius: 20px`, `--radius-sm: 12px`, `--radius-lg: 26px` — all child elements in Insights inherit these larger radii. Do not change the global `--radius` (12px) for Insights work.
+**Scoped radius override:** `#analysis-body` sets `--radius: 20px`, `--radius-sm: 12px`, `--radius-lg: 26px` — all child elements in Insights inherit these larger radii. Do not change the global `--radius` (12px) for Insights work.
 
 ### Typography scale
 
@@ -205,7 +211,8 @@ isIncome    true for entries synced from budgetMonths via syncIncomeExpense()
 categories          string[]   ordered variable category names
 paymentMethods      string[]   ordered payment method names
 salaryDay           number     default 25
-categoryLimits      object     { [categoryName]: number } — per-category spending limits (Insights)
+categoryLimits      object     { [categoryName]: number } — per-category spending limits (Insights strips, Analysis)
+savingsGoalPct      number     default 20 — share of income to keep (Settings › Savings goal); the Insights dial budgets income − bills − this
 onboardingComplete  boolean
 onboardingDate      string     ISO timestamp
 consentGiven        boolean    set on tour slide 2 CTA
@@ -264,19 +271,21 @@ Write-only — Firestore rules block all reads, updates, deletes. Never queried 
 
 ## Navigation
 
-5 tabs, fixed bottom nav, safe-area aware (`env(safe-area-inset-bottom)`).
+Fixed dark bottom nav, safe-area aware (`env(safe-area-inset-bottom)`), five grid slots: Insights · Report · **round + (opens the Add sheet)** · Budget · Settings.
 
 | Tab      | Screen |
 |----------|--------|
-| Add      | 1      |
-| Log      | 2      |
-| Report   | 3      |
-| Budget   | 5 (sub-tabs: Overview · Accounts · Savings; Overview has an Insights sub-page) |
-| Settings | 4      |
+| Insights | `#screen-insights` (`js/pocket.js`); Analysis slides over it as a sub-page |
+| +        | Add expense bottom sheet (`js/add.js`), not a screen |
+| Report   | `#screen-report`, views Summary · Transactions (the old Log) |
+| Budget   | `#screen-budget` (sub-tabs: Overview · Accounts · Savings) |
+| Settings | `#screen-settings` |
 
-Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state.
+Active: `.nav-item.on`. Budget and Report maintain **independent** period state. The default screen is Insights.
 
 **Screen persistence:** `showScreen(name)` → `sessionStorage('activeScreen')`. Restored on `onAuthStateChanged` (including refresh). Cleared on signOut.
+
+**Add sheet:** `openAddSheet()` pushes `history.pushState({addSheet:true})`, so the phone back button closes the sheet first (see `popstate` in `app.js`). The sheet is `inert` while closed, traps focus, tracks the keyboard with `visualViewport`, and swipe-down on the grab handle (>90px) dismisses it. While open `body.add-open` moves the toast to the top so it never covers Save. Closed `.bottom-sheet`s are `visibility:hidden` with no shadow (a closed sheet's shadow used to show as a grey haze above the nav).
 
 **Phone back button:** Sub-pages call `history.pushState(null,'')` on open. `popstate` listener in `app.js` closes `.sub-page.active`. Covers: Settings → Budget Templates, Budget → Checklist.
 
@@ -284,9 +293,9 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 
 ## Screen behaviour (non-obvious rules only)
 
-**Add:** Reset amount only on save — keep date/category/method. One dropdown open at a time.
+**Add (sheet):** Amount, then category and account chips, date chips (Today / Yesterday / Pick), optional note. Category, account and the last-used default come from `userSettings` and `localStorage('addLast')`. Save closes after the tick; Save & add another keeps the sheet open and clears the amount.
 
-**Log:** Transfer rows excluded from totals when All/payment chip active; shown only when Transfers chip active. Rows sorted date desc (client-side).
+**Report › Transactions (old Log):** Shares the Report's period (Monthly / Salary / Custom and the arrows) and the Report's loaded entries: `report.js` `loadReport()` fetches once and hands the result to `log.setLogData()`; `log.js` only adds accounts and transfers for the same dates (`activateLog()`, cached per period). Edits and deletes dispatch `expenses:changed`, which reloads through the Report. Transfer rows are excluded from totals when All/payment chip active; shown only when the Transfers chip is active. Rows sorted date desc (client-side), 10 per page; a delete that empties the last page steps back one page. The list shows every non-income entry (fixed and variable), so its total matches the Summary's Combined tab, not Variable.
 
 **Report:** Default period = Salary Period (not Monthly). Salary period: if `today >= salaryDay`, started this month; otherwise last month — auto-advances, no stored state. The header arrows step back and forward by salary period (anchor month `spYear`/`spMonth`, dates from `salaryStartForMonth`/`salaryEndForMonth` in `helpers.js`; forward stops at the current period; the year is shown in the title for older periods). Export has a fifth sheet, Details (one row per expense, with Notes). Variable expand = one sub-row per day (daily total, not per transaction). Export downloads all payment methods regardless of active filter chips.
 
@@ -310,7 +319,11 @@ Active: `.nav-item.on`. Budget, Log, Report maintain **independent** month state
 
 **Export to Sheets (`export.js`):** 4 sheets — Variable, Fixed, Combined, Income. Income sheet fetches `budgetMonths` for every calendar month overlapping the export range.
 
-**Budget Insights (`insights.js`):** Sub-page inside Budget → Overview. Opened via an "Insights" button in the overview header; renders into `#budget-insights-body`.
+**Insights home (`pocket.js`):** reads only the current salary period (day n of N). Variable budget = income − planned bills (template amounts) − income × `savingsGoalPct`; pointer = variable spent ÷ budget; today tick = day ÷ total days; per category used = spent ÷ limit, pace = used ÷ time elapsed (Over if used ≥ 1 or pace > 1.3, Watch if pace > 1.05, else On track; no limit = Not set); overall verdict from the projected saving rate (On track ≥ goal, Watch ≥ 10%, else Over; no income = Awaiting input). Before day 4 the verdict reads "Too early" and per-category pace is ignored. Strips are the user's own categories (any number) plus Bills (paid ÷ total from the checklist) and Save. Tapping a strip selects it and fills the LCD; tapping again clears. `refreshPocket(category)` runs on `expenses:changed` and selects the category just saved. Pocket colours are `--pk-*` tokens (light and dark); category icons come from `ICON_BY_NAME` with a tag fallback. Limits are set in Analysis › Spending (a limit change dispatches `expenses:changed`).
+
+**Tape on other screens (phase E, `tape.js`):** Budget overview = income plate, `.pk-three` plate (Income / Fixed / Save goal), static LCD net balance (income − fixed paid − variable), "Bills paid" LED-bar plate (tone from `ratioTone`) and Category limits as Tape strips (tap a strip → `openCategoryLimitSheet`, exported from `insights.js`; a limit change always dispatches `expenses:changed`, and re-runs `initInsights()` only while `#analysis-page` is open). Accounts/Savings totals are static LCDs (`lcdStatic`); savings pots use `ledBar` with the pot colour. Report › Summary = static LCD total (+ daily average) and neutral Tape strips (`isStatic`, tone `n`, bar = share of the biggest category, `%` of total, all categories high→low). Checklist progress is an LED-bar plate. Onboarding account-type badges use `--tb-*` tokens (light/dark). Chart gridlines come from `GRID()` in `insights.js`. Use `lcdStatic`/`tapeStrip`/`ledBar` for any new readout rather than new card styles.
+
+**Analysis (`insights.js`, formerly Budget Insights):** Sub-page opened by `openAnalysis()` (Insights › Full analysis; it pushes a history entry so the phone back button closes it); renders into `#analysis-body`.
 
 - **Time model:** All 12 buckets are **salary periods**, not calendar months. `periodRefs` = array of `{ year, month, start, end }` where `start`/`end` are `"YYYY-MM-DD"`. Current period is always `periodRefs[11]`. All date filters use `e.date >= start && e.date <= end` — never `startsWith`.
 - **Data loading:** `loadData()` fetches expenses, template, accounts, pots, transfers, potTxns, and 12 `budgetMonths` docs in one `Promise.all`. Result cached in `_cache`; nulled when a category limit changes.
