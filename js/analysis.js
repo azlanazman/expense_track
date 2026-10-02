@@ -4,7 +4,7 @@
 import { currentUser, userSettings } from './state.js';
 import { fmt0, escapeHtml, parseLocalDate, todayString, salaryPeriodLabel, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetMonth, fetchBudgetTemplate } from './db.js';
-import { clamp, tapeStrip, iconFor } from './tape.js';
+import { clamp, ico, tapeStrip, iconFor } from './tape.js';
 import { holidaysBetween, holidayOn } from './holidays.js';
 
 const PERIODS   = 12;
@@ -20,12 +20,14 @@ let sel    = null;           // index of the selected bar in plate 1 (null = ove
 let cell   = null;           // selected cell of the category grid: { c: 'Food' | 'All', p: period index }
 let dayPer = null;           // period shown in the calendar (index)
 let dayIdx = null;           // selected day of that period (0-based, day 1 = salary day), null = none
+let look   = null;           // category chosen in "Look up a category"
+let lookPer = null;          // period chosen there (index)
 
 export function clearAnalysisState() {
   _cache = null;
   sel = null;
   cell = null;
-  dayPer = null; dayIdx = null;
+  dayPer = null; dayIdx = null; look = null; lookPer = null;
   const body = document.getElementById('analysis-body');
   if (body) body.innerHTML = '';
 }
@@ -44,7 +46,7 @@ export function openAnalysis() {
   history.pushState(null, '');
   sel = null;
   cell = null;
-  dayPer = null; dayIdx = null;
+  dayPer = null; dayIdx = null; look = null; lookPer = null;
   initAnalysis();
 }
 
@@ -116,6 +118,7 @@ async function load(uid) {
     p.cat = {};
     pe.filter(e => !e.type || e.type === 'variable').forEach(e => { const c = e.category || 'Other'; p.cat[c] = (p.cat[c] || 0) + e.amount; });
     p.hasSpend  = variable > 0;
+    p.ents      = pe.filter(e => !e.type || e.type === 'variable');   // variable entries, for the leaks plate
     // One entry per day of the period: variable spend, by category, plus how many transactions the Transactions view will list
     const byDate = {};
     pe.forEach(e => {
@@ -435,9 +438,92 @@ function dayDetail(p) {
   return h + '</div>';
 }
 
+
+// ── Plate 5: Where small leaks go ─────────────────────────────────────────────
+
+// Same note, whatever the case, numbers or punctuation: "Kopi 2" and "kopi" are one group
+const noteKey = (t) => String(t || '').toLowerCase().replace(/[\d_]+/g, ' ').replace(/[^\p{L}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+const sentence = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+const top1 = (counts) => Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+
+// Groups of 3 or more entries by `keyOf`; label = the most common spelling, category = the most common category
+function groupEntries(ents, keyOf, labelOf) {
+  const g = {};
+  ents.forEach(e => {
+    const k = keyOf(e);
+    if (!k) return;
+    const x = g[k] || (g[k] = { n: 0, total: 0, labels: {}, cats: {} });
+    x.n++; x.total += e.amount;
+    const l = labelOf(e); x.labels[l] = (x.labels[l] || 0) + 1;
+    const c = e.category || 'Other'; x.cats[c] = (x.cats[c] || 0) + 1;
+  });
+  return Object.values(g).filter(x => x.n >= 3).map(x => ({ n: x.n, total: x.total, avg: x.total / x.n, label: top1(x.labels), cat: top1(x.cats) }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function plateLeaks({ periods }) {
+  const done = periods.filter(p => !p.current && p.hasSpend);
+  let h = '<div class="pk-plate an-plate"><div class="an-h">Where small leaks go</div>';
+  if (!done.length) return h + '<div class="an-empty">Needs a finished period of spending first.</div></div>';
+  const p = done[done.length - 1];
+  h += `<div class="an-q">${escapeHtml(p.label)} period (${escapeHtml(salaryPeriodLabel(p.start, p.end))}), your last finished one. Frequent small spends add up quietly.</div>`;
+
+  let groups = groupEntries(p.ents, e => { const k = noteKey(e.notes); return k.length >= 2 ? k : ''; }, e => sentence(String(e.notes).trim().replace(/\s+/g, ' ')));
+  let basis = 'Grouped by the note you typed (capitals, numbers and punctuation ignored), 3 or more entries.';
+  if (!groups.length) {
+    groups = groupEntries(p.ents, e => e.subCategory ? (e.category || '') + '|' + e.subCategory : '', e => String(e.subCategory));
+    basis = groups.length ? 'Not enough repeated notes, so these are grouped by sub-category (3 or more entries).' : '';
+  }
+  if (!groups.length) h += '<div class="an-empty">Nothing repeated 3 or more times yet. Consistent notes (the same words each time) make this list useful.</div>';
+  groups.slice(0, 6).forEach(g => {
+    h += `<div class="an-row"><span class="an-dot">${ico(iconFor(g.cat), 17)}</span><span class="an-grow">${escapeHtml(g.label)}<small>${g.n}× · average ${rm(g.avg)} · ${escapeHtml(g.cat)}</small></span><b>${rm(g.total)}</b></div>`;
+  });
+  if (basis) h += `<div class="an-ph">${basis}</div>`;
+
+  const big = p.ents.slice().sort((a, b) => b.amount - a.amount).slice(0, 5);
+  h += '<div class="an-sub">Biggest single purchases</div>';
+  big.forEach(e => {
+    const d = parseLocalDate(e.date);
+    const what = String(e.notes || '').trim() || e.subCategory || e.category || 'Expense';
+    h += `<div class="an-row"><span class="an-grow">${escapeHtml(sentence(what))}<small>${d.getDate()} ${MON[d.getMonth()]} · ${escapeHtml(e.category || 'Other')}</small></span><b>${rm(e.amount)}</b></div>`;
+  });
+  return h + '</div>';
+}
+
+// ── Plate 6: Look up a category ───────────────────────────────────────────────
+
+function plateLookup({ periods, cats }) {
+  const done = periods.filter(p => !p.current && p.hasSpend);
+  let h = '<div class="pk-plate an-plate"><div class="an-h">Look up a category</div>';
+  if (done.length < 2 || !cats.length) return h + '<div class="an-empty">Needs a few finished periods of spending first.</div></div>';
+  if (!look || !cats.includes(look)) look = cats.slice().sort((a, b) => periods.reduce((s, p) => s + (p.cat[b] || 0), 0) - periods.reduce((s, p) => s + (p.cat[a] || 0), 0))[0];
+  if (lookPer === null || !periods[lookPer]) lookPer = done[done.length - 1].i;
+  const sp = periods[lookPer];
+  const vals = periods.map(p => p.cat[look] || 0), dv = done.map(p => p.cat[look] || 0);
+  const usual = median(dv), best = Math.min(...dv), worst = Math.max(...dv);
+  const bp = done.find(p => (p.cat[look] || 0) === best), wp = done.find(p => (p.cat[look] || 0) === worst);
+  const max = Math.max(1, ...vals, usual * 1.1) * 1.08, H = 84;
+
+  h += '<div class="an-chips">' + cats.map(c => `<button type="button" class="chip${c === look ? ' on' : ''}" data-look="${escapeHtml(c)}" aria-pressed="${c === look}">${escapeHtml(c)}</button>`).join('') + '</div>';
+  const v = sp.cat[look] || 0, diff = v - usual;
+  const l2 = sp.current ? 'Day ' + sp.day + ' of ' + sp.total + ' so far.' : Math.abs(diff) < usual * 0.05 ? 'About your usual (' + rm(usual) + ').' : rm(Math.abs(diff)) + (diff > 0 ? ' above' : ' below') + ' your usual ' + rm(usual) + '.';
+  h += `<div class="pk-lcd an-lcd"><div class="pk-l1"><span>${escapeHtml(look.toUpperCase() + ' · ' + sp.label.toUpperCase() + (sp.current ? ' (SO FAR)' : ''))}</span><span>${rm(v)}</span></div><div class="an-l2">${escapeHtml(l2)}</div></div>`;
+
+  let bars = '';
+  periods.forEach((p, i) => {
+    const hh = Math.max(3, vals[i] / max * H);
+    bars += `<button type="button" class="an-bar an-lb${p.current ? ' proj' : ''}${lookPer === i ? ' sel' : ''}" data-lp="${i}" aria-pressed="${lookPer === i}" aria-label="${escapeHtml(look + ', ' + p.label + ' period, ' + rm(vals[i]) + (p.current ? ' so far' : ''))}"><i class="an-fill" style="height:${hh.toFixed(1)}px"></i></button>`;
+  });
+  h += `<div class="an-bars" style="height:${H}px">${bars}<div class="an-usual" style="bottom:${(usual / max * H).toFixed(1)}px"><b>USUAL</b></div></div>` +
+    '<div class="an-bl">' + periods.map(p => `<span class="${p.current ? 'cur' : ''}">${escapeHtml(p.label)}</span>`).join('') + '</div>';
+  h += `<div class="pk-three an-stats"><div><span class="pk-lab">Usual</span><b>${rm(usual)}</b></div><div><span class="pk-lab">Lowest</span><b>${rm(best)}</b><small>${escapeHtml(bp.label)}</small></div><div><span class="pk-lab">Highest</span><b>${rm(worst)}</b><small>${escapeHtml(wp.label)}</small></div></div>`;
+  h += `<div class="an-center" style="margin-top:14px"><button type="button" class="an-key" data-go-cat="${escapeHtml(look)}" data-go-anchor="${sp.start}">Open ${escapeHtml(look)} (${escapeHtml(sp.label)}) in Report ›</button></div></div>`;
+  return h;
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-const PLATES = [plateImproving, plateGrid, plateDays, plateCalendar];
+const PLATES = [plateImproving, plateGrid, plateDays, plateCalendar, plateLeaks, plateLookup];
 
 function render(data) {
   const body = document.getElementById('analysis-body'), page = document.getElementById('analysis-page');
@@ -448,7 +534,7 @@ function render(data) {
 
 document.getElementById('analysis-body').addEventListener('click', (e) => {
   if (!_cache) return;
-  const bar = e.target.closest('.an-bar');
+  const bar = e.target.closest('.an-bar:not(.an-lb)');
   if (bar) {
     const i = Number(bar.dataset.i);
     sel = sel === i ? null : i;
@@ -467,6 +553,12 @@ document.getElementById('analysis-body').addEventListener('click', (e) => {
   if (pp && !pp.disabled) { dayPer = clamp(dayPer + Number(pp.dataset.step), 0, _cache.periods.length - 1); dayIdx = null; render(_cache); return; }
   const cd = e.target.closest('.an-cd[data-day]');
   if (cd) { const i = Number(cd.dataset.day); dayIdx = dayIdx === i ? null : i; render(_cache); return; }
-  const key = e.target.closest('.an-key');
+  const lk = e.target.closest('[data-look]');
+  if (lk) { look = lk.dataset.look; render(_cache); return; }
+  const lb = e.target.closest('.an-lb');
+  if (lb) { lookPer = Number(lb.dataset.lp); render(_cache); return; }
+  const goCat = e.target.closest('[data-go-cat]');
+  if (goCat) { document.dispatchEvent(new CustomEvent('nav:show-transactions-date', { detail: { anchor: goCat.dataset.goAnchor, category: goCat.dataset.goCat } })); return; }
+  const key = e.target.closest('.an-key[data-date]');
   if (key) document.dispatchEvent(new CustomEvent('nav:show-transactions-date', { detail: { date: key.dataset.date } }));
 });

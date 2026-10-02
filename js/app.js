@@ -60,13 +60,14 @@ document.addEventListener('nav:show-log-transfers', () => {
   openTransactions({ transfers: true });
 });
 
-// Analysis › Day by day › "See N transactions": close the Analysis page and open Report › Transactions on that date
+// Analysis › "See N transactions" (a day) or "Open <category> in Report": close the Analysis page and open Report › Transactions, filtered
 document.addEventListener('nav:show-transactions-date', (e) => {
   document.querySelector('.sub-page.active')?.classList.remove('active');
   showScreen('report');
   history.pushState(null, '');          // so the phone's back button has a step to take
   returnToAnalysis = true;              // (set after showScreen, which clears it)
-  openTransactionsOnDate(e.detail.date);
+  const { date = '', anchor = date, category = '' } = e.detail;
+  openTransactionsOnDate(anchor, { date, category });
 });
 
 document.addEventListener('nav:go-home', () => {

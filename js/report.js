@@ -2,7 +2,7 @@ import { currentUser, userSettings } from './state.js';
 import { fmt, fmt0, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
-import { setLogData, setLogDate, activateLog, showLogTransfers } from './log.js';
+import { setLogData, setLogFilters, activateLog, showLogTransfers } from './log.js';
 import { lcdStatic, tapeStrip, iconFor } from './tape.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -114,29 +114,29 @@ export async function openTransactions({ transfers = false } = {}) {
   if (transfers) showLogTransfers();
 }
 
-// Open Transactions for one day (from Analysis › Day by day): the salary period that contains the date, filtered to that date
-export async function openTransactionsOnDate(date) {
+// Open Transactions from Analysis: the salary period that contains `anchor`, optionally filtered to one day and / or one category
+export async function openTransactionsOnDate(anchor, { date = '', category = '' } = {}) {
   const sd = userSettings.salaryDay ?? 25;
-  const [y, m] = date.split('-').map(Number);
+  const [y, m] = anchor.split('-').map(Number);
   // the anchor month is the one the period starts in: this month, the one before, or (rarely, clamped salary days) the next
-  let anchor = null;
+  let found = null;
   for (const off of [0, -1, 1]) {
     let ay = y, am = m + off;
     if (am < 1) { am = 12; ay--; } else if (am > 12) { am = 1; ay++; }
-    if (salaryStartForMonth(sd, ay, am) <= date && date <= salaryEndForMonth(sd, ay, am)) { anchor = { year: ay, month: am }; break; }
+    if (salaryStartForMonth(sd, ay, am) <= anchor && anchor <= salaryEndForMonth(sd, ay, am)) { found = { year: ay, month: am }; break; }
   }
-  if (!anchor) { await openTransactions(); return; }
+  if (!found) { await openTransactions(); return; }
   rptState.view     = 'summary';
   rptState.period   = 'salary';
-  rptState.spYear   = anchor.year;
-  rptState.spMonth  = anchor.month;
+  rptState.spYear   = found.year;
+  rptState.spMonth  = found.month;
   rptState.selected = [];
   rptState.tab      = 'variable';
   rptState.expanded = new Set();
   computePeriodDates();
   await loadReport();
   setView('tx');
-  setLogDate(date);
+  setLogFilters({ date, category });
 }
 
 function setView(view) {

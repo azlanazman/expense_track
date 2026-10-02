@@ -18,7 +18,7 @@ const TRANSFER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none
 
 let logState = {
   startDate: '', endDate: '',
-  filter: 'All', dateFilter: '', entries: [], transfers: [], accounts: [], openId: null,
+  filter: 'All', dateFilter: '', catFilter: '', entries: [], transfers: [], accounts: [], openId: null,
   showTransfers: false, page: 1,
   extrasKey: '',   // period the transfers / accounts were loaded for
 };
@@ -39,14 +39,15 @@ export function setLogData(entries, startDate, endDate) {
   logState.startDate = startDate;
   logState.endDate   = endDate;
   if (changed) {
-    logState.filter = 'All'; logState.dateFilter = ''; logState.openId = null; logState.showTransfers = false; logState.page = 1;
+    logState.filter = 'All'; logState.dateFilter = ''; logState.catFilter = ''; logState.openId = null; logState.showTransfers = false; logState.page = 1;
   }
   if (isActive()) activateLog();
 }
 
-// Show only one day of the period (opened from Analysis › Day by day); the chip in the filter row clears it
-export function setLogDate(date) {
-  logState.dateFilter = date || '';
+// Show only one day and / or one category of the period (opened from Analysis); the chips in the filter row clear them
+export function setLogFilters({ date = '', category = '' } = {}) {
+  logState.dateFilter = date;
+  logState.catFilter = category;
   logState.showTransfers = false;
   logState.filter = 'All';
   logState.openId = null;
@@ -56,8 +57,8 @@ export function setLogDate(date) {
 
 // Expenses on screen: not income, matching the account chip and the date chip
 function visibleEntries() {
-  const { entries, filter, dateFilter } = logState;
-  return entries.filter(e => !e.isIncome && (filter === 'All' || e.paymentMethod === filter) && (!dateFilter || e.date === dateFilter));
+  const { entries, filter, dateFilter, catFilter } = logState;
+  return entries.filter(e => !e.isIncome && (filter === 'All' || e.paymentMethod === filter) && (!dateFilter || e.date === dateFilter) && (!catFilter || e.category === catFilter));
 }
 
 // The Transactions view was opened (or its data changed while open): load what is missing and draw it
@@ -197,11 +198,17 @@ function renderFilterChips() {
 
 // "Fri 12 Sep ✕": the day filter, first in the row; tapping it shows the whole period again
 function addDateChip(filterRow) {
-  const d = logState.dateFilter;
-  if (!d || logState.showTransfers) return;
-  const label = parseLocalDate(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  filterRow.insertAdjacentHTML('afterbegin', `<button class="chip on" id="log-date-chip" type="button" aria-label="Showing ${escapeHtml(label)} only. Tap to show the whole period">${escapeHtml(label)} ✕</button>`);
-  document.getElementById('log-date-chip').addEventListener('click', () => { logState.dateFilter = ''; logState.page = 1; renderLog(); });
+  if (logState.showTransfers) return;
+  const d = logState.dateFilter, c = logState.catFilter;
+  if (c) {
+    filterRow.insertAdjacentHTML('afterbegin', `<button class="chip on" id="log-cat-chip" type="button" aria-label="Showing ${escapeHtml(c)} only. Tap to show all categories">${escapeHtml(c)} ✕</button>`);
+    document.getElementById('log-cat-chip').addEventListener('click', () => { logState.catFilter = ''; logState.page = 1; renderLog(); });
+  }
+  if (d) {
+    const label = parseLocalDate(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    filterRow.insertAdjacentHTML('afterbegin', `<button class="chip on" id="log-date-chip" type="button" aria-label="Showing ${escapeHtml(label)} only. Tap to show the whole period">${escapeHtml(label)} ✕</button>`);
+    document.getElementById('log-date-chip').addEventListener('click', () => { logState.dateFilter = ''; logState.page = 1; renderLog(); });
+  }
 }
 
 function wireTransfersChip() {
