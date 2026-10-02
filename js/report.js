@@ -1,8 +1,9 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
+import { fmt, fmt0, parseLocalDate, monthLabel, catColor, showToast, escapeHtml, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
 import { setLogData, activateLog, showLogTransfers } from './log.js';
+import { lcdStatic, tapeStrip, iconFor } from './tape.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -266,29 +267,22 @@ function renderReport() {
   const total    = filtered.reduce((s, e) => s + e.amount, 0);
   const days     = daysBetween(startDate, endDate);
   const dailyAvg = total / days;
-  document.getElementById('rpt-stats').innerHTML = `
-    <div class="stat-card accent">
-      <div class="stat-label">Total spent</div>
-      <div class="stat-val" style="font-size:22px">RM ${fmt(total)}</div>
-    </div>
-    <div class="stat-card comp">
-      <div class="stat-label">Daily average</div>
-      <div class="stat-val" style="font-size:22px">RM ${fmt(dailyAvg)}</div>
-    </div>`;
+  document.getElementById('rpt-stats').innerHTML = lcdStatic('Total spent', days + (days === 1 ? ' day' : ' days'), total,
+    'Daily average RM ' + fmt(dailyAvg));
 
-  // Breakdown bars
+  // Category strips (neutral Tape: share of the total, highest first)
   const catTotals = {};
   filtered.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount; });
-  const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  const maxCat  = topCats[0]?.[1] || 1;
-  const abbrev  = s => s.length > 10 ? s.slice(0, 9) + '.' : s;
-  document.getElementById('rpt-breakdown').innerHTML = topCats.length
-    ? topCats.map(([cat, amt]) => `
-      <div class="bd-row">
-        <div class="bd-name"><span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(abbrev(cat))}</div>
-        <div class="bd-bar"><span class="bd-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat, userSettings.categories)}"></span></div>
-        <div class="bd-amt">RM ${fmt(amt)}</div>
-      </div>`).join('')
+  const cats   = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+  const maxCat = cats[0]?.[1] || 1;
+  document.getElementById('rpt-breakdown').innerHTML = cats.length
+    ? cats.map(([cat, amt], n) => {
+        const share = total > 0 ? Math.round(amt / total * 100) : 0;
+        return tapeStrip({
+          key: cat, title: cat, code: cat, icon: iconFor(cat), tone: 'n', big: fmt0(amt),
+          aria: 'RM ' + fmt0(amt) + ', ' + share + '% of total', frac: amt / maxCat, notch: null,
+        }, n, { isStatic: true, pct: share + '%' });
+      }).join('')
     : `<div class="list-hint">No data for this period</div>`;
 
   // Table

@@ -693,65 +693,6 @@
     }
 
     /* ── Report stat cards ── */
-    .stat-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .stat-card {
-      border-radius: var(--radius-lg);
-      padding: calc(var(--sp) * 18px) 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 96px;
-      justify-content: space-between;
-    }
-
-    .stat-card.accent {
-      background: var(--accent);
-      color: var(--on-accent);
-      box-shadow: 0 12px 24px -14px var(--accent-shadow);
-    }
-
-    .stat-card.comp {
-      background: var(--comp);
-      color: var(--on-comp);
-      box-shadow: 0 12px 24px -14px var(--comp-shadow);
-    }
-
-    .stat-card.positive {
-      background: var(--positive);
-      color: var(--on-positive);
-      box-shadow: 0 12px 24px -14px var(--positive-shadow);
-    }
-
-    .stat-card.negative {
-      background: var(--danger);
-      color: oklch(0.99 0.006 25);
-      box-shadow: 0 12px 24px -14px oklch(0.55 0.16 25 / 0.50);
-    }
-
-    .stat-card.surface {
-      background: var(--surface);
-      color: var(--ink);
-      box-shadow: 0 12px 24px -14px oklch(0.3 0.02 265 / 0.18);
-      border: 1px solid var(--line);
-    }
-
-    .stat-label {
-      font-size: 12.5px;
-      font-weight: 600;
-      opacity: 0.85;
-    }
-
-    .stat-val {
-      font-size: 30px;
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      font-variant-numeric: tabular-nums;
-    }
 
     .block-label {
       font-size: 12px;
@@ -1212,25 +1153,6 @@
     .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
     .toggle-switch input:disabled + .toggle-track { opacity: 0.40; cursor: not-allowed; }
 
-    /* ── Budget hero card ── */
-    .budget-hero {
-      background: var(--comp);
-      color: var(--on-comp);
-      border-radius: var(--radius-lg);
-      padding: calc(var(--sp) * 22px) 24px;
-      box-shadow: 0 12px 28px -12px var(--comp-shadow);
-    }
-    .budget-hero-label { font-size: 13px; font-weight: 600; opacity: 0.65; }
-    .budget-hero-val {
-      font-size: 38px; font-weight: 800; letter-spacing: -0.03em;
-      font-variant-numeric: tabular-nums;
-      margin: 6px 0 4px;
-    }
-    .budget-hero-eq { font-size: 12px; font-weight: 500; opacity: 0.50; margin-bottom: 16px; }
-    .budget-hero-bar { height: 6px; background: oklch(1 0 0 / 0.18); border-radius: 999px; overflow: hidden; }
-    .budget-hero-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.5s ease; }
-    .budget-hero-bar-label { font-size: 11px; font-weight: 600; opacity: 0.60; margin-top: 7px; }
-
     /* ── Income section ── */
     .income-card {
       background: var(--surface);
@@ -1610,13 +1532,6 @@
     }
 
     /* ── Budget checklist ── */
-    .chk-progress {
-      display: flex; align-items: center; gap: 12px;
-      padding: 16px 0 6px;
-    }
-    .chk-progress-label { font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
-    .chk-progress-bar-wrap { flex: 1; height: 7px; background: var(--line-2); border-radius: 999px; overflow: hidden; }
-    .chk-progress-fill { height: 100%; border-radius: 999px; background: var(--positive); transition: width 0.4s ease; }
     .chk-group { margin-bottom: 12px; }
     .chk-group-hdr {
       display: flex; align-items: center; gap: 10px;
@@ -1705,13 +1620,6 @@
     .chk-entry-cancel:hover { background: var(--surface); border-color: var(--line); }
 
     /* ── Phase 4: Accounts ── */
-    .acc-total-card {
-      background: var(--accent); color: var(--on-accent);
-      border-radius: var(--radius-lg); padding: 22px 24px;
-      box-shadow: 0 12px 28px -12px var(--accent-shadow);
-    }
-    .acc-total-label { font-size: 13px; font-weight: 600; opacity: 0.7; }
-    .acc-total-val { font-size: 30px; font-weight: 800; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; margin-top: 4px; }
     .acc-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 16px; }
     .acc-row {
       display: flex; align-items: center; gap: 14px;
@@ -1789,11 +1697,6 @@
     .fab.show { display: flex; }
     .fab:hover { opacity: 0.88; }
     /* ── Phase 4: Savings ── */
-    .sav-total-card {
-      background: var(--accent); color: var(--on-accent);
-      border-radius: var(--radius-lg); padding: 22px 24px;
-      box-shadow: 0 12px 28px -12px var(--accent-shadow);
-    }
     .pot-card {
       background: var(--surface); border: 1px solid var(--line);
       border-radius: var(--radius); padding: 16px;
@@ -1803,7 +1706,6 @@
     .pot-name-btn { flex: 1; font-size: 15px; font-weight: 700; color: var(--ink); background: none; border: none; text-align: left; padding: 0; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; }
     .pot-acc-lbl { font-size: 12px; font-weight: 500; color: var(--ink-3); white-space: nowrap; }
     .pot-bar-wrap { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
-    .pot-bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
     .pot-bal-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
     .pot-bal-val { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
     .pot-bal-goal { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
@@ -2057,7 +1959,7 @@
        selected chips go ink-dark, yellow stays the app accent. See project doc 09.
        ════════════════════════════════════════════════════════════════════════════ */
     .row-card, .tmpl-section, .income-card, .acc-list, .recent-transfers, .pot-card, .export-btn,
-    .ob-bal-card, .stat-card.surface, .hero, .ins-block, .details {
+    .ob-bal-card, .hero, .ins-block, .details {
       border: 0;
       box-shadow: 0 4px 0 var(--edge);
     }
@@ -2076,10 +1978,6 @@
 
     .btn-save { border-radius: 16px; box-shadow: 0 5px 0 var(--yel-edge); }
     .btn-save:active { transform: translateY(5px); box-shadow: 0 0 0 var(--yel-edge); }
-    .acc-total-card, .stat-card.accent { box-shadow: 0 5px 0 var(--yel-edge); }
-    .stat-card.comp { box-shadow: 0 5px 0 #000; }
-    .stat-card.positive { box-shadow: 0 5px 0 oklch(0.42 0.11 145); }
-    .stat-card.negative { box-shadow: 0 5px 0 oklch(0.40 0.13 25); }
     .fab { box-shadow: 0 4px 0 var(--yel-edge), 0 12px 20px -8px rgba(0, 0, 0, 0.4); }
 
     .block-label { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; }
@@ -2154,7 +2052,6 @@
     .custom-dates input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; padding: 0; width: 16px; flex: none; }
     .custom-dates input[type="date"]::-webkit-datetime-edit { padding: 0; min-width: 0; overflow: hidden; flex: 1; }
     @media (max-width: 340px) { .custom-dates { flex-direction: column; gap: 8px; } }
-    @media (max-width: 380px) { #rpt-stats .stat-val { font-size: 19px !important; white-space: nowrap; } }   /* keep "RM 1,234.50" on one line at 360px */
 
     /* ── Redesign, phase D: Insights home ("Pocket": dial + LCD + Tape) and Analysis ── */
     :root {
@@ -2221,6 +2118,39 @@
     @keyframes pk-blink { 50% { opacity: 0; } }
     @media (prefers-reduced-motion: reduce) { .pk-tp, .pk-bar i.on, .pk-gap, .pk-led, .pk-l2::after { animation: none !important; } .pk-tp { transition: none; } }
     @media (max-width: 360px) { .pk-tp { grid-template-columns: 20px 68px 1fr auto 20px; gap: 6px; } }
+
+    /* ── Redesign, phase E: Tape on Budget / Report / Accounts / Savings, last token touches ── */
+    :root { --tb-ew-bg: #FFF1CF; --tb-ew-ink: #7A4A06; --tb-cd-bg: #DFEAF7; --tb-cd-ink: #1F4E85; --tb-sv-bg: #D8F0E3; --tb-sv-ink: #0F5C47; }
+    :root[data-theme="dark"] { --tb-ew-bg: #4A3A14; --tb-ew-ink: #FFD98A; --tb-cd-bg: #1F3550; --tb-cd-ink: #A9CDF5; --tb-sv-bg: #173D31; --tb-sv-ink: #9BE6C4; }
+    .pk-st-n { --c: var(--pk-tapeink); }
+    .pk-sec { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 10px; }
+    .pk-hint { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink-3); }
+    .pk-plate { background: var(--surface); border-radius: 16px; box-shadow: 0 4px 0 var(--edge); padding: 12px 14px; }
+    .pk-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+    .pk-three > div + div { border-left: 1px solid var(--line-2); }
+    .pk-lab { display: block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 3px; }
+    .pk-three b { font-size: 16px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .pk-plate-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 9px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+    .pk-plate-row b { font-weight: 800; color: var(--ink); }
+    .pk-ledbar { display: flex; gap: 2px; height: 14px; }
+    .pk-ledbar i { flex: 1; border-radius: 2px; background: var(--inset); }
+    .pk-ledbar i.on { background: var(--c); }
+    .pk-lcd.static { min-height: 0; margin: 0 0 2px; }
+    .pk-bigv { font-size: 30px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 2px; }
+    .pk-bigv small { font-size: 13px; font-weight: 800; letter-spacing: .06em; margin-right: 6px; opacity: .75; }
+    .pk-note { font-size: 11px; font-weight: 700; letter-spacing: .02em; opacity: .75; margin-top: 2px; overflow-wrap: anywhere; }
+    .pk-tp.rp { grid-template-columns: 22px 80px 1fr auto 40px; cursor: default; }
+    .pk-tp.static:active { transform: none; box-shadow: 0 3px 0 var(--pk-tapeedge); }
+    .pk-tp-pc { font-size: 11px; font-weight: 800; text-align: right; opacity: .65; font-variant-numeric: tabular-nums; }
+    @media (max-width: 360px) { .pk-tp { grid-template-columns: 20px 74px 1fr auto 20px; } .pk-tp.rp { grid-template-columns: 20px 74px 1fr auto 36px; } .pk-tp-nm { font-size: 9.5px; letter-spacing: .05em; } .pk-bigv { font-size: 26px; } }
+    .pot-bar-wrap { height: auto; background: none; overflow: visible; }
+    .pot-bar-wrap .pk-ledbar i:not(.on) { background: var(--inset); }
+    .chk-plate { margin: 12px 0 6px; }
+    .chk-cb { border: 0; box-shadow: 0 3px 0 var(--edge); }
+    .chk-cb:active { transform: translateY(3px); box-shadow: none; }
+    .chk-cb.paid { transform: translateY(3px); box-shadow: none; }
+    .chk-cb.needs, .chk-cb.calc-cb { box-shadow: none; }
+    .login-mark { width: 64px; height: 64px; border-radius: 18px; background: var(--accent); color: #1C1C1C; font-size: 34px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 5px 0 var(--yel-edge); margin-bottom: -12px; }
   </style>
 </head>
 
@@ -2228,6 +2158,7 @@
 
   <!-- Screen 0: Login -->
   <div id="screen-login" class="login-screen" style="display:none">
+    <div class="login-mark" aria-hidden="true">T</div>
     <div class="login-title">Expense Tracker</div>
     <div class="login-sub">Track your daily spending, simply.</div>
     <button id="btn-google-signin" class="btn-google">
@@ -2303,10 +2234,10 @@
       <div class="rpt-tab-bar" id="rpt-tab-bar"></div>
       <div class="filter-row" id="rpt-filter-row"></div>
       <div class="screen-body" id="rpt-body">
-        <div class="stat-grid" id="rpt-stats"></div>
+        <div id="rpt-stats"></div>
         <div>
           <span class="block-label">Top categories</span>
-          <div class="breakdown" id="rpt-breakdown"></div>
+          <div class="pk-list" id="rpt-breakdown"></div>
         </div>
         <div>
           <span class="block-label">Breakdown</span>

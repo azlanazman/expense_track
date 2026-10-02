@@ -4,26 +4,10 @@ import { currentUser, userSettings } from './state.js';
 import { fmt0, escapeHtml, parseLocalDate, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth } from './helpers.js';
 import { fetchExpenses, fetchBudgetTemplate, fetchBudgetMonth } from './db.js';
 import { openAnalysis } from './insights.js';
+import { WORD, clamp, abbrev, iconFor, catStatus, tapeStrip } from './tape.js';
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const GLYPH  = { good: '✓', warn: '▲', bad: '■', none: '–', early: '–' };
-const WORD   = { good: 'On track', warn: 'Watch', bad: 'Over', none: 'Not set', early: 'Too early' };
 const EARLY_DAYS = 4;   // before this many days into the period, pace says nothing useful
-
-const ICON = {
-  food:      '<path d="M7 3v7M4.5 3v4.5a2.5 2.5 0 0 0 5 0V3M7 11v10M17 3c-2.4 1.8-2.8 6-.6 8.4L17 12v9"/>',
-  transport: '<path d="M4 16l1.6-5.2A2 2 0 0 1 7.5 9.4h9a2 2 0 0 1 1.9 1.4L20 16v3h-2.4v-1.6H6.4V19H4z"/><circle cx="7.6" cy="15" r=".9" fill="currentColor"/><circle cx="16.4" cy="15" r=".9" fill="currentColor"/>',
-  family:    '<circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.4"/><path d="M3 20c0-3.2 2.3-5.4 5-5.4s5 2.2 5 5.4M14.5 20c0-2.2 1.5-3.8 3.4-3.8 1.9 0 3.1 1.6 3.1 3.8"/>',
-  shopping:  '<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
-  health:    '<path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>',
-  other:     '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
-  bills:     '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
-  savings:   '<path d="M12 21v-8"/><path d="M12 13c-4 0-6-2.5-6-6 3.5 0 6 2 6 6zM12 13c4 0 6-2.5 6-6-3.5 0-6 2-6 6z"/>',
-  tag:       '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2" fill="currentColor"/>',
-};
-const ICON_BY_NAME = { food: 'food', transport: 'transport', family: 'family', shopping: 'shopping', health: 'health', misc: 'other', other: 'other', bills: 'bills', savings: 'savings' };
-const ico = (k, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.tag}</svg>`;
-const iconFor = (name) => ICON_BY_NAME[String(name).toLowerCase()] || 'tag';
 
 let S = null;             // computed model for the period on screen
 let sel = 'all';          // selected strip key: 'all' | category name | '@bills' | '@save'
@@ -54,9 +38,7 @@ export async function refreshPocket(category) {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rm = (n) => 'RM ' + (n < 0 ? '−' : '') + fmt0(Math.abs(n));
-const abbrev = (s) => (s.length > 10 ? s.slice(0, 9) + '.' : s);
 
 async function load() {
   const uid = currentUser.uid;
@@ -103,12 +85,7 @@ async function load() {
   const early = day < EARLY_DAYS;
   const infos = names.map(name => {
     const spent = spentBy[name] || 0, limit = limits[name] || 0;
-    const used = limit ? spent / limit : 0, pace = used / T, left = limit - spent;
-    let st;
-    if (!limit) st = 'none';
-    else if (used >= 1) st = 'bad';
-    else if (early) st = 'good';
-    else st = pace <= 1.05 ? 'good' : pace <= 1.3 ? 'warn' : 'bad';
+    const { used, pace, left, st } = catStatus(spent, limit, T, early);
     return { name, spent, limit, used, pace, left, st, safe: left > 0 && dl > 0 ? left / dl : 0 };
   });
 
@@ -224,19 +201,7 @@ function dialSVG() {
   return h + '</svg>';
 }
 
-function stripHTML(d, n, half) {
-  const none = d.tone === 'none', segN = half ? 10 : 24;
-  const lit = none ? 0 : Math.round(clamp(d.frac, 0, 1) * segN);
-  let bar = '<span class="pk-bar">';
-  for (let k = 0; k < segN; k++) bar += `<i class="${k < lit ? 'on' : ''}" style="--k:${k}"></i>`;
-  if (d.notch !== null && !none) bar += `<u style="left:${(d.notch * 100).toFixed(1)}%"></u>`;
-  bar += '</span>';
-  const nm   = half ? escapeHtml(d.code) : escapeHtml(abbrev(d.title).toUpperCase());   // already escaped
-  const aria = escapeHtml(d.title) + ', ' + WORD[d.tone] + ', ' + escapeHtml(d.aria);
-  return `<button type="button" class="pk-tp pk-st-${d.tone}${sel === d.key ? ' sel' : ''}${half ? ' half' : ''}" data-key="${escapeHtml(d.key)}" aria-pressed="${sel === d.key}" aria-label="${aria}" style="--i:${n}">` +
-    `<span class="pk-tp-ic">${ico(d.icon, 15)}</span>` + '<span class="pk-tp-nm">' + nm + '</span>' + (half ? '' : bar) +
-    `<span class="pk-tp-v">${escapeHtml(d.big)}</span><span class="pk-glyph">${GLYPH[d.tone]}</span>` + (half ? bar : '') + '</button>';
-}
+const stripHTML = (d, n, half) => tapeStrip(d, n, { half, selected: sel === d.key });
 
 function render(still) {
   const body = document.getElementById('pk-body');

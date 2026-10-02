@@ -594,7 +594,7 @@ function renderSavingsLens(container, data) {
           scales: {
             x: { stacked: true, grid: { display: false }, border: { display: false },
               ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-            y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+            y: { stacked: true, grid: { color: GRID() }, border: { display: false },
               ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 4 } },
           },
         },
@@ -647,7 +647,7 @@ function renderTrendChart(container, { monthly }) {
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
-        y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+        y:{ beginAtZero:true, grid:{color:GRID()}, border:{display:false},
           ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
       },
     },
@@ -819,7 +819,7 @@ function renderCategoryLines(container, varExp, periodRefs) {
       },
       scales:{
         x:{ grid:{display:false}, border:{display:false}, ticks:{ font:FONT(10,'600'), color:'#9898b0' } },
-        y:{ beginAtZero:true, grid:{color:'rgba(0,0,0,0.05)'}, border:{display:false},
+        y:{ beginAtZero:true, grid:{color:GRID()}, border:{display:false},
           ticks:{ font:FONT(10), color:'#9898b0', callback: v => 'RM '+fmt0(v), maxTicksLimit:5 } },
       },
     },
@@ -1010,7 +1010,7 @@ function renderNetWorthChart(container, { accounts, expenses, transfers, potTxns
       scales: {
         x: { grid: { display: false }, border: { display: false },
           ticks: { font: FONT(10,'600'), color: '#9898b0' } },
-        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, border: { display: false },
+        y: { stacked: true, grid: { color: GRID() }, border: { display: false },
           ticks: { font: FONT(10), color: '#9898b0', callback: v => 'RM ' + fmt0(v), maxTicksLimit: 5 } },
       },
     },
@@ -1058,7 +1058,7 @@ function computeAccBalance(account, expenses, transfers, potTxns, upToDate) {
 
 // ── Category limit sheet ───────────────────────────────────────────────────────
 
-function openCategoryLimitSheet(cat) {
+export function openCategoryLimitSheet(cat) {
   const existing = (userSettings.categoryLimits || {})[cat] || 0;
 
   const overlay = document.createElement('div');
@@ -1124,8 +1124,9 @@ function openCategoryLimitSheet(cat) {
     setUserSettings({ ...userSettings, categoryLimits: limits });
     try { await updateUserSettings(currentUser.uid, { categoryLimits: limits }); } catch (e) { console.error(e); }
     _cache = null;
-    initInsights();
-    document.dispatchEvent(new CustomEvent('expenses:changed'));   // the Insights strips use these limits
+    const ap = document.getElementById('analysis-page');
+    if (ap && ap.classList.contains('active')) initInsights();   // only redraw Analysis while it is open
+    document.dispatchEvent(new CustomEvent('expenses:changed'));   // Insights, Budget and Report strips use these limits
   }
 }
 
@@ -1158,6 +1159,9 @@ function tintOklch(colorStr, deltaL) {
 const abbrev = (s, max = 10) => s.length > max ? s.slice(0, max - 1) + '.' : s;
 
 // ── Chart helpers & palette ────────────────────────────────────────────────────
+
+// Chart gridlines: faint dark on the light theme, faint light on the dark one (read when a chart is drawn)
+const GRID = () => document.documentElement.getAttribute('data-theme') === 'dark' ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)';
 
 const FONT = (size, weight = '500') => ({ family:"'Plus Jakarta Sans', sans-serif", size, weight });
 

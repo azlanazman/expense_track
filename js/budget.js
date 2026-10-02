@@ -1,8 +1,10 @@
 import { currentUser, userSettings } from './state.js';
-import { fmt, monthLabel, showToast, escapeHtml, todayString, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
+import { fmt, fmt0, parseLocalDate, monthLabel, showToast, escapeHtml, todayString, salaryPeriodMonth, salaryStartForMonth, salaryEndForMonth, salaryPeriodLabel } from './helpers.js';
 import { fetchBudgetTemplate, fetchBudgetMonth, persistBudgetMonth, fetchExpenses, addExpense, updateExpense, deleteExpense } from './db.js';
 import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
+import { openCategoryLimitSheet } from './insights.js';
+import { clamp, catStatus, ratioTone, tapeStrip, ledBar, lcdStatic, iconFor } from './tape.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -116,15 +118,11 @@ async function loadData() {
   }
   bdgState.monthData = monthData;
 
-  if (!bdgState.template) {
-    bdgState.variableExpenses = [];
-    return;
-  }
   const sd = userSettings.salaryDay;
   const spStart = salaryStartForMonth(sd, year, month);
   const spEnd   = salaryEndForMonth(sd, year, month);
   const all = await fetchExpenses(uid, spStart, spEnd);
-  bdgState.variableExpenses = all.filter(e => !e.type || e.type === 'variable');
+  bdgState.variableExpenses = all.filter(e => !e.isIncome && (!e.type || e.type === 'variable'));
 }
 
 function seedMonth(template) {
@@ -162,6 +160,7 @@ function renderBudget() {
       <span style="font-size:15px;font-weight:600">No budget template set up</span>
       <span style="font-size:13px">Go to Settings → Budget templates to get started</span>`;
     body.appendChild(notice);
+    body.appendChild(buildLimitStrips(variableExpenses));
     return;
   }
 
@@ -174,32 +173,79 @@ function renderBudget() {
   const totalItems  = templateItemIds.size;
   const paidCount   = activePayments.filter(p => p.paid).length;
   const fixedPaidActive = activePayments.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
-  const progressPct = totalItems > 0 ? (paidCount / totalItems * 100) : 0;
+  const fixedPlanned    = activePayments.reduce((s, p) => s + (p.amount || 0), 0);
+  const billsDue        = fixedPlanned - fixedPaidActive;
   const netBalance  = incomeTotal - fixedPaidActive - variableTotal;
+  const goalAmt     = incomeTotal * (userSettings.savingsGoalPct ?? 20) / 100;
 
-  body.appendChild(buildHero(netBalance, incomeTotal, fixedPaidActive, variableTotal, progressPct, paidCount, totalItems));
   body.appendChild(buildIncomeSection(monthData.income));
-  body.appendChild(buildFixedSummary(template, activePayments, paidCount, totalItems));
+  body.appendChild(buildThree(incomeTotal, fixedPlanned, goalAmt));
+  body.appendChild(buildNetLcd(netBalance, incomeTotal, fixedPaidActive, variableTotal));
+  body.appendChild(buildFixedSummary(template, activePayments, paidCount, totalItems, billsDue));
+  body.appendChild(buildLimitStrips(variableExpenses));
 }
 
-// ── Hero card ─────────────────────────────────────────────────────────────────
+// ── Income / fixed / goal, and net balance ────────────────────────────────────
 
-function buildHero(net, income, fixed, variable, pct, paid, total) {
-  const isNeg  = net < 0;
-  const valClr = isNeg ? 'color:oklch(0.85 0.12 20)' : 'color:var(--accent)';
-  const div    = document.createElement('div');
-  div.className = 'budget-hero';
+function buildThree(income, fixed, goal) {
+  const div = document.createElement('div');
+  div.className = 'pk-plate pk-three';
   div.innerHTML = `
-    <div class="budget-hero-label">Net balance</div>
-    <div class="budget-hero-val" style="${valClr}">${isNeg ? '−' : ''}RM ${fmt(Math.abs(net))}</div>
-    <div class="budget-hero-eq">Income ${fmt(income)} − Fixed ${fmt(fixed)} − Variable ${fmt(variable)}</div>
-    <div class="budget-hero-bar">
-      <div class="budget-hero-fill" style="width:${pct.toFixed(1)}%"></div>
-    </div>
-    <div class="budget-hero-bar-label">${paid} of ${total} fixed items paid</div>`;
+    <div><span class="pk-lab">Income</span><b>${fmt0(income)}</b></div>
+    <div><span class="pk-lab">Fixed</span><b>${fmt0(fixed)}</b></div>
+    <div><span class="pk-lab">Save goal</span><b>${fmt0(goal)}</b></div>`;
   return div;
 }
 
+function buildNetLcd(net, income, fixedPaid, variable) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = lcdStatic('Net balance', 'This period', net,
+    'Income ' + fmt0(income) + ' − Fixed paid ' + fmt0(fixedPaid) + ' − Variable ' + fmt0(variable));
+  return wrap.firstElementChild;
+}
+
+// ── Category limits (Tape strips; tap a strip to set its limit) ───────────────
+
+// How far through the viewed salary period we are: T = 1 for a finished period
+function periodClock() {
+  const sd = userSettings.salaryDay;
+  const start = parseLocalDate(salaryStartForMonth(sd, bdgState.year, bdgState.month));
+  const end   = parseLocalDate(salaryEndForMonth(sd, bdgState.year, bdgState.month));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const total = Math.max(1, Math.round((end - start) / 86400000) + 1);
+  const day   = clamp(Math.round((today - start) / 86400000) + 1, 1, total);
+  const current = today >= start && today <= end;
+  return { T: day / total, early: current && day < 4, current };
+}
+
+function buildLimitStrips(variableExpenses) {
+  const { T, early, current } = periodClock();
+  const spentBy = {};
+  variableExpenses.forEach(e => { spentBy[e.category] = (spentBy[e.category] || 0) + e.amount; });
+  const names = [...(userSettings.categories || [])];
+  Object.keys(spentBy).forEach(c => { if (!names.includes(c)) names.push(c); });
+  const limits = userSettings.categoryLimits || {};
+
+  const section = document.createElement('section');
+  section.innerHTML = '<div class="pk-sec"><span class="block-label" style="margin-bottom:0">Category limits</span><span class="pk-hint">Tap to set</span></div>';
+  const list = document.createElement('div');
+  list.className = 'pk-list';
+  list.innerHTML = names.map((name, n) => {
+    const spent = spentBy[name] || 0, limit = limits[name] || 0;
+    const { used, st } = catStatus(spent, limit, T, early);
+    return tapeStrip({
+      key: name, title: name, code: name, icon: iconFor(name), tone: st, big: fmt0(spent),
+      aria: 'RM ' + fmt0(spent) + ' spent' + (limit ? ', limit RM ' + fmt0(limit) : ', no limit set'),
+      frac: clamp(used, 0, 1), notch: limit && current ? T : null,
+    }, n);
+  }).join('');
+  list.addEventListener('click', e => {
+    const strip = e.target.closest('.pk-tp');
+    if (strip) openCategoryLimitSheet(strip.getAttribute('data-key'));
+  });
+  section.appendChild(list);
+  return section;
+}
 
 // ── Income section ────────────────────────────────────────────────────────────
 
@@ -358,18 +404,28 @@ async function syncIncomeExpense(entry) {
 
 // ── Fixed summary ─────────────────────────────────────────────────────────────
 
-function buildFixedSummary(template, payments, paidCount, totalItems) {
+function buildFixedSummary(template, payments, paidCount, totalItems, billsDue) {
   const section = document.createElement('section');
 
+  const { T, early, current } = periodClock();
+  const tone  = current ? ratioTone(paidCount, totalItems, T, early) : (paidCount === totalItems ? 'good' : 'warn');
+  const steps = Math.max(1, Math.min(totalItems, 24));
   const hdr = document.createElement('div');
   hdr.className = 'fixed-hdr';
   hdr.innerHTML = `
-    <span class="block-label" style="margin-bottom:0">Fixed</span>
+    <span class="block-label" style="margin-bottom:0">Bills paid</span>
     <button class="fixed-link" id="budget-to-checklist" type="button">
-      ${paidCount}/${totalItems} paid ${ARROW_IC}
+      Checklist ${ARROW_IC}
     </button>`;
   hdr.querySelector('#budget-to-checklist').addEventListener('click', showChecklist);
   section.appendChild(hdr);
+
+  const plate = document.createElement('div');
+  plate.className = 'pk-plate';
+  plate.style.marginBottom = '10px';
+  plate.innerHTML = ledBar(totalItems ? Math.round(paidCount / totalItems * steps) : 0, steps, tone) +
+    `<div class="pk-plate-row"><b>${paidCount} of ${totalItems} paid</b><span>RM ${fmt0(billsDue)} due</span></div>`;
+  section.appendChild(plate);
 
   const card = document.createElement('div');
   card.style.cssText = 'background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0 16px;';
@@ -475,14 +531,13 @@ function renderChecklist() {
 }
 
 function buildChkProgress(paidCount, total) {
-  const pct = total > 0 ? (paidCount / total * 100) : 0;
+  const { T, early, current } = periodClock();
+  const tone  = current ? ratioTone(paidCount, total, T, early) : (paidCount === total ? 'good' : 'warn');
+  const steps = Math.max(1, Math.min(total, 24));
   const div = document.createElement('div');
-  div.className = 'chk-progress';
-  div.innerHTML = `
-    <span class="chk-progress-label">${paidCount} / ${total} paid</span>
-    <div class="chk-progress-bar-wrap">
-      <div class="chk-progress-fill" style="width:${pct.toFixed(1)}%"></div>
-    </div>`;
+  div.className = 'pk-plate chk-plate';
+  div.innerHTML = ledBar(total ? Math.round(paidCount / total * steps) : 0, steps, tone) +
+    `<div class="pk-plate-row"><b>${paidCount} of ${total} paid</b></div>`;
   return div;
 }
 

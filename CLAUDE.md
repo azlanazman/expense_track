@@ -31,6 +31,7 @@ js/
   budget-templates.js   # Budget templates sub-page (Settings)
   accounts.js           # Budget → Accounts sub-tab + Transfer flow
   savings.js            # Budget → Savings sub-tab
+  tape.js               # Shared Tape pieces: strips, LED bar, static LCD, category icons, on-track/watch/over rule (phase E)
   pocket.js             # Insights home: dial + LCD + Tape strips for the current salary period (new in phase D)
   insights.js           # Analysis sub-page (the old Insights, 3-lens dashboard), opened from Insights › Full analysis
 firestore.rules
@@ -319,6 +320,8 @@ Active: `.nav-item.on`. Budget and Report maintain **independent** period state.
 **Export to Sheets (`export.js`):** 4 sheets — Variable, Fixed, Combined, Income. Income sheet fetches `budgetMonths` for every calendar month overlapping the export range.
 
 **Insights home (`pocket.js`):** reads only the current salary period (day n of N). Variable budget = income − planned bills (template amounts) − income × `savingsGoalPct`; pointer = variable spent ÷ budget; today tick = day ÷ total days; per category used = spent ÷ limit, pace = used ÷ time elapsed (Over if used ≥ 1 or pace > 1.3, Watch if pace > 1.05, else On track; no limit = Not set); overall verdict from the projected saving rate (On track ≥ goal, Watch ≥ 10%, else Over; no income = Awaiting input). Before day 4 the verdict reads "Too early" and per-category pace is ignored. Strips are the user's own categories (any number) plus Bills (paid ÷ total from the checklist) and Save. Tapping a strip selects it and fills the LCD; tapping again clears. `refreshPocket(category)` runs on `expenses:changed` and selects the category just saved. Pocket colours are `--pk-*` tokens (light and dark); category icons come from `ICON_BY_NAME` with a tag fallback. Limits are set in Analysis › Spending (a limit change dispatches `expenses:changed`).
+
+**Tape on other screens (phase E, `tape.js`):** Budget overview = income plate, `.pk-three` plate (Income / Fixed / Save goal), static LCD net balance (income − fixed paid − variable), "Bills paid" LED-bar plate (tone from `ratioTone`) and Category limits as Tape strips (tap a strip → `openCategoryLimitSheet`, exported from `insights.js`; a limit change always dispatches `expenses:changed`, and re-runs `initInsights()` only while `#analysis-page` is open). Accounts/Savings totals are static LCDs (`lcdStatic`); savings pots use `ledBar` with the pot colour. Report › Summary = static LCD total (+ daily average) and neutral Tape strips (`isStatic`, tone `n`, bar = share of the biggest category, `%` of total, all categories high→low). Checklist progress is an LED-bar plate. Onboarding account-type badges use `--tb-*` tokens (light/dark). Chart gridlines come from `GRID()` in `insights.js`. Use `lcdStatic`/`tapeStrip`/`ledBar` for any new readout rather than new card styles.
 
 **Analysis (`insights.js`, formerly Budget Insights):** Sub-page opened by `openAnalysis()` (Insights › Full analysis; it pushes a history entry so the phone back button closes it); renders into `#analysis-body`.
 
