@@ -4,6 +4,7 @@ import { fetchExpenses } from './db.js';
 import { exportReport } from './export.js';
 import { setLogData, setLogFilters, activateLog, showLogTransfers } from './log.js';
 import { lcdStatic, tapeStrip, iconFor } from './tape.js';
+import { onSwipe, slideIn } from './swipe.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,23 @@ function rangeMeta(start, end) {
   return day >= 1 && day <= total ? `DAY ${day}/${total}` : `${total} DAYS`;
 }
 
+const REPORT_TABS = ['variable', 'fixed', 'combined'];
+
+function setReportTab(key) {
+  rptState.tab      = key;
+  rptState.selected = [];
+  rptState.expanded = new Set();
+  renderReport();
+}
+
+// Swipe the Summary pane to move between Variable, Fixed and Combined
+onSwipe(document.getElementById('rpt-pane-summary'), dir => {
+  const i = REPORT_TABS.indexOf(rptState.tab) + dir;
+  if (i < 0 || i >= REPORT_TABS.length) return;
+  setReportTab(REPORT_TABS[i]);
+  slideIn(document.getElementById('rpt-body'), dir);
+});
+
 function renderReport() {
   const { period, year, month, startDate, endDate, selected, tab, entries } = rptState;
   renderViewSwitch();
@@ -253,12 +271,7 @@ function renderReport() {
       btn.className = `rpt-tab${t.key === tab ? ' on' : ''}`;
       btn.type = 'button';
       btn.textContent = t.label;
-      btn.addEventListener('click', () => {
-        rptState.tab      = t.key;
-        rptState.selected = [];
-        rptState.expanded = new Set();
-        renderReport();
-      });
+      btn.addEventListener('click', () => setReportTab(t.key));
       tabBar.appendChild(btn);
     });
 

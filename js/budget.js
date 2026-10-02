@@ -5,6 +5,7 @@ import { initAccounts } from './accounts.js';
 import { initSavings } from './savings.js';
 import { openCategoryLimitSheet } from './limit-sheet.js';
 import { clamp, catStatus, ratioTone, tapeStrip, ledBar, lcdStatic, iconFor } from './tape.js';
+import { onSwipe, slideIn } from './swipe.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,16 @@ export async function initBudget() {
 export async function refreshBudget() {
   if (bdgState.year) await switchSubTab(bdgState.subTab);
 }
+
+const SUB_TABS = ['overview', 'accounts', 'savings'];
+
+// Swipe the Budget screen to move between Overview, Accounts and Savings
+onSwipe(document.getElementById('screen-budget'), async dir => {
+  const i = SUB_TABS.indexOf(bdgState.subTab) + dir;
+  if (i < 0 || i >= SUB_TABS.length) return;
+  await switchSubTab(SUB_TABS[i]);
+  slideIn(document.getElementById('budget-body'), dir);
+});
 
 function wireSubTabs() {
   document.querySelectorAll('#budget-subtab-bar .rpt-tab').forEach(btn => {
