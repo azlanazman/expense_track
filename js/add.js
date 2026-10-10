@@ -5,7 +5,8 @@ import { currentUser, userSettings } from './state.js';
 import { displayDate, todayString, parseLocalDate, catColor, showToast, escapeHtml, fmt } from './helpers.js';
 import { addExpense, fetchExpenses } from './db.js';
 import { buildLearn, suggest } from './quickparse.js';
-import { parseReceiptText, parseTransactions } from './receiptparse.js';
+import { parseReceiptText, parseTransactions, parseNotification } from './receiptparse.js';
+import { inboxItems, refreshInbox, removeInboxItems } from './inbox.js';
 import { renderReview } from './review.js';
 
 const LAST_KEY = 'addLast';   // last used category + account (not financial data): the sheet opens with them
@@ -30,6 +31,8 @@ const fileEl    = document.getElementById('add-file');
 const formEl    = document.getElementById('add-form');
 const reviewEl  = document.getElementById('add-review');
 const titleEl   = document.getElementById('add-sheet-title');
+const inboxBtn  = document.getElementById('add-inbox-banner');
+let reviewCtx   = null;   // set while the review list shows captured notifications: { ids: [inbox doc id per row] }
 
 const CAL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
@@ -92,6 +95,7 @@ export function openAddSheet() {
   trackKeyboard(true);
   amountEl.focus({ preventScroll: true });   // inside the tap, so iOS raises the keyboard straight away
   loadHist();
+  refreshInbox();   // paints the "captured payments to review" banner
 }
 
 export function closeAddSheet(fromPopstate = false) {
@@ -281,6 +285,7 @@ async function fillFromImage(blob) {
 
 function hideReview() {
   st.reviewing = false;
+  reviewCtx = null;
   reviewEl.hidden = true;
   reviewEl.textContent = '';
   formEl.hidden = false;
@@ -301,10 +306,11 @@ async function markDuplicates(rows) {
   } catch (e) { console.error(e); }
 }
 
-async function showReview(rows) {
+async function showReview(rows, ctx = null) {
   const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
   await markDuplicates(rows);
   if (!st.open) return;
+  reviewCtx = ctx;
   st.reviewing = true;
   formEl.hidden = true;
   reviewEl.hidden = false;
@@ -319,6 +325,8 @@ async function showReview(rows) {
     onInvalid: () => showToast('Fix the highlighted amount or date'),
     onBack: () => { hideReview(); amountEl.focus({ preventScroll: true }); },
     onSave: saveReview,
+    lead: ctx ? `${rows.length} captured payment${rows.length === 1 ? '' : 's'} from your phone. Tick the ones to save, fix anything wrong, or dismiss what is not an expense. A dashed box means a guess: check it.` : undefined,
+    onDismiss: ctx ? async (i) => (await removeInboxItems([ctx.ids[i]])).size > 0 : undefined,
   });
 }
 
@@ -337,6 +345,7 @@ async function saveReview(items) {
     if (it.note && hist.loaded) hist.entries.push({ notes: it.note, category: it.category, paymentMethod: it.payment });
   });
   if (hist.loaded) hist.learn = buildLearn(hist.entries);
+  if (reviewCtx && saved.length) await removeInboxItems(saved.map(i => reviewCtx.ids[i]));
   if (saved.length) {
     showToast(`Saved ${saved.length} expense${saved.length === 1 ? '' : 's'} · RM ${fmt(total)}`);
     document.dispatchEvent(new CustomEvent('expenses:changed', { detail: {} }));
@@ -352,6 +361,30 @@ fileEl.addEventListener('change', () => {
   fileEl.value = '';
   if (f) fillFromImage(f);
 });
+
+// Captured payment notifications waiting in the inbox -> the review list
+async function openInboxReview() {
+  const items = await refreshInbox();
+  if (!items.length) { showToast('Nothing to review'); return; }
+  await loadHist();
+  const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
+  const rows = items.map(it => parseNotification(it, { cats, pays, learn: hist.learn }));
+  // the same payment can be notified by two apps (wallet and bank): flag the repeats
+  const seen = new Set();
+  rows.forEach(r => {
+    const k = r.date + '|' + Number(r.amount).toFixed(2);
+    if (r.amount > 0 && r.dir !== 'in' && seen.has(k)) { r.dup = true; r.dupNote = 'Same amount and day as another captured payment'; }
+    seen.add(k);
+  });
+  await showReview(rows, { ids: items.map(i => i.id) });
+}
+inboxBtn.addEventListener('click', openInboxReview);
+
+// Called by js/app.js when the app is opened from the phone's "tap to review" notification
+export async function openAddFromInbox() {
+  openAddSheet();
+  await openInboxReview();
+}
 
 // Called by js/share.js with an item from the phone's Share menu
 export async function openAddFromShare({ blob, text }) {

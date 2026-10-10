@@ -5,6 +5,7 @@ import { persistUserSettings, fetchAccounts, persistAccounts, deleteAllUserData 
 import { auth } from './firebase.js';
 import { initBudgetTemplates } from './budget-templates.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
+import { renderCapture } from './capture.js';
 import { isStandalone, lockSupported, isLockOn, enableLock, disableLock } from './applock.js';
 
 export function renderSettings() {
@@ -14,6 +15,7 @@ export function renderSettings() {
   document.getElementById('savings-goal-val').textContent = (userSettings.savingsGoalPct ?? 20) + '%';
   syncThemeSeg();
   syncAppLockRow();
+  renderCapture();
   renderCatChips();
   renderPayChips();
   const resetRow = document.getElementById('demo-reset-row');

@@ -209,6 +209,32 @@ export async function fetchAllExpenses(uid) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// ── Payment capture: inbox of notifications sent from the phone (see firestore.rules) ──
+
+export async function fetchInbox(uid) {
+  const snap = await getDocs(query(collection(db, 'inbox'), where('uid', '==', uid)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export function deleteInboxItem(id) {
+  return deleteDoc(doc(db, 'inbox', id));
+}
+
+export async function fetchCaptureKey(uid) {
+  const snap = await getDoc(doc(db, 'captureKeys', uid));
+  return snap.exists() ? (snap.data().key || null) : null;
+}
+
+export async function saveCaptureKey(uid, key) {
+  await setDoc(doc(db, 'captureKeys', uid), { key, createdAt: serverTimestamp() });
+  writeAuditLog('update', 'captureKeys', uid);
+}
+
+export async function removeCaptureKey(uid) {
+  await deleteDoc(doc(db, 'captureKeys', uid));
+  writeAuditLog('delete', 'captureKeys', uid);
+}
+
 // ── Delete all user data ──────────────────────────────────────────────────────
 
 export async function deleteAllUserData(uid) {
@@ -218,7 +244,10 @@ export async function deleteAllUserData(uid) {
     getDocs(query(collection(db, 'potTransactions'), where('uid', '==', uid))),
   ]);
 
-  const allDocs = [...expSnap.docs, ...tfSnap.docs, ...ptSnap.docs];
+  // inbox and captureKeys are owner-only (the demo account is denied), so a refusal there is expected and ignored
+  let inboxDocs = [];
+  try { inboxDocs = (await getDocs(query(collection(db, 'inbox'), where('uid', '==', uid)))).docs; } catch (_) { /* not allowed */ }
+  const allDocs = [...expSnap.docs, ...tfSnap.docs, ...ptSnap.docs, ...inboxDocs];
   for (let i = 0; i < allDocs.length; i += 490) {
     const batch = writeBatch(db);
     allDocs.slice(i, i + 490).forEach(d => batch.delete(d.ref));
@@ -242,4 +271,5 @@ export async function deleteAllUserData(uid) {
   finalBatch.delete(doc(db, 'accounts',        uid));
   finalBatch.delete(doc(db, 'savingsPots',     uid));
   await finalBatch.commit();
+  try { await deleteDoc(doc(db, 'captureKeys', uid)); } catch (_) { /* owner-only */ }
 }

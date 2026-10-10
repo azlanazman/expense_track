@@ -1965,6 +1965,22 @@
     .rv-foot { position: sticky; bottom: calc(-32px - env(safe-area-inset-bottom, 0px)); background: var(--surface); padding: 10px 0 calc(32px + env(safe-area-inset-bottom, 0px)); margin: 0 -2px; box-shadow: 0 -10px 12px -8px var(--surface); }
     .rv-sum { text-align: center; font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 8px; }
     .btn-save:disabled { opacity: 0.55; }
+    /* Payment capture: badge on the + key, banner in the Add sheet, Settings panel */
+    .nav-badge { position: absolute; left: calc(50% + 14px); top: -34px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: var(--fs-caption); font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 3px var(--nav); pointer-events: none; z-index: 2; }
+    .nav-badge[hidden] { display: none; }
+    .as-inbox { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; padding: 12px 16px; border: 0; border-radius: 16px; font: inherit; font-size: var(--fs-body); font-weight: 700; color: var(--on-accent); background: var(--accent); box-shadow: 0 3px 0 var(--yel-edge); cursor: pointer; text-align: left; }
+    .as-inbox:active { transform: translateY(3px); box-shadow: 0 0 0 var(--yel-edge); }
+    .as-inbox b { font-weight: 800; white-space: nowrap; }
+    .as-inbox[hidden] { display: none; }
+    .cap-panel { background: var(--surface); border-radius: 18px; padding: 14px; margin-top: 10px; box-shadow: 0 4px 0 var(--edge); }
+    .cap-panel[hidden] { display: none; }
+    .cap-note { margin: 0 2px 10px; font-size: var(--fs-meta); font-weight: 600; line-height: 1.4; color: var(--ink-3); }
+    .cap-field { margin-bottom: 10px; }
+    .cap-field .block-label { display: block; margin-bottom: 6px; }
+    .cap-field input { font-size: var(--fs-meta); padding: 10px 12px; }
+    .cap-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+    .rv-src { font-size: var(--fs-caption); font-weight: 600; color: var(--ink-3); line-height: 1.35; word-break: break-word; }
+    .rv-dismiss { align-self: flex-start; border: 0; background: none; font: inherit; font-size: var(--fs-caption); font-weight: 800; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; padding: 2px 0; cursor: pointer; }
     .as-hint { min-height: 20px; margin: 6px 2px 10px; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.02em; color: var(--ink-3); }
     .as-hint:empty { min-height: 8px; }
     .as-amt input::placeholder { color: var(--ink-3); opacity: 0.6; }
@@ -2476,6 +2492,29 @@
               <span class="toggle-track"></span>
             </label>
           </div>
+          <div id="capture-row" style="margin-top:10px;display:none">
+            <button class="row-card" id="btn-capture" type="button">
+              <div class="rc-ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              </div>
+              <div class="rc-main">
+                <div class="rc-title">Payment capture</div>
+                <div class="rc-sub" id="capture-sub"></div>
+              </div>
+              <svg class="muted-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+            <div class="cap-panel" id="capture-panel" hidden>
+              <p class="cap-note" id="capture-status"></p>
+              <div id="capture-fields"></div>
+              <div class="cap-actions">
+                <button class="chip" id="capture-make" type="button">Create capture key</button>
+                <button class="chip" id="capture-copy-setup" type="button" hidden>Copy setup text</button>
+                <button class="chip" id="capture-copy-test" type="button" hidden>Copy test command</button>
+                <button class="chip" id="capture-drop" type="button" hidden>Turn off</button>
+              </div>
+              <p class="cap-note">Anything with this key can only add items to your inbox. It cannot read or change your data. Setup steps are in the project docs.</p>
+            </div>
+          </div>
           <div id="demo-reset-row" style="display:none;margin-top:10px">
             <button class="row-card" id="btn-demo-reset" type="button">
               <div class="rc-ic">
@@ -2830,6 +2869,7 @@
             <g fill="#181B1F"><rect x="17" y="26.5" width="28" height="9" rx="4.5" /><rect x="26.5" y="17" width="9" height="28" rx="4.5" /></g>
           </svg>
         </button>
+        <span class="nav-badge" id="nav-badge" hidden aria-label="Captured payments to review">0</span>
       </div>
       <button class="nav-item" id="nav-budget" type="button">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -2861,6 +2901,7 @@
         </button>
       </div>
       <div id="add-form">
+      <button class="as-inbox" id="add-inbox-banner" type="button" hidden><span id="add-inbox-text">Captured payments to review</span><b>Review ›</b></button>
       <div class="as-amt" id="add-amt-wrap">
         <span class="rm">RM</span>
         <input id="add-amount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount in ringgit" />
