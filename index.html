@@ -1937,6 +1937,7 @@
     .as-amt { display: flex; align-items: baseline; gap: 8px; background: var(--inset); box-shadow: inset 0 3px 4px rgba(0, 0, 0, 0.18); border-radius: 18px; padding: 14px 16px; margin-bottom: 16px; }
     .as-amt .rm { font-size: var(--fs-head); font-weight: 800; color: var(--ink-3); align-self: center; }
     .as-amt input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: var(--fs-hero); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .as-extras { display: flex; flex-wrap: wrap; gap: 4px 22px; }
     .as-quickrow { display: flex; align-items: center; gap: 8px; margin: -6px 0 0; }
     .as-quick { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-body); }
     .as-mic, .as-lang { flex: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); background: var(--surface); box-shadow: 0 3px 0 var(--edge); }
@@ -2862,7 +2863,11 @@
         <input type="date" id="add-date-input" class="as-date-input" tabindex="-1" aria-hidden="true" />
       </div>
       <div class="as-group">
-        <button class="as-note-btn" id="add-note-btn" type="button">+ Add a note</button>
+        <div class="as-extras">
+          <button class="as-note-btn" id="add-note-btn" type="button">+ Add a note</button>
+          <button class="as-note-btn" id="add-img-btn" type="button">Read a screenshot</button>
+        </div>
+        <input type="file" id="add-file" accept="image/*" hidden />
         <div id="add-note-wrap" hidden>
           <span class="block-label">Note</span>
           <input class="input-row note" id="add-notes" type="text" placeholder="optional…" maxlength="200" autocomplete="off" />

@@ -18,8 +18,10 @@ import { initOnboarding } from './onboarding.js';
 import { DEMO_EMAIL, seedDemoDataIfNeeded } from './demo.js';
 import { registerServiceWorker } from './pwa.js';
 import { appLockActive, lockOnAuth } from './applock.js';
+import { handleSharedIfAny, hasSharedFlag, purgeShared } from './share.js';
 
 registerServiceWorker();   // installable app + offline shell (skipped on localhost, see pwa.js)
+if (!hasSharedFlag()) purgeShared();   // a shared screenshot is only meant to be picked up right away
 
 // ── Production: silence console output ──────────────────────────────────────
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -191,6 +193,7 @@ onAuthStateChanged(auth, async (user) => {
       else if (saved === 'settings') { renderSettings(); showScreen('settings'); }
       else if (saved === 'report')   { initReport();     showScreen('report'); }
       else                           { initPocket();     showScreen('insights'); }
+      handleSharedIfAny();   // something shared from the phone's Share menu opens in the Add sheet
     } else {
       document.getElementById('onboarding-overlay').style.display = 'flex';
       initOnboarding(user.uid);

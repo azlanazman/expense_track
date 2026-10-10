@@ -5,6 +5,7 @@ import { currentUser, userSettings } from './state.js';
 import { displayDate, todayString, parseLocalDate, catColor, showToast, escapeHtml, fmt } from './helpers.js';
 import { addExpense, fetchExpenses } from './db.js';
 import { parseQuick, buildLearn, suggest } from './quickparse.js';
+import { parseReceiptText } from './receiptparse.js';
 
 const LAST_KEY = 'addLast';   // last used category + account (not financial data): the sheet opens with them
 
@@ -26,6 +27,8 @@ const quickEl   = document.getElementById('add-quick');
 const hintEl    = document.getElementById('add-hint');
 const micBtn    = document.getElementById('add-mic');
 const langBtn   = document.getElementById('add-lang');
+const imgBtn    = document.getElementById('add-img-btn');
+const fileEl    = document.getElementById('add-file');
 
 const CAL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
@@ -33,7 +36,12 @@ const st = { open: false, saving: false, category: '', payment: '', date: todayS
 
 // Habits learned from the last 120 days of notes (kept in memory only; cleared with the sheet state)
 let hist = { entries: [], learn: null, loaded: false, loading: false };
-async function loadHist() {
+let histPromise = null;
+function loadHist() {
+  if (!histPromise) histPromise = loadHistNow();
+  return histPromise;
+}
+async function loadHistNow() {
   if (hist.loaded || hist.loading || !currentUser) return;
   hist.loading = true;
   try {
@@ -108,6 +116,7 @@ export function clearAddState() {
   hintEl.textContent = '';
   stopVoice();
   hist = { entries: [], learn: null, loaded: false, loading: false };
+  histPromise = null;
   closeAddSheet(true);
 }
 
@@ -316,6 +325,58 @@ notesEl.addEventListener('input', () => {
     hintEl.textContent = [s.category, s.payment].filter(Boolean).join(' · ') + ` · learned from “${s.word}” ×${s.n}`;
   }, 200);
 });
+
+// ── Screenshot or receipt: read on the phone, filled in for the person to confirm ──
+
+function shortDay(iso) {
+  const d = parseLocalDate(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function fillFromText(text, source) {
+  const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
+  const r = parseReceiptText(text, { cats, pays, learn: hist.learn });
+  if (!r.amount && !r.merchant && !r.date) { hintEl.textContent = `Nothing readable found in the ${source}. Type it in.`; return; }
+  if (r.amount) amountEl.value = String(r.amount);
+  if (r.merchant && !notesEl.value.trim()) { notesEl.value = r.merchant; setNoteOpen(true); }
+  if (r.date) {
+    st.date = r.date;
+    st.dateKind = r.date === todayString() ? 'today' : r.date === dateWith(-1) ? 'yesterday' : 'custom';
+  }
+  applyFields({ category: r.category, payment: r.payment });
+  const bits = [r.amount ? 'RM ' + fmt(r.amount) : 'amount not found', r.date ? shortDay(r.date) : 'date not found'];
+  if (r.merchant) bits.push(r.merchant);
+  hintEl.textContent = `From ${source}: ${bits.join(' · ')} · check before saving`;
+}
+
+async function fillFromImage(blob) {
+  hintEl.textContent = 'Reading screenshot…';
+  try {
+    const { readImageText } = await import('./ocr.js');
+    const text = await readImageText(blob, p => { hintEl.textContent = `Reading screenshot… ${Math.round(p * 100)}%`; });
+    await loadHist();
+    if (st.open) fillFromText(text, 'screenshot');
+  } catch (e) {
+    console.error(e);
+    hintEl.textContent = '';
+    showToast('Could not read that image');
+  }
+}
+
+imgBtn.addEventListener('click', () => fileEl.click());
+fileEl.addEventListener('change', () => {
+  const f = fileEl.files && fileEl.files[0];
+  fileEl.value = '';
+  if (f) fillFromImage(f);
+});
+
+// Called by js/share.js with an item from the phone's Share menu
+export async function openAddFromShare({ blob, text }) {
+  openAddSheet();
+  await loadHist();
+  if (blob) await fillFromImage(blob);
+  else if (text) fillFromText(text, 'shared text');
+}
 
 // ── Amount ───────────────────────────────────────────────────────────────────
 
