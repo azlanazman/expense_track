@@ -20,6 +20,7 @@ export function aliasMap(names) {
   names.forEach(name => {
     const w = words(name);
     add(w.join(''), name);
+    if (w.includes('n')) add(w.map(x => x === 'n' ? 'and' : x).join(''), name);   // said aloud: "touch and go"
     if (w.length > 1) add(w.map(x => x[0]).join(''), name);
     w.filter(x => x.length >= 3).forEach(x => add(x, name));
   });
@@ -64,17 +65,67 @@ export function suggest(note, learn, cats, pays) {
   return category || payment ? { word: best.w, n: best.s.n, category, payment } : null;
 }
 
-// Longest-first match of 1 to 3 tokens against an alias map; returns [name, tokenCount] or null.
+// Longest-first match of 1 to 4 tokens against an alias map; returns [name, tokenCount] or null.
 function matchAt(tokens, i, map) {
-  for (let len = Math.min(3, tokens.length - i); len >= 1; len--) {
+  for (let len = Math.min(4, tokens.length - i); len >= 1; len--) {
     const key = words(tokens.slice(i, i + len).join(' ')).join('');
     if (key && map.has(key)) return [map.get(key), len];
   }
   return null;
 }
 
+// ── Spoken input ("eighteen ringgit fifty sen") ──────────────────────────────
+
+const ONES = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+const TENS = { twenty: 20, thirty: 30, forty: 40, fourty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+
+// A run of number words starting at i ("one hundred and twenty five") -> { value, len } or null
+function spokenNumber(t, i) {
+  let j = i, cur = 0, got = false;
+  while (j < t.length) {
+    const w = t[j].toLowerCase();
+    if (w in ONES) { if (got && cur % 10 !== 0 && cur < 100) break; if (got && cur >= 100 && cur % 100 !== 0 && w.length) { if (cur % 10 !== 0 || (cur % 100) >= 20) break; } cur += ONES[w]; got = true; j++; }
+    else if (w in TENS) { if (got && cur % 100 !== 0) break; cur += TENS[w]; got = true; j++; }
+    else if (w === 'hundred' && got && cur < 100) { cur *= 100; j++; }
+    else if (w === 'a' && !got && (t[j + 1] || '').toLowerCase() === 'hundred') { cur = 1; got = true; j++; }
+    else if (w === 'and' && got && cur >= 100 && (t[j + 1] || '').toLowerCase() in { ...ONES, ...TENS }) { j++; }
+    else break;
+  }
+  return got ? { value: cur, len: j - i } : null;
+}
+
+// Makes a spoken line look typed: number words -> digits (only next to ringgit / sen / rm, or last in a line with
+// no digits, so "seven eleven" in a note survives), "12 ringgit 50 sen" -> 12.50, "5 point 5" -> 5.5.
+export function normalizeSpoken(tokens) {
+  const low = tokens.map(x => x.toLowerCase());
+  const hasDigits = tokens.some(x => /\d/.test(x));
+  const out = [];
+  for (let i = 0; i < tokens.length;) {
+    const sp = spokenNumber(tokens, i);
+    if (sp) {
+      const next = low[i + sp.len] || '', prev = low[i - 1] || '';
+      const money = /^(ringgit|ringgits|sen|rm)$/.test(next) || prev === 'rm';
+      const last = i + sp.len === tokens.length && !hasDigits;
+      if (money || last) { out.push(String(sp.value)); i += sp.len; continue; }
+    }
+    out.push(tokens[i]); i++;
+  }
+  // "N ringgit [M sen]", "N point M"
+  const res = [];
+  for (let i = 0; i < out.length; i++) {
+    const t = out[i], n1 = (out[i + 1] || '').toLowerCase(), n2 = out[i + 2] || '', n3 = (out[i + 3] || '').toLowerCase();
+    if (/^\d+$/.test(t) && /^ringgits?$/.test(n1)) {
+      if (/^\d{1,2}$/.test(n2) && n3 === 'sen') { res.push(t + '.' + n2.padStart(2, '0')); i += 3; }
+      else { res.push(t); i += 1; }
+    } else if (/^\d+$/.test(t) && n1 === 'sen') { res.push('0.' + t.padStart(2, '0')); i += 1; }
+    else if (/^\d+$/.test(t) && (n1 === 'point' || n1 === 'dot') && /^\d{1,2}$/.test(n2)) { res.push(t + '.' + n2); i += 2; }
+    else res.push(t);
+  }
+  return res;
+}
+
 export function parseQuick(text, { cats = [], pays = [], learn = null } = {}) {
-  const tokens = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const tokens = normalizeSpoken(String(text || '').trim().split(/\s+/).filter(Boolean));
   const payMap = aliasMap(pays), catMap = aliasMap(cats);
   const used = new Array(tokens.length).fill(false);
   const out = { amount: null, payment: null, category: null, dateKind: null, note: '', learned: null };
