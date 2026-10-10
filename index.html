@@ -768,90 +768,127 @@
       color: var(--ink-2);
     }
 
-    /* ── Report table ── */
+    /* ── Report breakdown matrix (Pocket + Tape) ── */
     .grid-block {
       display: flex;
       flex-direction: column;
     }
 
+    /* plate with a hard bottom edge; the wrapper carries the "more to the right" fade */
+    .grid-wrap { position: relative; margin-bottom: 4px; }
+    .grid-wrap::after {
+      content: ''; position: absolute; top: 0; right: 0; bottom: 52px; width: 30px;
+      background: linear-gradient(90deg, transparent, var(--surface));
+      pointer-events: none; transition: opacity 0.15s;
+    }
+    .grid-wrap.at-end::after { opacity: 0; }
+
     .grid-scroll {
       overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 4px 0 var(--edge);
       -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .grid-scroll::-webkit-scrollbar { display: none; }
 
     .report-table {
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       width: 100%;
       font-variant-numeric: tabular-nums;
     }
 
     .report-table th,
     .report-table td {
-      padding: 12px 14px;
+      padding: 11px 14px;
       text-align: right;
       white-space: nowrap;
       font-size: var(--fs-body);
     }
 
     .report-table thead th {
-      font-size: var(--fs-caption);
-      font-weight: 700;
-      letter-spacing: 0.04em;
+      font-size: var(--fs-micro);
+      font-weight: 800;
+      letter-spacing: 0.1em;
       color: var(--ink-3);
       text-transform: uppercase;
       background: var(--surface);
-      border-bottom: 1px solid var(--line);
+      padding: 13px 14px 10px;
+      border-bottom: 2px solid var(--line);
     }
 
     .report-table tbody td {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--ink);
+      background: var(--surface);
       border-bottom: 1px solid var(--line-2);
     }
 
+    /* empty cell: a quiet dash (colour, not opacity, so it never paints over the pinned column) */
     .report-table tbody td.zero {
-      color: var(--ink-3); opacity: 0.55;
-      font-weight: 500;
+      color: var(--ink-3);
+      font-weight: 400;
+    }
+
+    .report-table .rm {
+      font-size: var(--fs-micro);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink-3);
+      margin-right: 3px;
     }
 
     .report-table .sticky-col {
       position: sticky;
       left: 0;
-      z-index: 1;   /* .zero cells use opacity (own stacking layer), which painted their dash over this column */
+      z-index: 1;
       text-align: left;
       background: var(--surface);
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      box-shadow: 8px 0 8px -8px rgba(0, 0, 0, 0.22);
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    .report-table .sticky-col .chip-dot {
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 8px 0 0;
     }
 
     .report-table thead .sticky-col {
       z-index: 2;
     }
 
+    /* Total column: inset strip */
     .report-table .tot-col {
       font-weight: 800;
-      color: var(--accent-ink);
-      background: var(--accent-soft);
+      color: var(--ink);
+      background: var(--inset);
     }
 
+    /* Total row: LCD readout, like the plate above the categories */
     .report-table tfoot td {
       font-weight: 800;
-      color: var(--ink);
-      background: var(--accent-soft);
-      border-top: 1.5px solid var(--accent-line);
+      color: var(--pk-lcdink);
+      background: var(--pk-lcd);
+      border-top: 2px dashed rgba(31, 42, 14, 0.35);
+      padding: 14px;
     }
-
+    :root[data-theme="dark"] .report-table tfoot td { border-top-color: rgba(217, 242, 143, 0.35); }
     .report-table tfoot .sticky-col {
-      background: var(--accent-soft);
+      background: var(--pk-lcd);
+      font-size: var(--fs-micro);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
-
+    .report-table tfoot .rm { color: inherit; opacity: 0.7; }
     .report-table tfoot .tot-col {
-      background: var(--accent);
-      color: var(--on-accent);
+      background: var(--pk-lcd);
+      color: var(--pk-lcdink);
+      font-size: var(--fs-title);
+      letter-spacing: -0.01em;
     }
 
     /* ── Settings ── */
@@ -1478,10 +1515,13 @@
     }
     .rpt-tab.on { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
     .rpt-expand-btn {
-      background: none; border: none; font: inherit; font-size: var(--fs-caption);
-      color: var(--ink-3); cursor: pointer; padding: 0 5px 0 0;
-      line-height: 1; display: inline-flex; align-items: center;
+      width: 22px; height: 22px; padding: 0; margin-right: 7px;
+      border: 0; border-radius: 999px; background: var(--inset); color: var(--ink-2);
+      box-shadow: 0 2px 0 var(--edge);
+      font: inherit; font-size: var(--fs-micro); line-height: 1; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
     }
+    .rpt-expand-btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--edge); }
     .rpt-sub-row td, .rpt-sub-row .sticky-col { background: var(--page-bg) !important; }
     .rpt-amber-row td { background: var(--amber-soft) !important; }
     .rpt-amber-row .sticky-col { background: var(--amber-soft) !important; color: var(--amber-ink); }
@@ -2273,8 +2313,10 @@
         </div>
         <div>
           <span class="block-label">Breakdown</span>
-          <div class="grid-scroll">
-            <table class="report-table" id="rpt-table"></table>
+          <div class="grid-wrap">
+            <div class="grid-scroll">
+              <table class="report-table" id="rpt-table"></table>
+            </div>
           </div>
           <div id="rpt-footnote" style="padding-top:8px"></div>
         </div>
