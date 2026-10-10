@@ -24,6 +24,8 @@ const saveBtn   = document.getElementById('btn-save-expense');
 const againBtn  = document.getElementById('btn-save-another');
 const quickEl   = document.getElementById('add-quick');
 const hintEl    = document.getElementById('add-hint');
+const micBtn    = document.getElementById('add-mic');
+const langBtn   = document.getElementById('add-lang');
 
 const CAL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
@@ -85,6 +87,7 @@ export function openAddSheet() {
 
 export function closeAddSheet(fromPopstate = false) {
   if (!st.open) return;
+  stopVoice();
   st.open = false;
   sheet.classList.remove('active', 'dragging');
   sheet.style.transform = '';
@@ -103,6 +106,7 @@ export function clearAddState() {
   notesEl.value  = '';
   quickEl.value  = '';
   hintEl.textContent = '';
+  stopVoice();
   hist = { entries: [], learn: null, loaded: false, loading: false };
   closeAddSheet(true);
 }
@@ -234,6 +238,70 @@ quickEl.addEventListener('input', () => {
     hintEl.textContent = hintFor(r);
   }, 140);
 });
+// ── Voice: the phone's speech recognition fills the quick line ───────────────
+// Chrome sends the audio to Google's speech service while you speak; nothing is stored by this app.
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const LANG_KEY = 'voiceLang';   // 'en-MY' or 'ms-MY' (not financial data)
+let rec = null, listening = false;
+
+function voiceLang() { try { return localStorage.getItem(LANG_KEY) === 'ms-MY' ? 'ms-MY' : 'en-MY'; } catch (_) { return 'en-MY'; } }
+function showLang() {
+  const ms = voiceLang() === 'ms-MY';
+  langBtn.textContent = ms ? 'BM' : 'EN';
+  langBtn.setAttribute('aria-label', 'Voice language: ' + (ms ? 'Bahasa Melayu' : 'English'));
+}
+
+function stopVoice() {
+  if (rec && listening) { try { rec.stop(); } catch (_) { /* ignore */ } }
+}
+
+function startVoice() {
+  if (listening) { stopVoice(); return; }
+  rec = new SR();
+  rec.lang = voiceLang();
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 1;
+  let heard = '';
+  rec.onstart = () => {
+    listening = true;
+    micBtn.classList.add('on');
+    micBtn.setAttribute('aria-pressed', 'true');
+    hintEl.textContent = 'Listening… e.g. “grab eighteen ringgit tng”';
+  };
+  rec.onresult = (e) => {
+    heard = Array.from(e.results).map(r => r[0].transcript).join(' ').trim();
+    quickEl.value = heard.slice(0, 120);
+    quickEl.dispatchEvent(new Event('input'));
+  };
+  rec.onerror = (e) => {
+    const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Microphone is blocked for this app'
+      : e.error === 'no-speech' ? 'Did not catch that, try again'
+      : e.error === 'network' ? 'Voice needs an internet connection'
+      : e.error === 'aborted' ? '' : 'Voice input failed';
+    if (msg) showToast(msg);
+  };
+  rec.onend = () => {
+    listening = false;
+    micBtn.classList.remove('on');
+    micBtn.setAttribute('aria-pressed', 'false');
+    if (!heard && hintEl.textContent.startsWith('Listening')) hintEl.textContent = '';
+  };
+  try { rec.start(); } catch (_) { listening = false; }
+}
+
+if (SR) {
+  micBtn.hidden = false;
+  langBtn.hidden = false;
+  showLang();
+  micBtn.addEventListener('click', startVoice);
+  langBtn.addEventListener('click', () => {
+    try { localStorage.setItem(LANG_KEY, voiceLang() === 'ms-MY' ? 'en-MY' : 'ms-MY'); } catch (_) { /* ignore */ }
+    showLang();
+  });
+}
+
 quickEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(false); } });
 
 // Typing a note by hand: suggest the usual category / account for that word
