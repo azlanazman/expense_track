@@ -117,6 +117,48 @@ async function runRulesSmokeTest(creds) {
   await t('budgetMonth: malformed id rejected', false, () => setDoc(doc(db, 'budgetMonths', uid + '_junk'), { income: [], payments: [] }));
   await t('unknown collection rejected', false, () => setDoc(doc(db, 'random', 'x'), { a: 1 }));
 
+  // ── payment capture (captureKeys + inbox): the owner only; the demo account and strangers are denied ──
+  const isOwnerUser = provider === 'google.com' && user.emailVerified && OWNERS.includes(user.email);
+  async function tOwner(name, expectAllow, fn) {   // like t(), but the demo account does not count as allowed
+    let ok = false, err = '';
+    try { await fn(); ok = true; } catch (e) { err = e.code || e.message; }
+    const want = isOwnerUser && expectAllow;
+    results.push({ test: name, expected: want ? 'allow' : 'deny', actual: ok ? 'allow' : 'deny (' + err + ')', result: ok === want ? 'PASS' : 'FAIL' });
+    return ok;
+  }
+  const KEY = 'smoke' + '0'.repeat(40);   // 45 chars
+  const hadKey = isOwnerUser ? (await getDoc(doc(db, 'captureKeys', uid)).then(d => d.exists()).catch(() => false)) : false;
+  if (hadKey) console.warn('You already have a capture key: the capture tests are skipped so it is not overwritten.');
+  else {
+    await tOwner('captureKey: create own', true, () => setDoc(doc(db, 'captureKeys', uid), { key: KEY, createdAt: serverTimestamp() }));
+    await tOwner('captureKey: too short rejected', false, () => setDoc(doc(db, 'captureKeys', uid), { key: 'short' }));
+    await tOwner("captureKey: someone else's rejected", false, () => setDoc(doc(db, 'captureKeys', 'someone-else'), { key: KEY }));
+    await tOwner('captureKey: read own', true, () => getDoc(doc(db, 'captureKeys', uid)));
+    await tOwner("captureKey: read someone else's rejected", false, () => getDoc(doc(db, 'captureKeys', 'someone-else')));
+    if (isOwnerUser) {
+      // unauthenticated REST requests, like the phone's automation app sends
+      const url = `https://firestore.googleapis.com/v1/projects/${mainAuth.app.options.projectId}/databases/(default)/documents/inbox`;
+      const fields = (o) => ({ fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { stringValue: v }])) });
+      const post = (o) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields(o)) });
+      const good = { uid, key: KEY, text: 'smoke test RM1.23 paid to SMOKE', title: 'smoke', app: 'smoke', receivedAt: '2026-01-15 10:00' };
+      const r1 = await post(good);
+      results.push({ test: 'inbox REST: right key accepted', expected: 'allow', actual: r1.status, result: r1.status === 200 ? 'PASS' : 'FAIL' });
+      const r2 = await post({ ...good, key: 'x'.repeat(45) });
+      results.push({ test: 'inbox REST: wrong key rejected', expected: 'deny', actual: r2.status, result: r2.status === 403 ? 'PASS' : 'FAIL' });
+      const r3 = await post({ ...good, extra: 'nope' });
+      results.push({ test: 'inbox REST: extra field rejected', expected: 'deny', actual: r3.status, result: r3.status === 403 ? 'PASS' : 'FAIL' });
+      const r4 = await post({ ...good, uid: 'someone-else' });
+      results.push({ test: "inbox REST: someone else's uid rejected", expected: 'deny', actual: r4.status, result: r4.status === 403 ? 'PASS' : 'FAIL' });
+      const r5 = await fetch(url);   // unauthenticated read
+      results.push({ test: 'inbox REST: unauthenticated read rejected', expected: 'deny', actual: r5.status, result: r5.status === 403 ? 'PASS' : 'FAIL' });
+    }
+    const inboxSnap = await getDocs(query(collection(db, 'inbox'), where('uid', '==', uid))).catch(() => null);
+    results.push({ test: 'inbox: owner reads own', expected: isOwnerUser ? 'allow' : 'deny', actual: inboxSnap ? 'allow' : 'deny', result: (!!inboxSnap) === isOwnerUser ? 'PASS' : 'FAIL' });
+    if (inboxSnap) for (const d of inboxSnap.docs) { if (d.data().app === 'smoke') await deleteDoc(d.ref).catch(() => {}); }
+    await tOwner('inbox: create with the right key', true, async () => { const r = await addDoc(collection(db, 'inbox'), { uid, key: KEY, text: 'x' }); await deleteDoc(r); });
+    if (isOwnerUser) await deleteDoc(doc(db, 'captureKeys', uid)).catch(() => {});
+  }
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   if (e1) { try { await deleteDoc(doc(db, 'expenses', e1.id)); } catch (_) {} }
 

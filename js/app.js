@@ -5,7 +5,9 @@ import { auth, provider } from './firebase.js';
 import { currentUser, setCurrentUser, setUserSettings } from './state.js';
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENTS, showToast } from './helpers.js';
 import { fetchUserSettings, persistUserSettings } from './db.js';
-import { openAddSheet, closeAddSheet, isAddSheetOpen, clearAddState } from './add.js';
+import { openAddSheet, closeAddSheet, isAddSheetOpen, clearAddState, openAddFromInbox } from './add.js';
+import { refreshInbox, clearInboxState, hasInboxFlag, clearInboxFlag } from './inbox.js';
+import { clearCapture } from './capture.js';
 import { clearLogState } from './log.js';
 import { initPocket, refreshPocket, clearPocketState } from './pocket.js';
 import { initReport, refreshReport, openTransactions, openTransactionsOnDate, clearReportState } from './report.js';
@@ -111,6 +113,8 @@ document.addEventListener('applock:signout', () => signOut(auth));
 
 function clearAllFinancialState() {
   clearAddState();
+  clearInboxState();
+  clearCapture();
   clearLogState();
   clearPocketState();
   clearBudgetState();
@@ -133,6 +137,7 @@ document.addEventListener('visibilitychange', () => {
     else if (screen === 'insights') initPocket();
     // The Analysis sub-page sits over Insights: its content was cleared when the tab was hidden, so load it again
     if (document.getElementById('analysis-page')?.classList.contains('active')) initAnalysis();
+    refreshInbox();
   }
 });
 
@@ -194,6 +199,8 @@ onAuthStateChanged(auth, async (user) => {
       else if (saved === 'report')   { initReport();     showScreen('report'); }
       else                           { initPocket();     showScreen('insights'); }
       handleSharedIfAny();   // something shared from the phone's Share menu opens in the Add sheet
+      if (hasInboxFlag()) { clearInboxFlag(); openAddFromInbox(); }   // opened from the "tap to review" notification
+      else refreshInbox();    // badge on the + key for payments captured from phone notifications
     } else {
       document.getElementById('onboarding-overlay').style.display = 'flex';
       initOnboarding(user.uid);

@@ -180,6 +180,45 @@ service cloud.firestore {
         && validMonth(request.resource.data);
     }
 
+    // ══ Payment capture (phone notifications -> inbox) ═════════════════════
+    // The owner creates a random capture key in Settings; it is stored in captureKeys/{uid} (owner-only).
+    // An automation app on the phone (MacroDroid) then POSTs the text of a payment notification to Firestore's
+    // REST API with no sign-in, carrying that uid and key. Rules let such a request CREATE one inbox document
+    // when the key matches, and nothing else: it cannot read, change or delete anything. The app reads the
+    // inbox as the owner, shows each item for review, and deletes it once saved or dismissed.
+    function validCaptureKey(d) {
+      return d.keys().hasOnly(['key', 'createdAt'])
+        && d.keys().hasAll(['key'])
+        && d.key is string && d.key.size() >= 32 && d.key.size() <= 128;
+    }
+    function optShort(d, k, n) {
+      return !(k in d) || (d[k] is string && d[k].size() <= n);
+    }
+    function validInbox(d) {
+      return d.keys().hasOnly(['uid', 'key', 'text', 'title', 'app', 'receivedAt'])
+        && d.keys().hasAll(['uid', 'key', 'text'])
+        && d.uid is string && d.uid.size() > 0 && d.uid.size() <= 128
+        && d.key is string && d.key.size() >= 32 && d.key.size() <= 128
+        && d.text is string && d.text.size() <= 1000
+        && optShort(d, 'title', 300)
+        && optShort(d, 'app', 100)
+        && optShort(d, 'receivedAt', 40);
+    }
+
+    match /captureKeys/{uid} {
+      allow read, delete: if isOwner() && request.auth.uid == uid;
+      allow create, update: if isOwner() && request.auth.uid == uid
+        && validCaptureKey(request.resource.data);
+    }
+
+    match /inbox/{itemId} {
+      allow create: if validInbox(request.resource.data)
+        && exists(/databases/$(database)/documents/captureKeys/$(request.resource.data.uid))
+        && get(/databases/$(database)/documents/captureKeys/$(request.resource.data.uid)).data.key == request.resource.data.key;
+      allow read, delete: if isOwner() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
     // ══ auditLog: create-only, server timestamp enforced, never readable ════
     match /auditLog/{uid}/entries/{entryId} {
       allow create: if ownsUid(uid)

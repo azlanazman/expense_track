@@ -250,3 +250,68 @@ export function parseTransactions(rawLines, { cats = [], pays = [], learn = null
   rows.forEach(r => { if (!r.date) { const t = today; r.date = iso(t.getFullYear(), t.getMonth() + 1, t.getDate()); r.dateGuess = true; } });
   return { rows };
 }
+
+// ── One payment notification (title + text sent from the phone) ──────────────
+// { text, title, app, receivedAt } -> a row for the review list. Wording differs per app, so this is deliberately
+// loose: the amount is the first "RM" figure that is not a balance, the name comes from "paid to X" / "at X" style
+// phrases (else the notification title), the account from the app name or anything that names it.
+
+const IN_WORDS = /\b(received?|credited|credit of|reload(ed)?|top[\s-]?up|refund(ed)?|cash\s?back|transfer(red)? from|salary|deposit(ed)?|reversal|duitnow from|money in)\b/i;
+// where a name stops: the next small word of the sentence, punctuation or the end (minus words that start that pattern)
+const nameEnd = (skip = '') => '(?=\\s*(?:' + ['on', 'using', 'via', 'with', 'for', 'ref', 'from', 'card', 'at'].filter(w => w !== skip).map(w => '\\b' + w + '\\b').join('|') + '|[.,;(]|$))';
+// run on the text with amounts removed ("You have paid  to GRAB on 10 Oct")
+const NAME_PATTERNS = [
+  new RegExp('\\b(?:paid|pay|payment|sent|transferred?)\\s+(?:successfully\\s+)?to\\s+(.+?)' + nameEnd(), 'i'),
+  new RegExp('\\b(?:spent|purchase|purchased|transaction|charged|debited|paid|payment)\\b.*?\\b(?:at|@)\\s+(.+?)' + nameEnd('at'), 'i'),
+  new RegExp('\\b(?:debited|charged|deducted)\\b.*?\\bfor\\s+(.+?)' + nameEnd('for'), 'i'),
+  new RegExp('\\b(?:merchant|payee|recipient)\\s*[:\\-]\\s*(.+?)' + nameEnd(), 'i'),
+  new RegExp('(?:^|\\s)(?:at|@)\\s+(.+?)' + nameEnd('at'), 'i'),
+];
+const GENERIC_TITLE = /^(payment|payment (successful|received|made|alert)|transaction( alert)?|success(ful)?|you('ve| have) paid|duitnow( qr)?|notification|alert|wallet|google wallet|touch ?'?n ?go( ewallet)?|tng( ewallet)?|cimb( octo)?( my)?|octo( my)?|maybank|mae|spay|samsung (pay|wallet)|card payment|debit card|credit card)$/i;
+
+function isoFromReceived(s) {
+  const m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(s || ''));
+  if (!m) return null;
+  return iso(+m[1], +m[2], +m[3]);
+}
+
+export function parseNotification({ text = '', title = '', app = '', receivedAt = '' } = {}, { cats = [], pays = [], learn = null, today = new Date() } = {}) {
+  const body = String(text || ''), head = String(title || '');
+  const full = [head, body].filter(Boolean).join('\n');
+
+  // amount: scored like a receipt, but "RM 18" without sen counts too
+  let amount = findAmount(full);
+  if (!amount) {
+    const m = /\b(?:RM|MYR)\s?(\d{1,3}(?:,\d{3})+|\d+)(?![\d.])/i.exec(full);
+    if (m) { const v = parseFloat(m[1].replace(/,/g, '')); if (v > 0 && v < 1000000) amount = v; }
+  }
+
+  // merchant
+  const flat = full.replace(AMOUNT_RE, ' ').replace(/\s+/g, ' ');
+  let merchant = '';
+  for (const re of NAME_PATTERNS) {
+    const m = re.exec(flat);
+    if (m) { merchant = tidy(m[1]); if (/[A-Za-z]{3}/.test(merchant)) break; merchant = ''; }
+  }
+  if (!merchant) {
+    for (const l of [head, ...body.split(/\r?\n/)]) {
+      const t = tidy(l.replace(AMOUNT_RE, ' '));
+      if (/[A-Za-z]{3}/.test(t) && !GENERIC_TITLE.test(t) && !STATUS.test(t) && !NOT_AMOUNT.test(t)) { merchant = t; break; }
+    }
+  }
+
+  // date: when it arrived, else a date inside the text, else today (flagged)
+  let date = isoFromReceived(receivedAt) || findDate(full, today) || relDate(full, today);
+  const dateGuess = !date;
+  if (!date) date = iso(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+  const payment = findPayment(app + ' ' + full, pays);
+  const s = suggest(merchant, learn, cats, pays);
+  const dir = IN_WORDS.test(full) && !/\b(paid|spent|purchase|debited)\b/i.test(full) ? 'in' : 'out';
+  return {
+    merchant, amount: amount || 0, date, dateGuess, dir,
+    payment: payment || (s && s.payment) || null,
+    category: s && s.category ? s.category : null, learned: s || null,
+    source: (full.replace(/\s+/g, ' ').trim() + (app ? '  [' + app + ']' : '')).slice(0, 240),
+  };
+}

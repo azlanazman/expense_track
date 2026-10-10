@@ -28,18 +28,18 @@ export function renderReview(root, rows, opts) {
   root.textContent = '';
   const state = rows.map((r, i) => ({
     i,
-    inc: r.dir !== 'in' && !r.dup,
+    inc: r.dir !== 'in' && !r.dup && r.amount > 0,
     locked: r.dir === 'in',
     note: r.merchant || '',
-    amount: Number(r.amount).toFixed(2),
+    amount: r.amount > 0 ? Number(r.amount).toFixed(2) : '',
     date: r.date,
     category: r.category && cats.includes(r.category) ? r.category : opts.defaultCat,
     guessCat: !(r.category && cats.includes(r.category)),
     payment: r.payment && pays.includes(r.payment) ? r.payment : opts.defaultPay,
-    dir: r.dir, dup: !!r.dup, dateGuess: !!r.dateGuess, saved: false, cardEl: null,
+    dir: r.dir, dup: !!r.dup, dupNote: r.dupNote || '', source: r.source || '', noAmount: !(r.amount > 0), dateGuess: !!r.dateGuess, saved: false, cardEl: null,
   }));
 
-  root.appendChild(el('p', 'rv-lead', `${rows.length} transactions found. Untick the ones to skip, fix anything that looks wrong, then save. A dashed box means a guess: check it.`));
+  root.appendChild(el('p', 'rv-lead', opts.lead || `${rows.length} transactions found. Untick the ones to skip, fix anything that looks wrong, then save. A dashed box means a guess: check it.`));
 
   // paid with (all rows)
   const allWrap = el('div', 'rv-all');
@@ -118,12 +118,25 @@ export function renderReview(root, rows, opts) {
     bot.append(date, cat, pay);
     c.appendChild(bot);
 
-    if (s.locked || s.dup || s.dateGuess) {
+    if (s.source) c.appendChild(el('div', 'rv-src', s.source));
+    if (s.locked || s.dup || s.dateGuess || s.noAmount) {
       const tags = el('div', 'rv-tags');
       if (s.locked) tags.appendChild(el('span', 'rv-tag in', 'Money in · not an expense'));
-      if (s.dup) tags.appendChild(el('span', 'rv-tag dup', 'Already saved? same day and amount'));
+      if (s.dup) tags.appendChild(el('span', 'rv-tag dup', s.dupNote || 'Already saved? same day and amount'));
+      if (s.noAmount) tags.appendChild(el('span', 'rv-tag dup', 'Amount not found: type it in'));
       if (s.dateGuess) tags.appendChild(el('span', 'rv-tag', 'Check the date'));
       c.appendChild(tags);
+    }
+    if (opts.onDismiss) {
+      const dis = el('button', 'rv-dismiss', 'Dismiss');
+      dis.type = 'button';
+      dis.addEventListener('click', async () => {
+        dis.disabled = true;
+        let ok = false;
+        try { ok = await opts.onDismiss(s.i); } catch (e) { console.error(e); }
+        if (ok) { s.saved = true; c.remove(); refresh(); } else dis.disabled = false;
+      });
+      c.appendChild(dis);
     }
     s._amt = amt; s._date = date;
     return c;
