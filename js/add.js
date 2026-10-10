@@ -264,9 +264,12 @@ async function fillFromImage(blob) {
     await loadHist();
     if (!st.open) return;
     const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
-    const { rows } = parseTransactions(lines, { cats, pays, learn: hist.learn });
+    const { rows, found } = parseTransactions(lines, { cats, pays, learn: hist.learn });
     if (rows.length >= 2) { hintEl.textContent = ''; await showReview(rows); }
-    else fillFromText(text, 'screenshot');
+    else {
+      fillFromText(text, 'screenshot');
+      if (found >= 2) hintEl.textContent += ` · ${found} amounts seen but not clearly separate transactions`;
+    }
   } catch (e) {
     console.error(e);
     hintEl.textContent = '';
