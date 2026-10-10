@@ -341,12 +341,25 @@ function renderReport() {
   if (tab === 'variable')       renderVarTable(tableEl, filteredVar, colMethods);
   else if (tab === 'fixed')     renderFixedTable(tableEl, filteredFixed, colMethods);
   else                          renderCombinedTable(tableEl, filteredVar, filteredFixed, colMethods);
+  wireGridFade();
 
   // Export button
   renderExportButton();
 }
 
 // ── Variable tab ──────────────────────────────────────────────────────────────
+
+// Money in the breakdown table: a small muted "RM" before the figure
+const rm = n => '<span class="rm">RM</span>' + fmt(n);
+
+// Show the fade on the right edge of the table only while there is more to scroll to
+function wireGridFade() {
+  const sc = document.querySelector('.grid-scroll');
+  if (!sc) return;
+  const upd = () => sc.parentElement.classList.toggle('at-end', sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2);
+  if (!sc._fade) { sc.addEventListener('scroll', upd, { passive: true }); sc._fade = true; }
+  upd();
+}
 
 function renderVarTable(tableEl, varEntries, colMethods) {
   const cats = [...new Set(varEntries.map(e => e.category))].sort();
@@ -355,13 +368,13 @@ function renderVarTable(tableEl, varEntries, colMethods) {
   const grandTotal = varEntries.reduce((s, e) => s + e.amount, 0);
   const footTotals = colMethods.map(m => {
     const s = varEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-    return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+    return s > 0 ? `<td>${rm(s)}</td>` : `<td class="zero">—</td>`;
   }).join('');
 
   tableEl.innerHTML = `
     <thead><tr><th class="sticky-col">Category</th>${headCols}<th class="tot-col">Total</th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">RM ${fmt(grandTotal)}</td></tr></tfoot>`;
+    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">${rm(grandTotal)}</td></tr></tfoot>`;
 
   const tbody = tableEl.querySelector('tbody');
   if (!cats.length) {
@@ -376,7 +389,7 @@ function buildVarRow(cat, catEntries, colMethods) {
   const key         = 'var_' + cat;
   const methodCells = colMethods.map(m => {
     const s = catEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-    return `<td class="${s ? '' : 'zero'}">${s ? 'RM ' + fmt(s) : '—'}</td>`;
+    return `<td class="${s ? '' : 'zero'}">${s ? rm(s) : '—'}</td>`;
   }).join('');
 
   const tr = document.createElement('tr');
@@ -386,7 +399,7 @@ function buildVarRow(cat, catEntries, colMethods) {
       <span class="chip-dot" style="background:${catColor(cat, userSettings.categories)}"></span>${escapeHtml(cat)}
     </td>
     ${methodCells}
-    <td class="tot-col">RM ${fmt(rowTotal)}</td>`;
+    <td class="tot-col">${rm(rowTotal)}</td>`;
 
   tr.querySelector('.rpt-expand-btn').addEventListener('click', e => {
     e.stopPropagation();
@@ -416,7 +429,7 @@ function buildVarSubRows(catEntries, colMethods) {
       const dayTotal    = Object.values(methods).reduce((s, v) => s + v, 0);
       const methodCells = colMethods.map(m =>
         methods[m]
-          ? `<td style="color:var(--ink-2)">RM ${fmt(methods[m])}</td>`
+          ? `<td style="color:var(--ink-2)">${rm(methods[m])}</td>`
           : `<td class="zero">—</td>`
       ).join('');
       const tr = document.createElement('tr');
@@ -424,7 +437,7 @@ function buildVarSubRows(catEntries, colMethods) {
       tr.innerHTML = `
         <td class="sticky-col" style="padding-left:30px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-2)">${shortDate(date)}</td>
         ${methodCells}
-        <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(dayTotal)}</td>`;
+        <td class="tot-col" style="color:var(--ink-2)">${rm(dayTotal)}</td>`;
       return tr;
     });
 }
@@ -438,13 +451,13 @@ function renderFixedTable(tableEl, fixedEntries, colMethods) {
   const grandTotal = fixedEntries.reduce((s, e) => s + e.amount, 0);
   const footTotals = colMethods.map(m => {
     const s = fixedEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-    return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+    return s > 0 ? `<td>${rm(s)}</td>` : `<td class="zero">—</td>`;
   }).join('');
 
   tableEl.innerHTML = `
     <thead><tr><th class="sticky-col">Group</th>${headCols}<th class="tot-col">Total</th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">RM ${fmt(grandTotal)}</td></tr></tfoot>`;
+    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">${rm(grandTotal)}</td></tr></tfoot>`;
 
   const tbody = tableEl.querySelector('tbody');
   if (groups.length) {
@@ -460,7 +473,7 @@ function buildFixedRow(groupName, groupEntries, colMethods) {
   const key         = 'fixed_' + groupName;
   const methodCells = colMethods.map(m => {
     const s = groupEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-    return `<td class="${s ? '' : 'zero'}">${s ? 'RM ' + fmt(s) : '—'}</td>`;
+    return `<td class="${s ? '' : 'zero'}">${s ? rm(s) : '—'}</td>`;
   }).join('');
 
   const tr = document.createElement('tr');
@@ -470,7 +483,7 @@ function buildFixedRow(groupName, groupEntries, colMethods) {
       ${escapeHtml(groupName)}
     </td>
     ${methodCells}
-    <td class="tot-col">RM ${fmt(rowTotal)}</td>`;
+    <td class="tot-col">${rm(rowTotal)}</td>`;
 
   tr.querySelector('.rpt-expand-btn').addEventListener('click', e => {
     e.stopPropagation();
@@ -495,14 +508,14 @@ function buildFixedSubRows(groupEntries, colMethods) {
     const subTotal    = subEntries.reduce((s, e) => s + e.amount, 0);
     const methodCells = colMethods.map(m => {
       const s = subEntries.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-      return s > 0 ? `<td style="color:var(--ink-2)">RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+      return s > 0 ? `<td style="color:var(--ink-2)">${rm(s)}</td>` : `<td class="zero">—</td>`;
     }).join('');
     const tr = document.createElement('tr');
     tr.className = 'rpt-sub-row';
     tr.innerHTML = `
       <td class="sticky-col" style="padding-left:30px;font-size:var(--fs-meta);font-weight:500;color:var(--ink-2)">${sub}</td>
       ${methodCells}
-      <td class="tot-col" style="color:var(--ink-2)">RM ${fmt(subTotal)}</td>`;
+      <td class="tot-col" style="color:var(--ink-2)">${rm(subTotal)}</td>`;
     return tr;
   });
 }
@@ -536,13 +549,13 @@ function renderCombinedTable(tableEl, varEntries, fixedEntries, colMethods) {
   const headCols    = colMethods.map(m => `<th>${escapeHtml(m)}</th>`).join('');
   const footTotals  = colMethods.map(m => {
     const s = allCombined.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-    return s > 0 ? `<td>RM ${fmt(s)}</td>` : `<td class="zero">—</td>`;
+    return s > 0 ? `<td>${rm(s)}</td>` : `<td class="zero">—</td>`;
   }).join('');
 
   tableEl.innerHTML = `
     <thead><tr><th class="sticky-col">Category</th>${headCols}<th class="tot-col">Total</th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">RM ${fmt(grandTotal)}</td></tr></tfoot>`;
+    <tfoot><tr><td class="sticky-col">Total</td>${footTotals}<td class="tot-col">${rm(grandTotal)}</td></tr></tfoot>`;
 
   const tbody = tableEl.querySelector('tbody');
   if (!rows.length) {
@@ -554,7 +567,7 @@ function renderCombinedTable(tableEl, varEntries, fixedEntries, colMethods) {
     const all         = [...row.ve, ...row.fe];
     const methodCells = colMethods.map(m => {
       const s = all.filter(e => e.paymentMethod === m).reduce((sum, e) => sum + e.amount, 0);
-      return `<td class="${s ? '' : 'zero'}">${s ? 'RM ' + fmt(s) : '—'}</td>`;
+      return `<td class="${s ? '' : 'zero'}">${s ? rm(s) : '—'}</td>`;
     }).join('');
     const pill = row.kind === 'var'
       ? `<span class="rpt-pill var">var</span>`
@@ -565,7 +578,7 @@ function renderCombinedTable(tableEl, varEntries, fixedEntries, colMethods) {
     tr.innerHTML = `
       <td class="sticky-col"><span class="chip-dot" style="background:${catColor(row.cat, userSettings.categories)}"></span>${escapeHtml(row.cat)}${pill}</td>
       ${methodCells}
-      <td class="tot-col">RM ${fmt(row.total)}</td>`;
+      <td class="tot-col">${rm(row.total)}</td>`;
     tbody.appendChild(tr);
   });
 }
