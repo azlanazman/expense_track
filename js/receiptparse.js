@@ -35,6 +35,18 @@ export function findDate(text, today = new Date()) {
       if (ok) return ok;
     }
   }
+  // no year shown ("3 Oct, 8:14 PM", "Oct 3"): this year, or last year when that would be in the future
+  const noYear = [
+    [new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?[\\s-]+' + MON_RE + '\\b(?![\\s-]*,?[\\s-]*\\d{4})', 'gi'), x => [MONTHS[x[2].toLowerCase()], +x[1]]],
+    [new RegExp('\\b' + MON_RE + '\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?!\\s*[:,]?\\s*\\d{4})', 'gi'), x => [MONTHS[x[1].toLowerCase()], +x[2]]],
+  ];
+  for (const [re, pick] of noYear) {
+    while ((m = re.exec(text))) {
+      const [mo, d] = pick(m);
+      const ok = validDate(today.getFullYear(), mo, d, today) || validDate(today.getFullYear() - 1, mo, d, today);
+      if (ok) return ok;
+    }
+  }
   return null;
 }
 
@@ -167,13 +179,13 @@ export function parseTransactions(rawLines, { cats = [], pays = [], learn = null
       if (!(value > 0) || value >= 1000000) continue;
       const before = l.t.slice(0, m.index) + ' ' + l.t.slice(m.index + m[0].length);
       if (NOT_AMOUNT.test(before)) continue;
-      anchors.push({ line: l, value, plus: m[1] === '+', cy: l.cy, used: [l] });
+      anchors.push({ line: l, value, plus: m[1] === '+', marked: !!(m[1] || m[2]), cy: l.cy });
     }
   });
   // a figure beside a "Balance" / "Fee" label on the same line is skipped too
   const hasAmount = t => new RegExp(AMOUNT_RE.source, 'i').test(t);
   const clean = anchors.filter(a => !lines.some(l => l !== a.line && !hasAmount(l.t) && Math.abs(l.cy - a.cy) < medH * 0.7 && NOT_AMOUNT.test(l.t)));
-  if (clean.length < 2) return { rows: [] };
+  if (clean.length < 2) return { rows: [], found: clean.length };
 
   // 2. every other line goes to the nearest anchor, if it is close enough
   const anchorLines = new Set(clean.map(a => a.line));
@@ -212,6 +224,7 @@ export function parseTransactions(rawLines, { cats = [], pays = [], learn = null
     rows.push({
       merchant, amount: a.value, date, dateOwn: !!own, dateGuess: guess,
       dir: isIn ? 'in' : 'out',
+      marked: a.marked, total: /\b(total|subtotal|change|cash|tender|rounding)\b/i.test(text),
       payment: payment || (s && s.payment) || null,
       category: s && s.category ? s.category : null, learned: s || null,
     });
@@ -221,7 +234,9 @@ export function parseTransactions(rawLines, { cats = [], pays = [], learn = null
   // list mode only when the dates show these are separate transactions (a receipt has one date and item prices)
   const ownDates = rows.filter(r => r.dateOwn).length;
   const headDates = new Set(heads.map(h => h.date)).size;
-  if (!(ownDates >= 2 || (headDates >= 2 && rows.length >= 2))) return { rows: [] };
+  // ...or when 3+ rows all carry a signed / "RM" amount and a name (history screens that show no dates at all)
+  const named = rows.filter(r => r.marked && r.merchant && !r.total).length;
+  if (!(ownDates >= 2 || (headDates >= 2 && rows.length >= 2) || named >= 3)) return { rows: [], found: rows.length };
   rows.forEach(r => { if (!r.date) { const t = today; r.date = iso(t.getFullYear(), t.getMonth() + 1, t.getDate()); r.dateGuess = true; } });
   return { rows };
 }
