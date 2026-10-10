@@ -115,3 +115,113 @@ export function parseReceiptText(text, { cats = [], pays = [], learn = null, tod
   }
   return out;
 }
+
+// ── A list of transactions (history screen of an e-wallet or bank app) ───────
+// `lines` are the OCR lines with positions ({ t, x0, y0, x1, y1 }). Every amount ("-RM18.00") is an anchor; the other
+// lines are attached to the nearest anchor by height, so each row gets its own merchant, date and payment method and
+// nothing leaks between rows. Returns { rows } with 2+ rows when the screenshot looks like a list, else { rows: [] }.
+
+const AMOUNT_RE = /([-–−+])?\s*(RM|MYR)?\s*(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})(?![\d]|\.\d|\s*[ap]\.?m\b)/gi;
+const MONEY_IN = /\b(reload|top[\s-]?up|refund|cash\s?back|received?|credited|credit adjustment|transfer from|salary|income|deposit|reversal|duitnow from)\b/i;
+const NOT_AMOUNT = /\b(balance|baki|available|limit|points?|mata|rebate|saving|saved|fee|tax|sst|gst|rounding|discount)\b/i;
+const STATUS = /^(success(ful)?|completed|pending|failed|processing|approved|payment|purchase|transfer|transaction|debit|credit|refund|reload|top[\s-]?up|view all|see all|history|transaction history|activity|recent|all|filter|today|yesterday)\b[\s.:!]*$/i;
+const TIME_RE = /\b\d{1,2}[:.]\d{2}\s*([ap]\.?m\.?)?/gi;
+
+function medianOf(a) { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; }
+
+function relDate(text, today) {
+  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (/\btoday\b|\bhari ini\b/i.test(text)) return iso(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  if (/\byesterday\b|\bsemalam\b|\bkelmarin\b/i.test(text)) { d.setDate(d.getDate() - 1); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+  return null;
+}
+
+function rowMerchant(texts) {
+  for (const raw of texts) {
+    let t = raw.replace(AMOUNT_RE, ' ');
+    t = t.replace(TIME_RE, ' ').replace(/\b\d{1,2}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{2,4}\b/g, ' ').replace(/\b20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b/g, ' ');
+    t = t.replace(new RegExp('\\b\\d{1,2}(?:st|nd|rd|th)?[\\s-]+' + MON_RE + ',?[\\s-]+(?:\\d{4}|\\d{2})\\b', 'gi'), ' ');
+    t = t.replace(/^(?:paid to|payment to|pay to|transfer to|purchase at|purchase from|payment for|to)\b\s*[:\-]?\s*/i, '');
+    t = t.replace(/\s+/g, ' ').trim();
+    const letters = (t.match(/[A-Za-z]/g) || []).length;
+    if (letters < 3 || letters < t.replace(/\s/g, '').length * 0.5) continue;
+    if (STATUS.test(t) || (CHROME.test(t) && t.split(' ').length <= 2)) continue;
+    const m = tidy(t);
+    if (m.length >= 3) return m;
+  }
+  return '';
+}
+
+export function parseTransactions(rawLines, { cats = [], pays = [], learn = null, today = new Date() } = {}) {
+  const lines = (rawLines || []).map(l => ({ ...l, cy: (l.y0 + l.y1) / 2, h: Math.max(1, l.y1 - l.y0) })).filter(l => l.t).sort((a, b) => a.cy - b.cy || a.x0 - b.x0);
+  if (lines.length < 4) return { rows: [] };
+  const medH = medianOf(lines.map(l => l.h));
+
+  // 1. anchors: every amount figure that is not a balance, fee, points…
+  const anchors = [];
+  lines.forEach(l => {
+    AMOUNT_RE.lastIndex = 0;
+    let m;
+    while ((m = AMOUNT_RE.exec(l.t))) {
+      const value = parseFloat(m[3].replace(/,/g, '') + '.' + m[4]);
+      if (!(value > 0) || value >= 1000000) continue;
+      const before = l.t.slice(0, m.index) + ' ' + l.t.slice(m.index + m[0].length);
+      if (NOT_AMOUNT.test(before)) continue;
+      anchors.push({ line: l, value, plus: m[1] === '+', cy: l.cy, used: [l] });
+    }
+  });
+  // a figure beside a "Balance" / "Fee" label on the same line is skipped too
+  const hasAmount = t => new RegExp(AMOUNT_RE.source, 'i').test(t);
+  const clean = anchors.filter(a => !lines.some(l => l !== a.line && !hasAmount(l.t) && Math.abs(l.cy - a.cy) < medH * 0.7 && NOT_AMOUNT.test(l.t)));
+  if (clean.length < 2) return { rows: [] };
+
+  // 2. every other line goes to the nearest anchor, if it is close enough
+  const anchorLines = new Set(clean.map(a => a.line));
+  const maxD = medH * 2.6;
+  const attached = new Map(clean.map(a => [a, []]));
+  const loose = [];
+  lines.forEach(l => {
+    if (anchorLines.has(l)) return;
+    let best = null, bd = Infinity;
+    clean.forEach(a => { const d = Math.abs(a.cy - l.cy); if (d < bd) { bd = d; best = a; } });
+    if (best && bd <= maxD) attached.get(best).push(l); else loose.push(l);
+  });
+
+  // 3. date headers ("3 Oct 2026" above a group of rows) and the screen's own text (for the payment method)
+  const heads = loose.map(l => ({ cy: l.cy, date: findDate(l.t, today) || relDate(l.t, today) })).filter(h => h.date);
+  const screenText = loose.map(l => l.t).join('\n');
+
+  const rows = [];
+  let prev = null;
+  clean.sort((a, b) => a.cy - b.cy).forEach(a => {
+    const near = attached.get(a).sort((x, y) => x.cy - y.cy || x.x0 - y.x0);
+    const sameLine = [a.line, ...near].map(l => l.t);
+    const text = sameLine.join('\n');
+    const own = findDate(text, today) || relDate(text, today);
+    let date = own, guess = false;
+    if (!date) {
+      const h = [...heads].reverse().find(x => x.cy < a.cy);
+      date = h ? h.date : prev;
+      guess = !h;   // inherited from the row above: shown as "check the date"
+    }
+    const merchant = rowMerchant([...near.map(l => l.t), a.line.t]);
+    const sign = a.plus;
+    const isIn = sign || MONEY_IN.test(text);
+    const payment = findPayment(text, pays) || findPayment(screenText, pays);
+    const s = suggest(merchant, learn, cats, pays);
+    rows.push({
+      merchant, amount: a.value, date, dateOwn: !!own, dateGuess: guess,
+      dir: isIn ? 'in' : 'out',
+      payment: payment || (s && s.payment) || null,
+      category: s && s.category ? s.category : null, learned: s || null,
+    });
+    if (date) prev = date;
+  });
+
+  // list mode only when the dates show these are separate transactions (a receipt has one date and item prices)
+  const ownDates = rows.filter(r => r.dateOwn).length;
+  const headDates = new Set(heads.map(h => h.date)).size;
+  if (!(ownDates >= 2 || (headDates >= 2 && rows.length >= 2))) return { rows: [] };
+  rows.forEach(r => { if (!r.date) { const t = today; r.date = iso(t.getFullYear(), t.getMonth() + 1, t.getDate()); r.dateGuess = true; } });
+  return { rows };
+}

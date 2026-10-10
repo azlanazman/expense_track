@@ -1938,16 +1938,33 @@
     .as-amt .rm { font-size: var(--fs-head); font-weight: 800; color: var(--ink-3); align-self: center; }
     .as-amt input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: var(--fs-hero); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
     .as-extras { display: flex; flex-wrap: wrap; gap: 4px 22px; }
-    .as-quickrow { display: flex; align-items: center; gap: 8px; margin: -6px 0 0; }
-    .as-quick { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-body); }
-    .as-mic, .as-lang { flex: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); background: var(--surface); box-shadow: 0 3px 0 var(--edge); }
-    .as-mic { width: 46px; height: 46px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
-    .as-lang { height: 34px; padding: 0 10px; border-radius: 999px; font-size: var(--fs-caption); font-weight: 800; letter-spacing: 0.06em; }
-    .as-mic:active, .as-lang:active { transform: translateY(3px); box-shadow: 0 0 0 var(--edge); }
-    .as-mic[hidden], .as-lang[hidden] { display: none; }
-    .as-mic.on { background: var(--accent); color: var(--on-accent); box-shadow: 0 3px 0 var(--yel-edge); animation: as-pulse 1.2s ease-in-out infinite; }
-    @keyframes as-pulse { 50% { box-shadow: 0 3px 0 var(--yel-edge), 0 0 0 6px rgba(255, 190, 0, 0.28); } }
-    @media (prefers-reduced-motion: reduce) { .as-mic.on { animation: none; } }
+    /* Review list (several transactions found in one screenshot) */
+    .rv-lead { margin: 0 2px 12px; font-size: var(--fs-meta); font-weight: 700; color: var(--ink-3); line-height: 1.4; }
+    .rv-all { margin-bottom: 14px; }
+    .rv-all .block-label { display: block; margin-bottom: 8px; }
+    .rv-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .rv-card { background: var(--surface); border-radius: 18px; padding: 12px; box-shadow: 0 4px 0 var(--edge); display: flex; flex-direction: column; gap: 8px; }
+    .rv-card.off { opacity: 0.62; }
+    .rv-top { display: flex; align-items: center; gap: 10px; }
+    .rv-check { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+    .rv-check:disabled { cursor: default; }
+    .rv-note { flex: 1; min-width: 0; height: 40px; border: 0; border-radius: 12px; padding: 0 10px; font: inherit; font-size: var(--fs-body); font-weight: 700; color: var(--ink); background: var(--inset); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.14); outline: none; }
+    .rv-amt { flex: none; width: 104px; height: 40px; display: flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 12px; background: var(--inset); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.14); font-size: var(--fs-body); font-weight: 800; color: var(--ink-3); }
+    .rv-amt input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: var(--fs-body); font-weight: 800; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+    .rv-bot { display: flex; gap: 6px; }
+    .rv-select, .rv-date { flex: 1 1 0; min-width: 0; height: 38px; border: 0; border-radius: 10px; padding: 0 6px; font: inherit; font-size: var(--fs-caption); font-weight: 700; color: var(--ink); background: var(--inset); box-shadow: 0 2px 0 var(--edge); text-overflow: ellipsis; }
+    .rv-date { flex-grow: 1.2; }
+    .rv-date::-webkit-calendar-picker-indicator { display: none; }
+    .rv-all .rv-select { width: 100%; height: 44px; font-size: var(--fs-body); padding: 0 12px; border-radius: 12px; }
+    .rv-select.guess, .rv-date.guess { outline: 2px dashed var(--ink-3); outline-offset: -2px; }
+    .rv-note:focus, .rv-select:focus, .rv-date:focus, .rv-amt:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+    .rv-amt input.bad, .rv-date.bad { outline: 2px solid var(--danger); outline-offset: 2px; }
+    .rv-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rv-tag { font-size: var(--fs-caption); font-weight: 800; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 999px; background: var(--inset); color: var(--ink-2); }
+    .rv-tag.dup { background: var(--danger-soft); color: var(--danger-ink); }
+    .rv-foot { position: sticky; bottom: calc(-32px - env(safe-area-inset-bottom, 0px)); background: var(--surface); padding: 10px 0 calc(32px + env(safe-area-inset-bottom, 0px)); margin: 0 -2px; box-shadow: 0 -10px 12px -8px var(--surface); }
+    .rv-sum { text-align: center; font-size: var(--fs-meta); font-weight: 800; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 8px; }
+    .btn-save:disabled { opacity: 0.55; }
     .as-hint { min-height: 20px; margin: 6px 2px 10px; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.02em; color: var(--ink-3); }
     .as-hint:empty { min-height: 8px; }
     .as-amt input::placeholder { color: var(--ink-3); opacity: 0.6; }
@@ -2843,16 +2860,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
       </div>
+      <div id="add-form">
       <div class="as-amt" id="add-amt-wrap">
         <span class="rm">RM</span>
         <input id="add-amount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount in ringgit" />
-      </div>
-      <div class="as-quickrow">
-        <input class="input-row note as-quick" id="add-quick" type="text" placeholder="Quick line: grab 18 tng" maxlength="120" autocomplete="off" aria-label="Quick entry line, for example grab 18 tng" />
-        <button class="as-lang" id="add-lang" type="button" hidden aria-label="Voice language: English">EN</button>
-        <button class="as-mic" id="add-mic" type="button" hidden aria-label="Speak an expense" aria-pressed="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-        </button>
       </div>
       <div class="as-hint" id="add-hint" aria-live="polite"></div>
       <div class="as-group"><span class="block-label">Category</span><div class="chip-wrap" id="add-cat-chips"></div></div>
@@ -2878,6 +2889,8 @@
         <svg class="bs-tick" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
       </button>
       <button class="as-again" id="btn-save-another" type="button">Save &amp; add another</button>
+      </div>
+      <div id="add-review" hidden></div>
     </div>
 
   </div><!-- /#app -->
