@@ -3,7 +3,8 @@
 // "Save & add another" keeps the sheet open. Closes by X, backdrop, Escape, swipe-down or the phone back button.
 import { currentUser, userSettings } from './state.js';
 import { displayDate, todayString, parseLocalDate, catColor, showToast, escapeHtml, fmt } from './helpers.js';
-import { addExpense } from './db.js';
+import { addExpense, fetchExpenses } from './db.js';
+import { parseQuick, buildLearn, suggest } from './quickparse.js';
 
 const LAST_KEY = 'addLast';   // last used category + account (not financial data): the sheet opens with them
 
@@ -21,10 +22,27 @@ const dateWrap  = document.getElementById('add-date-chips');
 const dateInput = document.getElementById('add-date-input');
 const saveBtn   = document.getElementById('btn-save-expense');
 const againBtn  = document.getElementById('btn-save-another');
+const quickEl   = document.getElementById('add-quick');
+const hintEl    = document.getElementById('add-hint');
 
 const CAL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
-const st = { open: false, saving: false, category: '', payment: '', date: todayString(), dateKind: 'today' };
+const st = { open: false, saving: false, category: '', payment: '', date: todayString(), dateKind: 'today', catTouched: false, payTouched: false };
+
+// Habits learned from the last 120 days of notes (kept in memory only; cleared with the sheet state)
+let hist = { entries: [], learn: null, loaded: false, loading: false };
+async function loadHist() {
+  if (hist.loaded || hist.loading || !currentUser) return;
+  hist.loading = true;
+  try {
+    const from = dateWith(-120);
+    const rows = await fetchExpenses(currentUser.uid, from, todayString());
+    hist.entries = rows.filter(e => e.notes && !e.isIncome);
+    hist.learn = buildLearn(hist.entries);
+    hist.loaded = true;
+  } catch (e) { console.error(e); }
+  hist.loading = false;
+}
 
 sheet.inert = true;   // closed: nothing inside can take focus
 
@@ -43,8 +61,12 @@ export function openAddSheet() {
   st.date     = todayString();
   st.dateKind = 'today';
   st.saving   = false;
+  st.catTouched = false;
+  st.payTouched = false;
   amountEl.value = '';
   notesEl.value  = '';
+  quickEl.value  = '';
+  hintEl.textContent = '';
   setNoteOpen(false);
   resetSaveBtn();
   renderChips();
@@ -58,6 +80,7 @@ export function openAddSheet() {
   history.pushState({ addSheet: true }, '');
   trackKeyboard(true);
   amountEl.focus({ preventScroll: true });   // inside the tap, so iOS raises the keyboard straight away
+  loadHist();
 }
 
 export function closeAddSheet(fromPopstate = false) {
@@ -78,6 +101,9 @@ export function closeAddSheet(fromPopstate = false) {
 export function clearAddState() {
   amountEl.value = '';
   notesEl.value  = '';
+  quickEl.value  = '';
+  hintEl.textContent = '';
+  hist = { entries: [], learn: null, loaded: false, loading: false };
   closeAddSheet(true);
 }
 
@@ -133,12 +159,14 @@ catWrap.addEventListener('click', (e) => {
   const b = e.target.closest('[data-cat]');
   if (!b) return;
   st.category = b.dataset.cat;
+  st.catTouched = true;
   renderChips();
 });
 payWrap.addEventListener('click', (e) => {
   const b = e.target.closest('[data-pay]');
   if (!b) return;
   st.payment = b.dataset.pay;
+  st.payTouched = true;
   renderChips();
 });
 dateWrap.addEventListener('click', (e) => {
@@ -168,6 +196,58 @@ function setNoteOpen(open) {
   noteWrap.hidden = !open;
 }
 noteBtn.addEventListener('click', () => { setNoteOpen(true); notesEl.focus(); });
+
+// ── Quick line and learned habits ────────────────────────────────────────────
+
+function hintFor(r) {
+  const bits = [];
+  if (r.amount) bits.push('RM ' + fmt(r.amount));
+  if (r.category) bits.push(r.category);
+  if (r.payment) bits.push(r.payment);
+  if (r.dateKind === 'yesterday') bits.push('Yesterday');
+  let t = bits.join(' · ');
+  if (r.learned) t += (t ? ' · ' : '') + `learned from “${r.learned.word}” ×${r.learned.n}`;
+  return t;
+}
+
+// Applies parsed fields without overriding a chip the person tapped by hand
+function applyFields(r) {
+  const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
+  if (r.category && cats.includes(r.category) && !st.catTouched) st.category = r.category;
+  if (r.payment && pays.includes(r.payment) && !st.payTouched) st.payment = r.payment;
+  if (r.dateKind === 'yesterday') { st.dateKind = 'yesterday'; st.date = dateWith(-1); }
+  else if (r.dateKind === 'today') { st.dateKind = 'today'; st.date = todayString(); }
+  renderChips();
+}
+
+let quickTimer = 0;
+quickEl.addEventListener('input', () => {
+  clearTimeout(quickTimer);
+  quickTimer = setTimeout(() => {
+    const text = quickEl.value.trim();
+    if (!text) { hintEl.textContent = ''; return; }
+    const r = parseQuick(text, { cats: userSettings.categories || [], pays: userSettings.paymentMethods || [], learn: hist.learn });
+    if (r.amount && r.amount < 1000000) amountEl.value = String(r.amount);
+    notesEl.value = r.note.slice(0, 200);
+    if (r.note) setNoteOpen(true);
+    applyFields(r);
+    hintEl.textContent = hintFor(r);
+  }, 140);
+});
+quickEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(false); } });
+
+// Typing a note by hand: suggest the usual category / account for that word
+let noteTimer = 0;
+notesEl.addEventListener('input', () => {
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => {
+    if (quickEl.value.trim()) return;   // the quick line is in charge
+    const s = suggest(notesEl.value, hist.learn, userSettings.categories || [], userSettings.paymentMethods || []);
+    if (!s) { hintEl.textContent = ''; return; }
+    applyFields({ category: s.category, payment: s.payment });
+    hintEl.textContent = [s.category, s.payment].filter(Boolean).join(' · ') + ` · learned from “${s.word}” ×${s.n}`;
+  }, 200);
+});
 
 // ── Amount ───────────────────────────────────────────────────────────────────
 
@@ -220,6 +300,11 @@ async function save(another) {
   }
 
   try { localStorage.setItem(LAST_KEY, JSON.stringify({ c: st.category, p: st.payment })); } catch (_) { /* ignore */ }
+  const noteSaved = notesEl.value.trim();
+  if (noteSaved && hist.loaded) {   // learn from this entry straight away
+    hist.entries.push({ notes: noteSaved, category: st.category, paymentMethod: st.payment });
+    hist.learn = buildLearn(hist.entries);
+  }
   saveBtn.classList.add('done');   // button morphs to a tick
   showToast(`Saved RM ${fmt(amount)} · ${st.category}`);
   document.dispatchEvent(new CustomEvent('expenses:changed', { detail: { category: st.category } }));   // app.js refreshes the screen underneath
@@ -228,6 +313,10 @@ async function save(another) {
     if (another) {
       amountEl.value = '';
       notesEl.value  = '';
+      quickEl.value  = '';
+      hintEl.textContent = '';
+      st.catTouched = false;
+      st.payTouched = false;
       st.saving = false;
       resetSaveBtn();
       amountEl.focus({ preventScroll: true });
