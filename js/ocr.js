@@ -26,6 +26,7 @@ async function prepare(blob) {
   return c;
 }
 
+// Returns { text, lines }: all the text, and the second pass's lines with their positions in the (scaled) image.
 export async function readImageText(blob, onProgress) {
   if (!blob || !/^image\//.test(blob.type || 'image/png')) throw new Error('Not an image');
   if (blob.size > MAX_BYTES) throw new Error('Image too large');
@@ -47,8 +48,14 @@ export async function readImageText(blob, onProgress) {
     const first = await worker.recognize(canvas);
     await worker.setParameters({ tessedit_pageseg_mode: '11' });
     pass = 1;
-    const second = await worker.recognize(canvas);
-    return (first.data.text || '') + '\n' + (second.data.text || '');
+    const second = await worker.recognize(canvas, {}, { text: true, blocks: true });
+    // Positions of every line of the second pass: they let a list of transactions be split into rows
+    const lines = [];
+    ((second.data && second.data.blocks) || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => {
+      const t = (l.text || '').trim();
+      if (t && l.bbox) lines.push({ t, x0: l.bbox.x0, y0: l.bbox.y0, x1: l.bbox.x1, y1: l.bbox.y1 });
+    })));
+    return { text: (first.data.text || '') + '\n' + (second.data.text || ''), lines };
   } finally {
     await worker.terminate();
   }

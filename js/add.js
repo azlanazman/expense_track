@@ -4,8 +4,9 @@
 import { currentUser, userSettings } from './state.js';
 import { displayDate, todayString, parseLocalDate, catColor, showToast, escapeHtml, fmt } from './helpers.js';
 import { addExpense, fetchExpenses } from './db.js';
-import { parseQuick, buildLearn, suggest } from './quickparse.js';
-import { parseReceiptText } from './receiptparse.js';
+import { buildLearn, suggest } from './quickparse.js';
+import { parseReceiptText, parseTransactions } from './receiptparse.js';
+import { renderReview } from './review.js';
 
 const LAST_KEY = 'addLast';   // last used category + account (not financial data): the sheet opens with them
 
@@ -23,16 +24,16 @@ const dateWrap  = document.getElementById('add-date-chips');
 const dateInput = document.getElementById('add-date-input');
 const saveBtn   = document.getElementById('btn-save-expense');
 const againBtn  = document.getElementById('btn-save-another');
-const quickEl   = document.getElementById('add-quick');
 const hintEl    = document.getElementById('add-hint');
-const micBtn    = document.getElementById('add-mic');
-const langBtn   = document.getElementById('add-lang');
 const imgBtn    = document.getElementById('add-img-btn');
 const fileEl    = document.getElementById('add-file');
+const formEl    = document.getElementById('add-form');
+const reviewEl  = document.getElementById('add-review');
+const titleEl   = document.getElementById('add-sheet-title');
 
 const CAL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
-const st = { open: false, saving: false, category: '', payment: '', date: todayString(), dateKind: 'today', catTouched: false, payTouched: false };
+const st = { reviewing: false, open: false, saving: false, category: '', payment: '', date: todayString(), dateKind: 'today', catTouched: false, payTouched: false };
 
 // Habits learned from the last 120 days of notes (kept in memory only; cleared with the sheet state)
 let hist = { entries: [], learn: null, loaded: false, loading: false };
@@ -75,8 +76,8 @@ export function openAddSheet() {
   st.payTouched = false;
   amountEl.value = '';
   notesEl.value  = '';
-  quickEl.value  = '';
   hintEl.textContent = '';
+  hideReview();
   setNoteOpen(false);
   resetSaveBtn();
   renderChips();
@@ -95,7 +96,6 @@ export function openAddSheet() {
 
 export function closeAddSheet(fromPopstate = false) {
   if (!st.open) return;
-  stopVoice();
   st.open = false;
   sheet.classList.remove('active', 'dragging');
   sheet.style.transform = '';
@@ -112,11 +112,10 @@ export function closeAddSheet(fromPopstate = false) {
 export function clearAddState() {
   amountEl.value = '';
   notesEl.value  = '';
-  quickEl.value  = '';
   hintEl.textContent = '';
-  stopVoice();
   hist = { entries: [], learn: null, loaded: false, loading: false };
   histPromise = null;
+  hideReview();
   closeAddSheet(true);
 }
 
@@ -210,18 +209,7 @@ function setNoteOpen(open) {
 }
 noteBtn.addEventListener('click', () => { setNoteOpen(true); notesEl.focus(); });
 
-// ── Quick line and learned habits ────────────────────────────────────────────
-
-function hintFor(r) {
-  const bits = [];
-  if (r.amount) bits.push('RM ' + fmt(r.amount));
-  if (r.category) bits.push(r.category);
-  if (r.payment) bits.push(r.payment);
-  if (r.dateKind === 'yesterday') bits.push('Yesterday');
-  let t = bits.join(' · ');
-  if (r.learned) t += (t ? ' · ' : '') + `learned from “${r.learned.word}” ×${r.learned.n}`;
-  return t;
-}
+// ── Learned habits ───────────────────────────────────────────────────────────
 
 // Applies parsed fields without overriding a chip the person tapped by hand
 function applyFields(r) {
@@ -233,92 +221,11 @@ function applyFields(r) {
   renderChips();
 }
 
-let quickTimer = 0;
-quickEl.addEventListener('input', () => {
-  clearTimeout(quickTimer);
-  quickTimer = setTimeout(() => {
-    const text = quickEl.value.trim();
-    if (!text) { hintEl.textContent = ''; return; }
-    const r = parseQuick(text, { cats: userSettings.categories || [], pays: userSettings.paymentMethods || [], learn: hist.learn });
-    if (r.amount && r.amount < 1000000) amountEl.value = String(r.amount);
-    notesEl.value = r.note.slice(0, 200);
-    if (r.note) setNoteOpen(true);
-    applyFields(r);
-    hintEl.textContent = hintFor(r);
-  }, 140);
-});
-// ── Voice: the phone's speech recognition fills the quick line ───────────────
-// Chrome sends the audio to Google's speech service while you speak; nothing is stored by this app.
-
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const LANG_KEY = 'voiceLang';   // 'en-MY' or 'ms-MY' (not financial data)
-let rec = null, listening = false;
-
-function voiceLang() { try { return localStorage.getItem(LANG_KEY) === 'ms-MY' ? 'ms-MY' : 'en-MY'; } catch (_) { return 'en-MY'; } }
-function showLang() {
-  const ms = voiceLang() === 'ms-MY';
-  langBtn.textContent = ms ? 'BM' : 'EN';
-  langBtn.setAttribute('aria-label', 'Voice language: ' + (ms ? 'Bahasa Melayu' : 'English'));
-}
-
-function stopVoice() {
-  if (rec && listening) { try { rec.stop(); } catch (_) { /* ignore */ } }
-}
-
-function startVoice() {
-  if (listening) { stopVoice(); return; }
-  rec = new SR();
-  rec.lang = voiceLang();
-  rec.interimResults = true;
-  rec.continuous = false;
-  rec.maxAlternatives = 1;
-  let heard = '';
-  rec.onstart = () => {
-    listening = true;
-    micBtn.classList.add('on');
-    micBtn.setAttribute('aria-pressed', 'true');
-    hintEl.textContent = 'Listening… e.g. “grab eighteen ringgit tng”';
-  };
-  rec.onresult = (e) => {
-    heard = Array.from(e.results).map(r => r[0].transcript).join(' ').trim();
-    quickEl.value = heard.slice(0, 120);
-    quickEl.dispatchEvent(new Event('input'));
-  };
-  rec.onerror = (e) => {
-    const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Microphone is blocked for this app'
-      : e.error === 'no-speech' ? 'Did not catch that, try again'
-      : e.error === 'network' ? 'Voice needs an internet connection'
-      : e.error === 'aborted' ? '' : 'Voice input failed';
-    if (msg) showToast(msg);
-  };
-  rec.onend = () => {
-    listening = false;
-    micBtn.classList.remove('on');
-    micBtn.setAttribute('aria-pressed', 'false');
-    if (!heard && hintEl.textContent.startsWith('Listening')) hintEl.textContent = '';
-  };
-  try { rec.start(); } catch (_) { listening = false; }
-}
-
-if (SR) {
-  micBtn.hidden = false;
-  langBtn.hidden = false;
-  showLang();
-  micBtn.addEventListener('click', startVoice);
-  langBtn.addEventListener('click', () => {
-    try { localStorage.setItem(LANG_KEY, voiceLang() === 'ms-MY' ? 'en-MY' : 'ms-MY'); } catch (_) { /* ignore */ }
-    showLang();
-  });
-}
-
-quickEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(false); } });
-
 // Typing a note by hand: suggest the usual category / account for that word
 let noteTimer = 0;
 notesEl.addEventListener('input', () => {
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => {
-    if (quickEl.value.trim()) return;   // the quick line is in charge
     const s = suggest(notesEl.value, hist.learn, userSettings.categories || [], userSettings.paymentMethods || []);
     if (!s) { hintEl.textContent = ''; return; }
     applyFields({ category: s.category, payment: s.payment });
@@ -353,14 +260,87 @@ async function fillFromImage(blob) {
   hintEl.textContent = 'Reading screenshot…';
   try {
     const { readImageText } = await import('./ocr.js');
-    const text = await readImageText(blob, p => { hintEl.textContent = `Reading screenshot… ${Math.round(p * 100)}%`; });
+    const { text, lines } = await readImageText(blob, p => { hintEl.textContent = `Reading screenshot… ${Math.round(p * 100)}%`; });
     await loadHist();
-    if (st.open) fillFromText(text, 'screenshot');
+    if (!st.open) return;
+    const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
+    const { rows } = parseTransactions(lines, { cats, pays, learn: hist.learn });
+    if (rows.length >= 2) { hintEl.textContent = ''; await showReview(rows); }
+    else fillFromText(text, 'screenshot');
   } catch (e) {
     console.error(e);
     hintEl.textContent = '';
     showToast('Could not read that image');
   }
+}
+
+// ── Several transactions in one screenshot: a review list inside the sheet ───
+
+function hideReview() {
+  st.reviewing = false;
+  reviewEl.hidden = true;
+  reviewEl.textContent = '';
+  formEl.hidden = false;
+  titleEl.textContent = 'Add expense';
+  sheet.classList.remove('reviewing');
+}
+
+// Same day and same amount already saved: shown unticked with a warning
+async function markDuplicates(rows) {
+  const dates = rows.map(r => r.date).filter(Boolean).sort();
+  if (!dates.length || !currentUser) return;
+  const from = dates[0], to = dates[dates.length - 1];
+  if ((parseLocalDate(to) - parseLocalDate(from)) / 86400000 > 62) return;
+  try {
+    const have = await fetchExpenses(currentUser.uid, from, to);
+    const keys = new Set(have.filter(e => !e.isIncome).map(e => e.date + '|' + Number(e.amount).toFixed(2)));
+    rows.forEach(r => { if (r.dir !== 'in' && keys.has(r.date + '|' + r.amount.toFixed(2))) r.dup = true; });
+  } catch (e) { console.error(e); }
+}
+
+async function showReview(rows) {
+  const cats = userSettings.categories || [], pays = userSettings.paymentMethods || [];
+  await markDuplicates(rows);
+  if (!st.open) return;
+  st.reviewing = true;
+  formEl.hidden = true;
+  reviewEl.hidden = false;
+  titleEl.textContent = 'Review transactions';
+  sheet.classList.add('reviewing');
+  sheet.scrollTop = 0;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  renderReview(reviewEl, rows, {
+    cats, pays,
+    defaultCat: st.category,
+    defaultPay: st.payment,
+    onInvalid: () => showToast('Fix the highlighted amount or date'),
+    onBack: () => { hideReview(); amountEl.focus({ preventScroll: true }); },
+    onSave: saveReview,
+  });
+}
+
+// Saves the ticked rows; returns the indexes that were saved (failed ones stay in the list)
+async function saveReview(items) {
+  const results = await Promise.allSettled(items.map(it => addExpense({
+    uid: currentUser.uid, date: it.date, amount: it.amount, category: it.category, paymentMethod: it.payment, notes: it.note,
+  })));
+  const saved = [];
+  let total = 0;
+  results.forEach((r, k) => {
+    if (r.status !== 'fulfilled') { console.error(r.reason); return; }
+    const it = items[k];
+    saved.push(it.index);
+    total += it.amount;
+    if (it.note && hist.loaded) hist.entries.push({ notes: it.note, category: it.category, paymentMethod: it.payment });
+  });
+  if (hist.loaded) hist.learn = buildLearn(hist.entries);
+  if (saved.length) {
+    showToast(`Saved ${saved.length} expense${saved.length === 1 ? '' : 's'} · RM ${fmt(total)}`);
+    document.dispatchEvent(new CustomEvent('expenses:changed', { detail: {} }));
+  }
+  if (saved.length < items.length) showToast(`${items.length - saved.length} could not be saved, try again`);
+  else setTimeout(() => closeAddSheet(), 600);
+  return saved;
 }
 
 imgBtn.addEventListener('click', () => fileEl.click());
@@ -442,8 +422,7 @@ async function save(another) {
     if (another) {
       amountEl.value = '';
       notesEl.value  = '';
-      quickEl.value  = '';
-      hintEl.textContent = '';
+          hintEl.textContent = '';
       st.catTouched = false;
       st.payTouched = false;
       st.saving = false;
@@ -470,7 +449,7 @@ document.addEventListener('keydown', (e) => {
   if (!st.open) return;
   if (e.key === 'Escape') { closeAddSheet(); return; }
   if (e.key !== 'Tab') return;
-  const f = [...sheet.querySelectorAll('button:not([disabled]), input:not([disabled]):not([tabindex="-1"])')].filter(el => !el.hidden && el.offsetParent !== null);
+  const f = [...sheet.querySelectorAll('button:not([disabled]), select:not([disabled]), input:not([disabled]):not([tabindex="-1"])')].filter(el => !el.hidden && el.offsetParent !== null);
   if (!f.length) return;
   const first = f[0], lastEl = f[f.length - 1];
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastEl.focus(); }
