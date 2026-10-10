@@ -25,7 +25,7 @@ export function findDate(text, today = new Date()) {
   const tryAll = [
     [new RegExp('\\b(20\\d{2})[-/.](\\d{1,2})[-/.](\\d{1,2})\\b', 'g'), x => [+x[1], +x[2], +x[3]]],
     [new RegExp('\\b(\\d{1,2})\\s*[-/.]\\s*(\\d{1,2})\\s*[-/.]\\s*(\\d{2,4})\\b', 'g'), x => [x[3].length === 2 ? 2000 + +x[3] : +x[3], +x[2], +x[1]]],   // day first
-    [new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?[\\s-]+' + MON_RE + ',?[\\s-]+(\\d{4}|\\d{2})\\b', 'gi'), x => [x[3].length === 2 ? 2000 + +x[3] : +x[3], MONTHS[x[2].toLowerCase()], +x[1]]],
+    [new RegExp('\\b(\\d{1,2})(?:st|nd|rd|th)?[\\s-]+' + MON_RE + ',?[\\s-]+(\\d{4}|\\d{2})\\b(?!:)', 'gi'), x => [x[3].length === 2 ? 2000 + +x[3] : +x[3], MONTHS[x[2].toLowerCase()], +x[1]]],
     [new RegExp('\\b' + MON_RE + '\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b', 'gi'), x => [+x[3], MONTHS[x[1].toLowerCase()], +x[2]]],
   ];
   for (const [re, pick] of tryAll) {
@@ -106,6 +106,7 @@ export function findMerchant(text) {
 const GENERIC = new Set(['card', 'credit', 'debit', 'wallet', 'bank', 'pay', 'cash', 'visa', 'master', 'mastercard', 'online']);
 
 export function findPayment(text, pays) {
+  text = String(text).replace(/\b(tngd|rfid)\b/gi, 'tng');   // TNGD (DuitNow QR) and RFID toll payments are Touch n Go
   const map = aliasMap(pays);
   const tokens = text.split(/\s+/).filter(Boolean);
   const hits = {};
@@ -148,20 +149,26 @@ function relDate(text, today) {
   return null;
 }
 
+const MON_ONLY = new RegExp('\\b\\d{1,2}(?:st|nd|rd|th)?[\\s-]+' + MON_RE + '\\b,?(?:[\\s-]+(?:\\d{4}|\\d{2})\\b(?!:))?|\\b' + MON_RE + '[\\s-]+\\d{1,2}(?:st|nd|rd|th)?\\b,?(?:[\\s-]+\\d{4}\\b)?', 'gi');
+
+// The row's name: its first real text line; when a further text line follows and another one comes after that
+// (merchant, "Restaurant", then a payment-type line such as "DuitNow QR"), the second is joined to the first.
 function rowMerchant(texts) {
+  const cands = [];
   for (const raw of texts) {
     let t = raw.replace(AMOUNT_RE, ' ');
     t = t.replace(TIME_RE, ' ').replace(/\b\d{1,2}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{2,4}\b/g, ' ').replace(/\b20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b/g, ' ');
-    t = t.replace(new RegExp('\\b\\d{1,2}(?:st|nd|rd|th)?[\\s-]+' + MON_RE + ',?[\\s-]+(?:\\d{4}|\\d{2})\\b', 'gi'), ' ');
-    t = t.replace(/^(?:paid to|payment to|pay to|transfer to|purchase at|purchase from|payment for|to)\b\s*[:\-]?\s*/i, '');
+    t = t.replace(MON_ONLY, ' ');
+    t = t.replace(/^[\s,.:;-]+/, '').replace(/^(?:paid to|payment to|pay to|transfer to|purchase at|purchase from|payment for|to)\b\s*[:\-]?\s*/i, '');
     t = t.replace(/\s+/g, ' ').trim();
     const letters = (t.match(/[A-Za-z]/g) || []).length;
     if (letters < 3 || letters < t.replace(/\s/g, '').length * 0.5) continue;
-    if (STATUS.test(t) || (CHROME.test(t) && t.split(' ').length <= 2)) continue;
-    const m = tidy(t);
-    if (m.length >= 3) return m;
+    if (STATUS.test(t) || NOT_AMOUNT.test(t) || (CHROME.test(t) && t.split(' ').length <= 2)) continue;
+    if (tidy(t).length >= 3) cands.push(tidy(t));
   }
-  return '';
+  if (!cands.length) return '';
+  if (cands.length >= 3 && cands[1].length <= 24) return (cands[0] + ' ' + cands[1]).slice(0, 40);
+  return cands[0];
 }
 
 export function parseTransactions(rawLines, { cats = [], pays = [], learn = null, today = new Date() } = {}) {
@@ -189,7 +196,10 @@ export function parseTransactions(rawLines, { cats = [], pays = [], learn = null
 
   // 2. every other line goes to the nearest anchor, if it is close enough
   const anchorLines = new Set(clean.map(a => a.line));
-  const maxD = medH * 2.6;
+  // how far a line may sit from its amount: up to half the usual row spacing (rows are tall, lines are small)
+  const sorted = clean.map(a => a.cy).sort((x, y) => x - y);
+  const gaps = sorted.slice(1).map((y, i) => y - sorted[i]).filter(g => g > medH);
+  const maxD = Math.max(medH * 2.6, gaps.length ? medianOf(gaps) * 0.5 : 0);
   const attached = new Map(clean.map(a => [a, []]));
   const loose = [];
   lines.forEach(l => {
