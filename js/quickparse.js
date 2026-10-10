@@ -66,7 +66,7 @@ export function suggest(note, learn, cats, pays) {
 }
 
 // Longest-first match of 1 to 4 tokens against an alias map; returns [name, tokenCount] or null.
-function matchAt(tokens, i, map) {
+export function matchAt(tokens, i, map) {
   for (let len = Math.min(4, tokens.length - i); len >= 1; len--) {
     const key = words(tokens.slice(i, i + len).join(' ')).join('');
     if (key && map.has(key)) return [map.get(key), len];
