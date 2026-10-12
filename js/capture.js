@@ -94,12 +94,14 @@ dropBtn && dropBtn.addEventListener('click', async () => {
   show();
 });
 
-copySetup && copySetup.addEventListener('click', () => copy(
-  `Method: POST\nWeb address: ${endpoint()}\nContent type: application/json\nBody:\n` + body('APP NAME', 'NOTIFICATION TITLE', 'NOTIFICATION TEXT', 'YYYY-MM-DD HH:MM'),
-  'Setup copied'));
+// Copies ONLY the JSON body (it must start with "{" in MacroDroid). The web address and content type are separate fields.
+copySetup && copySetup.addEventListener('click', () => {
+  if (!key) { showToast('Create or reload the capture key first'); return; }
+  copy(body('APP NAME', 'NOTIFICATION TITLE', 'NOTIFICATION TEXT', 'YYYY-MM-DD HH:MM'), 'Body copied: replace the 4 CAPITAL words with MacroDroid magic text');
+});
 
-copyTest && copyTest.addEventListener('click', () => copy(
+copyTest && copyTest.addEventListener('click', () => key ? copy(
   `curl -X POST '${endpoint()}' -H 'Content-Type: application/json' -d '` + body('Touch n Go', 'Payment successful', 'You have paid RM1.23 to TEST SHOP', new Date().toISOString().slice(0, 16).replace('T', ' ')) + `'`,
-  'Test command copied: paste it in Terminal'));
+  'Test command copied: paste it in Terminal') : showToast('Create or reload the capture key first'));
 
 export function clearCapture() { key = null; open = false; if (panel) { panel.hidden = true; fields.textContent = ''; } }
